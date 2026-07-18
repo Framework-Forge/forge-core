@@ -42,6 +42,42 @@ CreateThread(function()
     if ForgeCore.DensityService then
         ForgeCore.DensityService.start()
     end
+
+    if ForgeCore.MultiJobService then
+        ForgeCore.MultiJobService.start()
+    end
+
+    if ForgeCore.VinewoodService then
+        ForgeCore.VinewoodService.start()
+    end
+
+    if ForgeCore.ObjectsService then
+        ForgeCore.ObjectsService.start()
+    end
+
+    if ForgeCore.NpcsService then
+        ForgeCore.NpcsService.start()
+    end
+
+    if ForgeCore.SpotlightsService then
+        ForgeCore.SpotlightsService.start()
+    end
+
+    if ForgeCore.BillboardsService then
+        ForgeCore.BillboardsService.start()
+    end
+
+    if ForgeCore.StoresService then
+        ForgeCore.StoresService.start()
+    end
+
+    if ForgeCore.FarmsService then
+        ForgeCore.FarmsService.start()
+    end
+
+    if ForgeCore.StarterpackService then
+        ForgeCore.StarterpackService.start()
+    end
 end)
 
 RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
@@ -51,6 +87,10 @@ RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
 
     if ForgeCore.StaffService then
         ForgeCore.StaffService.applyPlayer(source)
+    end
+
+    if ForgeCore.StarterpackService then
+        ForgeCore.StarterpackService.handlePlayerLoaded(source)
     end
 end)
 
@@ -64,6 +104,10 @@ AddEventHandler('playerJoining', function()
 
         if ForgeCore.StaffService then
             ForgeCore.StaffService.applyPlayer(src)
+        end
+
+        if ForgeCore.StarterpackService then
+            ForgeCore.StarterpackService.handlePlayerLoaded(src)
         end
     end)
 end)

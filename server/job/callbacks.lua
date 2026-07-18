@@ -60,3 +60,67 @@ pr_lib.callback.register(PR.Job.Callbacks.createMei, function(source, data)
 
     return ok, result
 end)
+
+pr_lib.callback.register(PR.Job.Callbacks.openStash, function(source, groupType, groupName, pointId, password)
+    return ForgeCore.JobPoints.openStash(source, groupType, groupName, pointId, password)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.toggleDuty, function(source, groupName, pointId)
+    return ForgeCore.JobPoints.toggleDuty(source, groupName, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.getRegisterBalance, function(source, groupType, groupName, stationId, pointId)
+    return ForgeCore.JobBusiness.getRegisterBalance(source, groupType, groupName, stationId, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.registerAction, function(source, groupType, groupName, stationId, pointId, action, amount, password)
+    return ForgeCore.JobBusiness.registerAction(source, groupType, groupName, stationId, pointId, action, amount, password)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.robRegister, function(source, groupType, groupName, stationId, pointId, amount)
+    return ForgeCore.JobBusiness.robRegister(source, groupType, groupName, stationId, pointId, amount)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.openShop, function(source, groupType, groupName, stationId, pointId)
+    return ForgeCore.JobBusiness.openShop(source, groupType, groupName, stationId, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.getSupplyItems, function(source, groupType, groupName, stationId, pointId)
+    return ForgeCore.JobBusiness.getSupplyItems(source, groupType, groupName, stationId, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.supplyShop, function(source, groupType, groupName, stationId, pointId, itemName, amount, price)
+    return ForgeCore.JobBusiness.supplyShop(source, groupType, groupName, stationId, pointId, itemName, amount, price)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.sendAlarm, function(source, groupType, groupName, stationId, pointId)
+    return ForgeCore.JobBusiness.sendAlarm(source, groupType, groupName, stationId, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.submitApplication, function(source, groupType, groupName, stationId, pointId, answers)
+    return ForgeCore.JobBusiness.submitApplication(source, groupType, groupName, stationId, pointId, answers)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.getApplications, function(source, groupType, groupName, stationId, pointId)
+    return ForgeCore.JobBusiness.getApplications(source, groupType, groupName, stationId, pointId)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.reviewApplication, function(source, groupType, groupName, stationId, pointId, submissionId, status)
+    return ForgeCore.JobBusiness.reviewApplication(source, groupType, groupName, stationId, pointId, submissionId, status)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.getEmployees, function(source, groupType, groupName)
+    return ForgeCore.JobBusiness.getEmployees(source, groupType, groupName)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.hirePlayer, function(source, groupType, groupName, citizenid, grade)
+    return ForgeCore.JobBusiness.hirePlayer(source, groupType, groupName, citizenid, grade)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.fireEmployee, function(source, groupType, groupName, citizenid)
+    return ForgeCore.JobBusiness.fireEmployee(source, groupType, groupName, citizenid)
+end)
+
+pr_lib.callback.register(PR.Job.Callbacks.setEmployeeGrade, function(source, groupType, groupName, citizenid, grade)
+    return ForgeCore.JobBusiness.setEmployeeGrade(source, groupType, groupName, citizenid, grade)
+end)

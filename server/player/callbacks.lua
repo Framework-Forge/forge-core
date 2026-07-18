@@ -57,12 +57,25 @@ local function groupLabel(group)
     return valueOrNone(label)
 end
 
+local function roleLabel(role)
+    role = tostring(role or ''):gsub('^group%.', '')
+    if role == '' then return ForgeCore.t('common.none') end
+
+    for _, item in ipairs(PR.Staff and PR.Staff.Roles or {}) do
+        if item.value == role then return item.label end
+    end
+
+    return role
+end
+
 pr_lib.callback.register(PR.Player.Callbacks.getInfo, function(source)
     local player = exports.qbx_core:GetPlayer(source)
     if not player or not player.PlayerData then return false, 'invalid_player' end
 
     local data = player.PlayerData
     local charinfo = type(data.charinfo) == 'table' and data.charinfo or {}
+    local metadata = type(data.metadata) == 'table' and data.metadata or {}
+    local staffRole = PR.Staff and PR.Staff.Metadata and metadata[PR.Staff.Metadata] or nil
 
     return true, {
         firstname = valueOrNone(charinfo.firstname or charinfo.firstName),
@@ -72,5 +85,6 @@ pr_lib.callback.register(PR.Player.Callbacks.getInfo, function(source)
         nationality = valueOrNone(charinfo.nationality),
         job = groupLabel(data.job),
         gang = groupLabel(data.gang),
+        extra = roleLabel(staffRole),
     }
 end)

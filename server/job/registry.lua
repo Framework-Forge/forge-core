@@ -88,7 +88,11 @@ local function normalizeGroup(rawGroup, forcedType, fallbackName)
     group.label = trim(group.label) ~= '' and trim(group.label) or name
     group.jobtype = group.jobtype or group.typejob
     group.defaultDuty = group.defaultDuty ~= false
-    group.craftings = type(group.craftings) == 'table' and group.craftings or {}
+    group.craftings = nil
+    group.registers = nil
+    group.alarms = nil
+    group.bossMenus = nil
+    group.applications = nil
     group.stashes = type(group.stashes) == 'table' and group.stashes or {}
     group.grades = normalizeGrades(group.grades, groupType)
 

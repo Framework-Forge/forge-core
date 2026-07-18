@@ -17,6 +17,8 @@ local function oxCall(method, ...)
             return exports.ox_inventory:SetWeaponItem(args[1], args[2], args[3])
         elseif method == 'DisableWeaponItem' then
             return exports.ox_inventory:DisableWeaponItem(args[1], args[2])
+        elseif method == 'RemoveWeaponItem' then
+            return exports.ox_inventory:RemoveWeaponItem(args[1])
         end
 
         return false
@@ -31,19 +33,21 @@ local function toOxWeapon(weapon)
         label = weapon.label,
         weapontype = weapon.weapontype,
         ammotype = weapon.ammotype,
+        ammoname = weapon.ammoname,
+        weight = weapon.weight,
+        durability = weapon.durability,
+        throwable = weapon.throwable,
+        model = weapon.model,
+        client = weapon.client,
         damagereason = weapon.damagereason,
         description = weapon.active == false and 'Arma desativada pelo Forge Core.' or nil,
     }
 end
 
-local function disableMissing(previous, current)
+local function removeMissing(previous, current)
     for name in pairs(previous) do
         if not current[name] then
-            oxCall('DisableWeaponItem', name, {
-                name = name,
-                label = name,
-                description = 'Arma removida do Forge Core.',
-            })
+            oxCall('RemoveWeaponItem', name)
         end
     end
 end
@@ -62,7 +66,7 @@ function Sync.syncAll()
         end
     end
 
-    disableMissing(Sync.registeredWeapons, weapons)
+    removeMissing(Sync.registeredWeapons, weapons)
 
     Sync.registeredWeapons = {}
     for name in pairs(weapons or {}) do

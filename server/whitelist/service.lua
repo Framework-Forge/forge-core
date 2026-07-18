@@ -66,6 +66,30 @@ local function clone(value, seen)
     return copy
 end
 
+local function jsonSafe(value, seen)
+    local valueType = type(value)
+    if valueType ~= 'table' then
+        if valueType == 'number' or valueType == 'string' or valueType == 'boolean' or value == nil then
+            return value
+        end
+
+        return nil
+    end
+
+    seen = seen or {}
+    if seen[value] then return nil end
+    seen[value] = true
+
+    local result = {}
+    for key, item in pairs(value) do
+        local safeKey = type(key) == 'number' and key or tostring(key)
+        result[safeKey] = jsonSafe(item, seen)
+    end
+
+    seen[value] = nil
+    return result
+end
+
 local function mergeDefaults(defaults, value)
     local result = clone(defaults)
     value = type(value) == 'table' and value or {}
@@ -128,7 +152,24 @@ local function decodeLegacyConfig(value)
 end
 
 local function encodeConfig(config)
-    return json.encode(mergeDefaults(PR.Whitelist.Defaults, config))
+    return json.encode(jsonSafe(mergeDefaults(PR.Whitelist.Defaults, config)))
+end
+
+local function configPath()
+    return (PR.Whitelist.Storage and PR.Whitelist.Storage.configFile) or 'data/whitelist.json'
+end
+
+local function readJsonConfig()
+    local raw = LoadResourceFile(GetCurrentResourceName(), configPath())
+    if not raw or raw == '' then return nil end
+
+    return decodeConfig(raw)
+end
+
+local function writeJsonConfig(config)
+    local encoded = encodeConfig(config)
+    local saved = SaveResourceFile(GetCurrentResourceName(), configPath(), encoded, -1)
+    return saved ~= false
 end
 
 local function getQbxPlayer(identifier)
@@ -191,14 +232,6 @@ local function playerIdentifiers(source)
         fivem = getIdentifierByType(source, 'fivem'),
         ip = getIdentifierByType(source, 'ip'),
     }
-end
-
-local function isPlayerLoggedIn(source)
-    local ok, loggedIn = pcall(function()
-        return Player(source).state.isLoggedIn == true
-    end)
-
-    return ok and loggedIn == true
 end
 
 local function addUniqueIdentifier(list, value)
@@ -456,46 +489,66 @@ function Service.canManage(source)
     return canManage(source)
 end
 
+local function refreshOnlineClients(config)
+    config = config or Service.getConfig()
+
+    CreateThread(function()
+        for _, playerSource in ipairs(GetPlayers()) do
+            local targetSource = tonumber(playerSource)
+            if targetSource then
+                pr_lib.callback.await(targetSource, PR.Whitelist.Callbacks.clientConfigUpdated, 1500, config)
+            end
+        end
+    end)
+end
+
 function Service.getConfig()
+    local fileConfig = readJsonConfig()
+    if fileConfig then
+        Service.config = fileConfig
+        return fileConfig
+    end
+
+    if type(Service.config) == 'table' and next(Service.config) then
+        return mergeDefaults(PR.Whitelist.Defaults, Service.config)
+    end
+
+    Service.config = clone(PR.Whitelist.Defaults)
+    writeJsonConfig(Service.config)
+
     return mergeDefaults(PR.Whitelist.Defaults, Service.config)
 end
 
 function Service.saveConfig(source, config)
     if not canManage(source) then return false, 'no_permission' end
-    local db = database()
-    if not db then return false, 'database_unavailable' end
 
     Service.config = mergeDefaults(PR.Whitelist.Defaults, config)
-    local encoded = encodeConfig(Service.config)
-
-    db.update(('INSERT INTO `%s` (`id`, `config`) VALUES (1, ?) ON DUPLICATE KEY UPDATE `config` = ?'):format(PR.Whitelist.Storage.configTable), {
-        encoded,
-        encoded,
-    })
+    if not writeJsonConfig(Service.config) then return false, 'json_save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.whitelist.config_saved'),
         type = 'success',
     })
 
-    return true, Service.getConfig()
+    local freshConfig = Service.getConfig()
+    refreshOnlineClients(freshConfig)
+
+    return true, freshConfig
 end
 
 function Service.loadConfig()
+    local fileConfig = readJsonConfig()
+    if fileConfig then
+        Service.config = fileConfig
+        return fileConfig
+    end
+
     local db = database()
-    if not db then
-        Service.config = clone(PR.Whitelist.Defaults)
-        return Service.config
-    end
-
-    local stored = db.scalar(('SELECT `config` FROM `%s` WHERE `id` = 1 LIMIT 1'):format(PR.Whitelist.Storage.configTable))
+    local stored = db and db.scalar(('SELECT `config` FROM `%s` WHERE `id` = 1 LIMIT 1'):format(PR.Whitelist.Storage.configTable))
     Service.config = stored and decodeConfig(stored) or legacyConfig() or clone(PR.Whitelist.Defaults)
+    writeJsonConfig(Service.config)
 
-    if not stored then
-        Service.saveConfig(0, Service.config)
-    end
-
-    return Service.getConfig()
+    return mergeDefaults(PR.Whitelist.Defaults, Service.config)
 end
 
 function Service.check(source)
@@ -504,7 +557,6 @@ function Service.check(source)
 
     local db = database()
     if not db then return false, pendingConfig(config, 'database_unavailable') end
-    if not isPlayerLoggedIn(source) then return false, pendingConfig(config, 'player_not_logged_in') end
 
     local player = waitForQbxPlayer(source)
     local citizenid = player and player.PlayerData and player.PlayerData.citizenid
@@ -631,7 +683,7 @@ function Service.remove(source, identifier)
 
     if target.online and target.source then
         setPlayerBucket(target.source, 1000 + target.source)
-        pr_lib.callback.await(target.source, PR.Whitelist.Callbacks.clientRemoved, 5000)
+        pr_lib.callback.await(target.source, PR.Whitelist.Callbacks.clientRemoved, 5000, Service.getConfig())
     end
 
     notify(source, {
@@ -744,7 +796,7 @@ function Service.start()
         migrateLegacyPlayers()
         Service.loadConfig()
     else
-        Service.config = clone(PR.Whitelist.Defaults)
+        Service.loadConfig()
     end
 
     debug('success', ForgeCore.t('debug.whitelist.started'))

@@ -18,6 +18,21 @@ local function normalizeName(value)
     return value
 end
 
+local function normalizeAccess(access)
+    access = type(access) == 'table' and access or {}
+
+    local mode = trim(access.mode):lower()
+    if mode ~= 'job' and mode ~= 'gang' and mode ~= 'admin' then
+        mode = 'free'
+    end
+
+    return {
+        mode = mode,
+        name = normalizeName(access.name):gsub('^weapon_', ''),
+        grade = math.max(0, math.floor(tonumber(access.grade) or 0)),
+    }
+end
+
 local function clone(value, seen)
     if type(value) ~= 'table' then return value end
 
@@ -51,6 +66,7 @@ local function normalizeWeapon(rawWeapon, fallbackName)
     if weapon.ammotype:lower() == 'nil' then weapon.ammotype = 'none' end
     weapon.damagereason = trim(weapon.damagereason) ~= '' and trim(weapon.damagereason) or PR.Weapons.Defaults.damagereason
     weapon.active = weapon.active ~= false
+    weapon.access = normalizeAccess(weapon.access)
 
     return weapon
 end

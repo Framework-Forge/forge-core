@@ -32,15 +32,66 @@ local function notify(source, data)
     })
 end
 
+local function groupHasDutyPoint(group)
+    if type(group) ~= 'table' or group.type ~= 'job' or type(group.stashes) ~= 'table' then return false end
+
+    for i = 1, #group.stashes do
+        local point = group.stashes[i]
+        local duty = type(point) == 'table' and type(point.duty) == 'table' and point.duty or nil
+        if point and point.enabled ~= false and duty and duty.enabled == true then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function applyDutyDefaultRules()
+    local changed = false
+    local jobs = ForgeCore.JobRegistry.getJobs()
+
+    for _, job in pairs(jobs or {}) do
+        if groupHasDutyPoint(job) and job.defaultDuty ~= false then
+            job.defaultDuty = false
+            changed = true
+        end
+    end
+
+    return changed
+end
+
+local function forceOnlineJobOffDuty(jobName)
+    if not pr_lib or not pr_lib.framework or not pr_lib.framework.SetPlayerDuty then return end
+    if not pr_lib.framework.GetAllPlayers or not pr_lib.framework.GetPlayerJob then return end
+
+    for _, playerSource in ipairs(pr_lib.framework.GetAllPlayers()) do
+        local job = pr_lib.framework.GetPlayerJob(playerSource)
+        if type(job) == 'table' and tostring(job.name or ''):lower() == tostring(jobName or ''):lower() then
+            pr_lib.framework.SetPlayerDuty(playerSource, false)
+        end
+    end
+end
+
+local function forceSourceOffDutyForDutyJob(source)
+    if not source or source <= 0 then return end
+    if not pr_lib or not pr_lib.framework or not pr_lib.framework.GetPlayerJob or not pr_lib.framework.SetPlayerDuty then return end
+
+    local job = pr_lib.framework.GetPlayerJob(source)
+    local jobName = type(job) == 'table' and job.name or nil
+    local group = jobName and ForgeCore.JobRegistry.get('job', jobName) or nil
+
+    if groupHasDutyPoint(group) then
+        pr_lib.framework.SetPlayerDuty(source, false)
+    end
+end
+
 function Service.canManage(source)
     if source == 0 then return true end
 
     local permissions = PR.Job.Permissions or {}
     local ace = permissions.ace or PR.AdminAce
-    local legacyAce = permissions.legacyAce
 
     if ace and IsPlayerAceAllowed(source, ace) then return true end
-    if legacyAce and IsPlayerAceAllowed(source, legacyAce) then return true end
     if PR.Command and IsPlayerAceAllowed(source, ('command.%s'):format(PR.Command)) then return true end
     if IsPlayerAceAllowed(source, 'admin') then return true end
 
@@ -89,15 +140,31 @@ end
 function Service.reload()
     local jobs, gangs = ForgeCore.JobStorage.load()
     ForgeCore.JobRegistry.setAll(jobs, gangs)
+    if applyDutyDefaultRules() then
+        Service.save()
+    end
     ForgeCore.JobQbxSync.syncAll()
+    if ForgeCore.JobPoints then
+        ForgeCore.JobPoints.registerAll()
+    end
+    if ForgeCore.JobBusiness then
+        ForgeCore.JobBusiness.registerAll()
+    end
     Service.broadcast(-1)
 
     return true
 end
 
 function Service.saveAndSync()
+    applyDutyDefaultRules()
     local saved = Service.save()
     ForgeCore.JobQbxSync.syncAll()
+    if ForgeCore.JobPoints then
+        ForgeCore.JobPoints.registerAll()
+    end
+    if ForgeCore.JobBusiness then
+        ForgeCore.JobBusiness.registerAll()
+    end
     Service.broadcast(-1)
     return saved
 end
@@ -109,16 +176,25 @@ function Service.upsert(source, groupData, forcedType)
 
     local normalized, normalizeErr = ForgeCore.JobRegistry.normalizeGroup(groupData, forcedType)
     if not normalized then return false, normalizeErr end
+    if groupHasDutyPoint(normalized) then
+        normalized.defaultDuty = false
+    end
 
-    if normalized.type == 'job' then
+    local isNewJob = normalized.type == 'job' and not ForgeCore.JobRegistry.exists('job', normalized.name)
+
+    if isNewJob then
         local societyOk, societyErr = ensureSocietyAccount(source, normalized.name)
-        if not societyOk then return false, societyErr end
+        if not societyOk and societyErr ~= 'banking_unavailable' then return false, societyErr end
     end
 
     local ok, result = ForgeCore.JobRegistry.upsert(normalized, forcedType)
     if not ok then return false, result end
 
     Service.saveAndSync()
+
+    if groupHasDutyPoint(normalized) then
+        forceOnlineJobOffDuty(normalized.name)
+    end
 
     notify(source, {
         title = ForgeCore.t('core.title'),
@@ -278,7 +354,6 @@ function Service.createMei(source, data)
         defaultDuty = true,
         offDutyPay = false,
         grades = data and data.grades or {},
-        craftings = {},
         stashes = {},
         owner = player.PlayerData and player.PlayerData.citizenid,
     }
@@ -328,3 +403,16 @@ function Service.start()
 end
 
 ForgeCore.JobService = Service
+
+RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
+    local src = source
+    SetTimeout(1500, function()
+        forceSourceOffDutyForDutyJob(src)
+    end)
+end)
+
+AddEventHandler('QBCore:Server:OnJobUpdate', function(source)
+    SetTimeout(500, function()
+        forceSourceOffDutyForDutyJob(source)
+    end)
+end)
