@@ -116,11 +116,75 @@ function Menu.openServerSettingsMenu()
                 end,
             },
             {
-                title = t('menu.weapons.title'),
-                description = t('menu.weapons.description'),
-                icon = 'crosshair',
+                title = t('menu.inventory.title'),
+                description = t('menu.inventory.description'),
+                icon = 'boxes-stacked',
                 onSelect = function()
-                    Menu.openWeaponsMenu()
+                    Menu.openInventoryMenu()
+                end,
+            },
+            {
+                title = t('menu.vinewood.title'),
+                description = t('menu.vinewood.description'),
+                icon = 'landmark',
+                onSelect = function()
+                    Menu.openVinewoodMenu()
+                end,
+            },
+            {
+                title = t('menu.objects.title'),
+                description = t('menu.objects.description'),
+                icon = 'boxes-stacked',
+                onSelect = function()
+                    Menu.openObjectsMenu()
+                end,
+            },
+            {
+                title = t('menu.npcs.title'),
+                description = t('menu.npcs.description'),
+                icon = 'users-gear',
+                onSelect = function()
+                    Menu.openNpcsMenu()
+                end,
+            },
+            {
+                title = t('menu.spotlights.title'),
+                description = t('menu.spotlights.description'),
+                icon = 'spotlight',
+                onSelect = function()
+                    Menu.openSpotlightsMenu()
+                end,
+            },
+            {
+                title = t('menu.billboards.title'),
+                description = t('menu.billboards.description'),
+                icon = 'image',
+                onSelect = function()
+                    Menu.openBillboardsMenu()
+                end,
+            },
+            {
+                title = t('menu.stores.title'),
+                description = t('menu.stores.description'),
+                icon = 'store',
+                onSelect = function()
+                    Menu.openStoresAdminMenu()
+                end,
+            },
+            {
+                title = t('menu.farms.title'),
+                description = t('menu.farms.description'),
+                icon = 'tractor',
+                onSelect = function()
+                    Menu.openFarmsMenu()
+                end,
+            },
+            {
+                title = t('menu.starterpack.title'),
+                description = t('menu.starterpack.description'),
+                icon = 'gift',
+                onSelect = function()
+                    Menu.openStarterpackMenu()
                 end,
             },
         },

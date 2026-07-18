@@ -59,7 +59,33 @@ local function runWeaponAction(callbackName, failureLocale, ...)
     return ok, response
 end
 
-function Menu.openWeaponsMenu()
+local function saveParsedWeapons(parsed)
+    local entries = type(parsed) == 'table' and parsed.entries
+    if type(entries) ~= 'table' then return false end
+
+    local saved = 0
+    local failed = 0
+
+    for index = 1, #entries do
+        local weapon = entries[index]
+        weapon.active = weapon.active ~= false
+
+        local ok = awaitServer(PR.Weapons.Callbacks.save, weapon)
+        if ok then
+            saved = saved + 1
+        else
+            failed = failed + 1
+        end
+    end
+
+    if failed > 0 then
+        notifyFailure('notify.weapons.save_failed', ('%s/%s'):format(tostring(failed), tostring(#entries)))
+    end
+
+    return saved > 0
+end
+
+function Menu.openWeaponsMenu(parentMenu)
     local payload = fetchWeaponsPayload()
     if not payload then return Menu.openServerSettingsMenu() end
 
@@ -70,6 +96,30 @@ function Menu.openWeaponsMenu()
             icon = 'plus',
             onSelect = function()
                 Menu.openWeaponEditor()
+            end,
+        },
+        {
+            title = t('menu.inventory.paste_weapon'),
+            description = t('menu.inventory.paste_description'),
+            icon = 'clipboard',
+            onSelect = function()
+                local result = inputDialog(t('menu.inventory.paste_weapon'), {
+                    { type = 'textarea', label = t('inputs.inventory_paste'), required = true, autosize = true },
+                })
+
+                if not result then return Menu.openWeaponsMenu(parentMenu) end
+
+                local ok, parsed = awaitServer(PR.Inventory.Callbacks.parseDefinition, 'weapon', result[1])
+                if not ok then
+                    notifyFailure('notify.inventory.parse_failed', parsed)
+                    return Menu.openWeaponsMenu(parentMenu)
+                end
+
+                if saveParsedWeapons(parsed) then
+                    SetTimeout(400, function() Menu.openWeaponsMenu(parentMenu) end)
+                else
+                    Menu.openWeaponEditor(parsed)
+                end
             end,
         },
     }
@@ -104,7 +154,7 @@ function Menu.openWeaponsMenu()
         id = 'forge_core_weapons',
         title = t('menu.weapons.title'),
         description = t('menu.weapons.summary', { count = tostring(#(payload.weapons or {})) }),
-        menu = 'forge_core_server_settings',
+        menu = parentMenu or 'forge_core_inventory',
         options = options,
     })
 end
@@ -228,6 +278,43 @@ function Menu.openWeaponEditor(weapon)
             default = weapon.damagereason or PR.Weapons.Defaults.damagereason,
             required = true,
         },
+        {
+            type = 'input',
+            label = t('inputs.inventory_ammoname'),
+            default = weapon.ammoname or '',
+        },
+        {
+            type = 'number',
+            label = t('inputs.inventory_weight'),
+            min = 0,
+            default = tonumber(weapon.weight) or 1000,
+        },
+        {
+            type = 'number',
+            label = t('inputs.inventory_durability'),
+            min = 0,
+            max = 1,
+            step = 0.01,
+            default = tonumber(weapon.durability) or 0.05,
+        },
+        {
+            type = 'select',
+            label = t('inputs.inventory_access_mode'),
+            options = PR.Inventory.AccessModes,
+            default = weapon.access and weapon.access.mode or 'free',
+            required = true,
+        },
+        {
+            type = 'input',
+            label = t('inputs.inventory_access_name'),
+            default = weapon.access and weapon.access.name or '',
+        },
+        {
+            type = 'number',
+            label = t('inputs.inventory_access_grade'),
+            min = 0,
+            default = weapon.access and tonumber(weapon.access.grade) or 0,
+        },
     })
 
     if not result then
@@ -240,6 +327,14 @@ function Menu.openWeaponEditor(weapon)
         weapontype = result[3],
         ammotype = result[4],
         damagereason = result[5],
+        ammoname = tostring(result[6] or '') ~= '' and result[6] or nil,
+        weight = tonumber(result[7]) or weapon.weight,
+        durability = tonumber(result[8]) or weapon.durability,
+        access = {
+            mode = result[9] or 'free',
+            name = result[10] or '',
+            grade = tonumber(result[11]) or 0,
+        },
         active = weapon.active ~= false,
     })
 

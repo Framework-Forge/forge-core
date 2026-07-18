@@ -82,35 +82,31 @@ local function notifyFailure(localeKey, error)
     })
 end
 
+local function openGarageAdminMenu()
+    local config = PR.Garage and PR.Garage.AdminMenu or {}
+    if config.enabled == false then return false end
+
+    local resource = config.resource or 'forge-garage'
+    if GetResourceState(resource) ~= 'started' then
+        notify({
+            title = t('garage.title'),
+            description = t('errors.garage_resource_unavailable', { resource = resource }),
+            type = 'error',
+        })
+        return false
+    end
+
+    TriggerEvent(config.event or 'forge_garage:client:garagelist')
+    return true
+end
+
 local function groupTitle(group)
     return ('%s - %s'):format(group.label or group.name, group.name or group.job)
 end
 
-local function clone(value, seen)
-    if type(value) ~= 'table' then return value end
+local clone = pr_lib.table.clone
 
-    seen = seen or {}
-    if seen[value] then return seen[value] end
-
-    local copy = {}
-    seen[value] = copy
-
-    for key, item in pairs(value) do
-        copy[clone(key, seen)] = clone(item, seen)
-    end
-
-    return copy
-end
-
-local function countGrades(grades)
-    local total = 0
-
-    for _ in pairs(grades or {}) do
-        total = total + 1
-    end
-
-    return total
-end
+local countGrades = pr_lib.table.count
 
 local function listGrades(grades)
     local list = {}
@@ -518,6 +514,15 @@ function Menu.openMain()
                 icon = 'server-cog',
                 onSelect = function()
                     Menu.openServerSettingsMenu()
+                end,
+            },
+            {
+                title = t('menu.garage.title'),
+                description = t('menu.garage.description'),
+                icon = 'warehouse',
+                disabled = not (PR.Garage and PR.Garage.AdminMenu and PR.Garage.AdminMenu.enabled ~= false),
+                onSelect = function()
+                    openGarageAdminMenu()
                 end,
             },
         },

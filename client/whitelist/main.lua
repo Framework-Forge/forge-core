@@ -6,6 +6,9 @@ local Whitelist = {
     config = {},
     examRunning = false,
     checking = false,
+    targetZone = nil,
+    blip = nil,
+    lastReturnAt = 0,
 }
 
 local function t(key, params)
@@ -31,8 +34,25 @@ local function awaitServer(callbackName, ...)
     return pr_lib.callback.await(callbackName, 10000, ...)
 end
 
+local function fetchWhitelistConfig()
+    local ok, config = awaitServer(PR.Whitelist.Callbacks.getConfig)
+    if ok and type(config) == 'table' then return config end
+end
+
+local beginExam
+
 local function isPlayerLoggedIn()
     return LocalPlayer and LocalPlayer.state and LocalPlayer.state.isLoggedIn == true
+end
+
+local function isCharacterCreationActive()
+    if GetResourceState('spacebox_multichar') ~= 'started' then return false end
+
+    local ok, active = pcall(function()
+        return exports['spacebox_multichar']:isInCharacterCreation()
+    end)
+
+    return ok and active == true
 end
 
 local function alertDialog(data)
@@ -52,6 +72,11 @@ local function coords3(coords)
     return vector3(tonumber(coords.x) or 0.0, tonumber(coords.y) or 0.0, tonumber(coords.z) or 0.0)
 end
 
+local function heading(coords)
+    coords = coords or {}
+    return tonumber(coords.w or coords.heading) or 0.0
+end
+
 local function teleport(coords)
     coords = coords or {}
     local ped = PlayerPedId()
@@ -61,6 +86,78 @@ local function teleport(coords)
     SetEntityCoords(ped, tonumber(coords.x) or 0.0, tonumber(coords.y) or 0.0, tonumber(coords.z) or 0.0, false, false, false, false)
     SetEntityHeading(ped, tonumber(coords.w) or 0.0)
     DoScreenFadeIn(700)
+end
+
+local function clearExamTarget()
+    if Whitelist.targetZone and pr_lib and pr_lib.target and pr_lib.target.removeZone then
+        pr_lib.target.removeZone(Whitelist.targetZone)
+    end
+
+    Whitelist.targetZone = nil
+end
+
+local function clearExamBlip()
+    if Whitelist.blip and DoesBlipExist(Whitelist.blip) then
+        RemoveBlip(Whitelist.blip)
+    end
+
+    Whitelist.blip = nil
+end
+
+local function interactionMode(config)
+    local mode = tostring(config.interactionMode or '')
+    if mode == '' then
+        if config.targetEnabled == true then return 'target' end
+        return 'drawtext'
+    end
+
+    return mode
+end
+
+local function setupExamBlip(config)
+    clearExamBlip()
+    local blipConfig = type(config.blip) == 'table' and config.blip or {}
+    if blipConfig.enabled ~= true then return end
+
+    local coords = coords3(config.examCoords)
+    local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
+    SetBlipSprite(blip, tonumber(blipConfig.sprite) or 525)
+    SetBlipColour(blip, tonumber(blipConfig.color) or 3)
+    SetBlipScale(blip, tonumber(blipConfig.scale) or 0.8)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName('STRING')
+    AddTextComponentString(blipConfig.label or config.startExamLabel or t('whitelist.pre_exam'))
+    EndTextCommandSetBlipName(blip)
+    Whitelist.blip = blip
+end
+
+local function setupExamTarget(config)
+    clearExamTarget()
+    local mode = interactionMode(config)
+    if mode ~= 'target' and mode ~= 'both' then return end
+    if not pr_lib or not pr_lib.target or not pr_lib.target.addBoxZone then return end
+
+    local coords = coords3(config.examCoords)
+    Whitelist.targetZone = pr_lib.target.addBoxZone({
+        coords = coords,
+        size = vec3(1.4, 1.4, 2.0),
+        rotation = heading(config.examCoords),
+        debug = PR.Debug == true,
+        options = {
+            {
+                name = 'forge_core_whitelist_exam',
+                label = config.startExamLabel or t('whitelist.start'),
+                icon = 'fa-solid fa-clipboard-question',
+                distance = 2.0,
+                canInteract = function()
+                    return Whitelist.active and not Whitelist.examRunning
+                end,
+                onSelect = function()
+                    beginExam()
+                end,
+            },
+        },
+    })
 end
 
 local function shuffle(list)
@@ -162,9 +259,11 @@ end
 local function stopWhitelist()
     Whitelist.active = false
     Whitelist.examRunning = false
+    clearExamTarget()
+    clearExamBlip()
 end
 
-local function beginExam()
+beginExam = function()
     if Whitelist.examRunning then return end
     Whitelist.examRunning = true
 
@@ -228,36 +327,46 @@ local function beginExam()
     Whitelist.examRunning = false
 end
 
-local function startWhitelist(config)
+local function startWhitelist(config, forceTeleport)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if type(config) ~= 'table' then return false end
+
     if Whitelist.active then
-        Whitelist.config = config or Whitelist.config or PR.Whitelist.Defaults
-        return
+        Whitelist.config = config
+        setupExamBlip(Whitelist.config)
+        setupExamTarget(Whitelist.config)
+        if forceTeleport == true then teleport(Whitelist.config.spawnCoords) end
+        return true
     end
 
     Whitelist.active = true
-    Whitelist.config = config or PR.Whitelist.Defaults
+    Whitelist.config = config
+    Whitelist.lastReturnAt = 0
 
     teleport(Whitelist.config.spawnCoords)
     notify({ description = Whitelist.config.loadNotify, type = 'info' })
+    setupExamBlip(Whitelist.config)
+    setupExamTarget(Whitelist.config)
 
     CreateThread(function()
         while Whitelist.active do
             Wait(0)
 
-            if not isInsideZone(Whitelist.config) then
+            if not isInsideZone(Whitelist.config) and GetGameTimer() - Whitelist.lastReturnAt >= 3500 then
+                Whitelist.lastReturnAt = GetGameTimer()
                 teleport(Whitelist.config.spawnCoords)
                 notify({ description = Whitelist.config.escapeNotify, type = 'error' })
-                Wait(1000)
             end
 
             local examCoords = coords3(Whitelist.config.examCoords)
             local distance = #(GetEntityCoords(PlayerPedId()) - examCoords)
+            local mode = interactionMode(Whitelist.config)
 
-            if distance <= 20.0 then
+            if Whitelist.config.markerEnabled ~= false and distance <= 20.0 then
                 DrawMarker(27, examCoords.x, examCoords.y, examCoords.z - 0.95, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.2, 1.2, 0.3, 26, 115, 179, 160, false, false, 2, false, nil, nil, false)
             end
 
-            if distance <= 2.0 then
+            if (mode == 'drawtext' or mode == 'both') and distance <= 2.0 then
                 drawText3d(vector3(examCoords.x, examCoords.y, examCoords.z + 0.4), ('[E] %s'):format(Whitelist.config.startExamLabel))
 
                 if IsControlJustPressed(0, 38) then
@@ -266,10 +375,17 @@ local function startWhitelist(config)
             end
         end
     end)
+
+    return true
 end
 
 local function checkWhitelist()
     if Whitelist.checking then return end
+    if isCharacterCreationActive() then
+        SetTimeout(3000, checkWhitelist)
+        return
+    end
+
     if not isPlayerLoggedIn() then
         stopWhitelist()
         return
@@ -278,6 +394,12 @@ local function checkWhitelist()
     Whitelist.checking = true
 
     Wait(2500)
+
+    if isCharacterCreationActive() then
+        Whitelist.checking = false
+        SetTimeout(3000, checkWhitelist)
+        return
+    end
 
     if not isPlayerLoggedIn() then
         Whitelist.checking = false
@@ -293,7 +415,12 @@ local function checkWhitelist()
         return
     end
 
-    local config = type(configOrError) == 'table' and configOrError or PR.Whitelist.Defaults
+    local config = type(configOrError) == 'table' and configOrError or fetchWhitelistConfig()
+    if type(config) ~= 'table' then
+        SetTimeout(3000, checkWhitelist)
+        return
+    end
+
     if config.pending then
         SetTimeout(3000, checkWhitelist)
         return
@@ -314,8 +441,25 @@ pr_lib.callback.register(PR.Whitelist.Callbacks.clientAdded, function()
     return true
 end)
 
-pr_lib.callback.register(PR.Whitelist.Callbacks.clientRemoved, function()
-    startWhitelist(Whitelist.config or PR.Whitelist.Defaults)
+pr_lib.callback.register(PR.Whitelist.Callbacks.clientRemoved, function(config)
+    startWhitelist(type(config) == 'table' and config or fetchWhitelistConfig(), true)
+    return true
+end)
+
+pr_lib.callback.register(PR.Whitelist.Callbacks.clientConfigUpdated, function(config)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if type(config) ~= 'table' then return true end
+
+    if Whitelist.active then
+        if config.enabled then
+            startWhitelist(config, false)
+        else
+            stopWhitelist()
+        end
+    elseif config.enabled then
+        SetTimeout(500, checkWhitelist)
+    end
+
     return true
 end)
 

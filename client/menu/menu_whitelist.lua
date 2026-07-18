@@ -17,6 +17,171 @@ local boolValue = Shared.boolValue
 local boolOptions = Shared.boolOptions
 
 local whitelistActionLocked = false
+local whitelistDevLaserActive = false
+local saveWhitelistConfig
+
+local function currentPoint()
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+
+    return {
+        x = tonumber(('%0.3f'):format(coords.x)),
+        y = tonumber(('%0.3f'):format(coords.y)),
+        z = tonumber(('%0.3f'):format(coords.z)),
+        w = tonumber(('%0.2f'):format(GetEntityHeading(ped))),
+    }
+end
+
+local function normalizePoint(coords, heading)
+    if not coords or coords.x == nil or coords.y == nil or coords.z == nil then return nil end
+
+    return {
+        x = tonumber(('%0.3f'):format(tonumber(coords.x) or 0.0)),
+        y = tonumber(('%0.3f'):format(tonumber(coords.y) or 0.0)),
+        z = tonumber(('%0.3f'):format(tonumber(coords.z) or 0.0)),
+        w = tonumber(('%0.2f'):format(tonumber(heading or coords.w or coords.heading) or GetEntityHeading(PlayerPedId()))),
+    }
+end
+
+local function formatCoords(coords)
+    coords = type(coords) == 'table' and coords or {}
+    return ('%.2f, %.2f, %.2f'):format(tonumber(coords.x) or 0.0, tonumber(coords.y) or 0.0, tonumber(coords.z) or 0.0)
+end
+
+local function teleportToPoint(coords)
+    coords = type(coords) == 'table' and coords or {}
+    local ped = PlayerPedId()
+    local x = tonumber(coords.x) or 0.0
+    local y = tonumber(coords.y) or 0.0
+    local z = tonumber(coords.z) or 0.0
+    local w = tonumber(coords.w or coords.heading) or GetEntityHeading(ped)
+
+    DoScreenFadeOut(350)
+    Wait(400)
+    RequestCollisionAtCoord(x, y, z)
+    SetEntityCoords(ped, x, y, z, false, false, false, false)
+    SetEntityHeading(ped, w)
+    FreezeEntityPosition(ped, false)
+    Wait(250)
+    DoScreenFadeIn(450)
+end
+
+local function showDevLaserText()
+    if pr_lib and pr_lib.framework and pr_lib.framework.ShowTextUI then
+        pr_lib.framework.ShowTextUI(t('menu.whitelist.devlaser_instructions'))
+    end
+end
+
+local function hideDevLaserText()
+    if pr_lib and pr_lib.framework and pr_lib.framework.HideTextUI then
+        pr_lib.framework.HideTextUI()
+    end
+end
+
+local function capturePointWithDevLaser(onCapture, onCancel)
+    local devlaser = pr_lib and (pr_lib.devlaser or pr_lib.devLaser or (pr_lib.fivem and (pr_lib.fivem.devlaser or pr_lib.fivem.devLaser)))
+    if not devlaser or not devlaser.start or not devlaser.getTarget then
+        notifyFailure('notify.whitelist.devlaser_failed', 'devlaser_unavailable')
+        if onCancel then onCancel() end
+        return false
+    end
+
+    if whitelistDevLaserActive then return false end
+    whitelistDevLaserActive = true
+
+    showDevLaserText()
+
+    devlaser.start({
+        distance = 1000.0,
+        flags = -1,
+        onStop = function()
+            if not whitelistDevLaserActive then return end
+
+            whitelistDevLaserActive = false
+            hideDevLaserText()
+            if onCancel then onCancel() end
+        end,
+    })
+
+    CreateThread(function()
+        while whitelistDevLaserActive and devlaser.isActive and devlaser.isActive() do
+            Wait(0)
+
+            if IsControlJustReleased(0, 201) or IsDisabledControlJustReleased(0, 201) then
+                local target = devlaser.getTarget()
+                local point = target and normalizePoint(target.coords)
+
+                if point then
+                    whitelistDevLaserActive = false
+                    hideDevLaserText()
+                    devlaser.stop(true)
+                    if onCapture then onCapture(point) end
+                else
+                    notifyFailure('notify.whitelist.devlaser_failed', 'target_not_found')
+                end
+            elseif IsControlJustReleased(0, 177) or IsDisabledControlJustReleased(0, 177) or IsControlJustReleased(0, 202) or IsDisabledControlJustReleased(0, 202) then
+                whitelistDevLaserActive = false
+                hideDevLaserText()
+                devlaser.stop(true)
+                if onCancel then onCancel() end
+            end
+        end
+
+        if whitelistDevLaserActive then
+            whitelistDevLaserActive = false
+            hideDevLaserText()
+            if onCancel then onCancel() end
+        end
+    end)
+
+    return true
+end
+
+local function openPointCaptureMethod(title, description, onCapture, onCancel, parentMenu)
+    showContext({
+        id = 'forge_core_whitelist_capture_method',
+        title = title,
+        description = description,
+        menu = parentMenu or 'forge_core_whitelist_locations',
+        options = {
+            {
+                title = t('menu.whitelist.capture_current'),
+                description = t('menu.whitelist.capture_current_description'),
+                icon = 'map-pin',
+                onSelect = function()
+                    if onCapture then onCapture(currentPoint()) end
+                end,
+            },
+            {
+                title = t('menu.whitelist.capture_devlaser'),
+                description = t('menu.whitelist.capture_devlaser_description'),
+                icon = 'crosshair',
+                onSelect = function()
+                    capturePointWithDevLaser(onCapture, onCancel)
+                end,
+            },
+        },
+    })
+end
+
+local function markConfigPoint(config, title, description, applyPoint, reopen, parentMenu)
+    reopen = reopen or function() Menu.openWhitelistLocations(config) end
+
+    openPointCaptureMethod(title, description, function(point)
+        applyPoint(point)
+        saveWhitelistConfig(config, reopen)
+    end, function()
+        reopen()
+    end, parentMenu)
+end
+
+local function modeOptions()
+    return {
+        { value = 'drawtext', label = t('menu.whitelist.mode_drawtext') },
+        { value = 'target', label = t('menu.whitelist.mode_target') },
+        { value = 'both', label = t('menu.whitelist.mode_both') },
+    }
+end
 
 local function fetchWhitelistConfig()
     local ok, payload = awaitServer(PR.Whitelist.Callbacks.getConfig)
@@ -25,10 +190,15 @@ local function fetchWhitelistConfig()
         return nil
     end
 
-    return type(payload) == 'table' and payload or clone(PR.Whitelist.Defaults)
+    if type(payload) ~= 'table' then
+        notifyFailure('notify.whitelist.load_failed', 'json_config_missing')
+        return nil
+    end
+
+    return payload
 end
 
-local function saveWhitelistConfig(config, reopen)
+saveWhitelistConfig = function(config, reopen)
     if whitelistActionLocked then return false end
     whitelistActionLocked = true
 
@@ -91,6 +261,15 @@ function Menu.openWhitelistMenu()
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistQuestions(config)
+                end,
+            },
+            {
+                title = t('menu.whitelist.locations'),
+                description = t('menu.whitelist.locations_description'),
+                icon = 'map-pinned',
+                arrow = true,
+                onSelect = function()
+                    Menu.openWhitelistLocations(config)
                 end,
             },
             {
@@ -261,6 +440,9 @@ function Menu.openWhitelistSettingsEditor(config)
     local result = inputDialog(t('menu.whitelist.settings'), {
         { type = 'select', label = t('inputs.whitelist_enabled'), options = boolOptions(), default = boolDefault(config.enabled), required = true },
         { type = 'number', label = t('inputs.whitelist_percent'), default = tonumber(config.percent) or 70, min = 0, max = 100, required = true },
+        { type = 'select', label = t('inputs.whitelist_interaction_mode'), options = modeOptions(), default = config.interactionMode or 'drawtext', required = true },
+        { type = 'select', label = t('inputs.whitelist_marker_enabled'), options = boolOptions(), default = boolDefault(config.markerEnabled ~= false), required = true },
+        { type = 'select', label = t('inputs.whitelist_blip_enabled'), options = boolOptions(), default = boolDefault(type(config.blip) == 'table' and config.blip.enabled == true), required = true },
         { type = 'input', label = t('inputs.whitelist_load_notify'), default = config.loadNotify, required = true },
         { type = 'input', label = t('inputs.whitelist_escape_notify'), default = config.escapeNotify, required = true },
         { type = 'input', label = t('inputs.whitelist_start_label'), default = config.startExamLabel, required = true },
@@ -270,13 +452,246 @@ function Menu.openWhitelistSettingsEditor(config)
 
     config.enabled = boolValue(result[1])
     config.percent = tonumber(result[2]) or 70
-    config.loadNotify = result[3]
-    config.escapeNotify = result[4]
-    config.startExamLabel = result[5]
+    config.interactionMode = tostring(result[3] or 'drawtext')
+    config.targetEnabled = config.interactionMode == 'target' or config.interactionMode == 'both'
+    config.markerEnabled = boolValue(result[4])
+    config.blip = type(config.blip) == 'table' and config.blip or clone(PR.Whitelist.Defaults.blip or {})
+    config.blip.enabled = boolValue(result[5])
+    config.loadNotify = result[6]
+    config.escapeNotify = result[7]
+    config.startExamLabel = result[8]
+    config.blip.label = config.blip.label or config.startExamLabel
 
     saveWhitelistConfig(config, function()
         Menu.openWhitelistMenu()
     end)
+end
+
+function Menu.openWhitelistLocationPoint(config, pointType)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if not config then return false end
+
+    local points = {
+        spawn = {
+            id = 'forge_core_whitelist_location_spawn',
+            title = t('menu.whitelist.location_spawn'),
+            coords = config.spawnCoords,
+            markTitle = t('menu.whitelist.mark_spawn'),
+            markDescription = t('menu.whitelist.mark_spawn_description'),
+            teleportTitle = t('menu.whitelist.teleport_spawn'),
+            icon = 'map-pin',
+            apply = function(point) config.spawnCoords = point end,
+        },
+        exam = {
+            id = 'forge_core_whitelist_location_exam',
+            title = t('menu.whitelist.location_exam'),
+            coords = config.examCoords,
+            markTitle = t('menu.whitelist.mark_exam'),
+            markDescription = t('menu.whitelist.mark_exam_description'),
+            teleportTitle = t('menu.whitelist.teleport_exam'),
+            icon = 'clipboard-question',
+            apply = function(point) config.examCoords = point end,
+        },
+        completion = {
+            id = 'forge_core_whitelist_location_completion',
+            title = t('menu.whitelist.location_completion'),
+            coords = config.completionCoords,
+            markTitle = t('menu.whitelist.mark_completion'),
+            markDescription = t('menu.whitelist.mark_completion_description'),
+            teleportTitle = t('menu.whitelist.teleport_completion'),
+            icon = 'flag-checkered',
+            apply = function(point) config.completionCoords = point end,
+        },
+    }
+
+    local point = points[pointType]
+    if not point then return Menu.openWhitelistLocations(config) end
+
+    local reopen = function()
+        Menu.openWhitelistLocationPoint(config, pointType)
+    end
+
+    showContext({
+        id = point.id,
+        title = point.title,
+        menu = 'forge_core_whitelist_locations',
+        options = {
+            {
+                title = point.markTitle,
+                description = point.markDescription,
+                icon = point.icon,
+                onSelect = function()
+                    markConfigPoint(config, point.markTitle, point.markDescription, point.apply, reopen, point.id)
+                end,
+            },
+            {
+                title = point.teleportTitle,
+                description = t('menu.whitelist.teleport_description', { coords = formatCoords(point.coords) }),
+                icon = 'plane-arrival',
+                onSelect = function()
+                    teleportToPoint(point.coords)
+                    reopen()
+                end,
+            },
+        },
+    })
+end
+
+function Menu.openWhitelistZoneMenu(config)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if not config then return false end
+
+    local zone = type(config.citizenZone) == 'table' and config.citizenZone or {}
+    local zoneMenuId = 'forge_core_whitelist_location_zone'
+    local reopen = function()
+        Menu.openWhitelistZoneMenu(config)
+    end
+
+    showContext({
+        id = zoneMenuId,
+        title = t('menu.whitelist.location_zone'),
+        menu = 'forge_core_whitelist_locations',
+        options = {
+            {
+                title = t('menu.whitelist.mark_zone_center'),
+                description = t('menu.whitelist.mark_zone_center_description'),
+                icon = 'box-select',
+                onSelect = function()
+                    markConfigPoint(config, t('menu.whitelist.mark_zone_center'), t('menu.whitelist.mark_zone_center_description'), function(point)
+                        config.citizenZone = type(config.citizenZone) == 'table' and config.citizenZone or clone(PR.Whitelist.Defaults.citizenZone or {})
+                        config.citizenZone.coords = { x = point.x, y = point.y, z = point.z }
+                    end, reopen, zoneMenuId)
+                end,
+            },
+            {
+                title = t('menu.whitelist.edit_zone'),
+                description = t('menu.whitelist.edit_zone_description'),
+                icon = 'box',
+                onSelect = function()
+                    Menu.openWhitelistZoneEditor(config)
+                end,
+            },
+            {
+                title = t('menu.whitelist.teleport_zone'),
+                description = t('menu.whitelist.teleport_description', { coords = formatCoords(zone.coords) }),
+                icon = 'plane-arrival',
+                onSelect = function()
+                    teleportToPoint(zone.coords)
+                    reopen()
+                end,
+            },
+        },
+    })
+end
+
+function Menu.openWhitelistLocations(config)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if not config then return false end
+
+    showContext({
+        id = 'forge_core_whitelist_locations',
+        title = t('menu.whitelist.locations'),
+        menu = 'forge_core_whitelist',
+        options = {
+            {
+                title = t('menu.whitelist.location_spawn'),
+                description = t('menu.whitelist.location_description', { coords = formatCoords(config.spawnCoords) }),
+                icon = 'map-pin',
+                arrow = true,
+                onSelect = function()
+                    Menu.openWhitelistLocationPoint(config, 'spawn')
+                end,
+            },
+            {
+                title = t('menu.whitelist.location_exam'),
+                description = t('menu.whitelist.location_description', { coords = formatCoords(config.examCoords) }),
+                icon = 'clipboard-question',
+                arrow = true,
+                onSelect = function()
+                    Menu.openWhitelistLocationPoint(config, 'exam')
+                end,
+            },
+            {
+                title = t('menu.whitelist.location_completion'),
+                description = t('menu.whitelist.location_description', { coords = formatCoords(config.completionCoords) }),
+                icon = 'flag-checkered',
+                arrow = true,
+                onSelect = function()
+                    Menu.openWhitelistLocationPoint(config, 'completion')
+                end,
+            },
+            {
+                title = t('menu.whitelist.location_zone'),
+                description = t('menu.whitelist.location_description', { coords = formatCoords(type(config.citizenZone) == 'table' and config.citizenZone.coords or nil) }),
+                icon = 'box-select',
+                arrow = true,
+                onSelect = function()
+                    Menu.openWhitelistZoneMenu(config)
+                end,
+            },
+            {
+                title = t('menu.whitelist.edit_blip'),
+                description = t('menu.whitelist.edit_blip_description'),
+                icon = 'map',
+                onSelect = function()
+                    Menu.openWhitelistBlipEditor(config)
+                end,
+            },
+        },
+    })
+end
+
+function Menu.openWhitelistZoneEditor(config)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if not config then return false end
+
+    local zone = type(config.citizenZone) == 'table' and config.citizenZone or clone(PR.Whitelist.Defaults.citizenZone or {})
+    local coords = type(zone.coords) == 'table' and zone.coords or {}
+    local size = type(zone.size) == 'table' and zone.size or {}
+
+    local result = inputDialog(t('menu.whitelist.edit_zone'), {
+        { type = 'number', label = 'X', default = tonumber(coords.x) or 0.0, required = true },
+        { type = 'number', label = 'Y', default = tonumber(coords.y) or 0.0, required = true },
+        { type = 'number', label = 'Z', default = tonumber(coords.z) or 0.0, required = true },
+        { type = 'number', label = t('inputs.whitelist_zone_size_x'), default = tonumber(size.x) or 28.0, min = 1, required = true },
+        { type = 'number', label = t('inputs.whitelist_zone_size_y'), default = tonumber(size.y) or 22.0, min = 1, required = true },
+        { type = 'number', label = t('inputs.whitelist_zone_size_z'), default = tonumber(size.z) or 6.0, min = 1, required = true },
+    })
+
+    if not result then return Menu.openWhitelistZoneMenu(config) end
+
+    config.citizenZone = {
+        coords = { x = tonumber(result[1]) or 0.0, y = tonumber(result[2]) or 0.0, z = tonumber(result[3]) or 0.0 },
+        size = { x = tonumber(result[4]) or 28.0, y = tonumber(result[5]) or 22.0, z = tonumber(result[6]) or 6.0 },
+    }
+
+    saveWhitelistConfig(config, function() Menu.openWhitelistZoneMenu(config) end)
+end
+
+function Menu.openWhitelistBlipEditor(config)
+    config = type(config) == 'table' and config or fetchWhitelistConfig()
+    if not config then return false end
+
+    local blip = type(config.blip) == 'table' and config.blip or clone(PR.Whitelist.Defaults.blip or {})
+    local result = inputDialog(t('menu.whitelist.edit_blip'), {
+        { type = 'select', label = t('inputs.whitelist_blip_enabled'), options = boolOptions(), default = boolDefault(blip.enabled == true), required = true },
+        { type = 'number', label = t('inputs.blip_sprite'), default = tonumber(blip.sprite) or 525, min = 1, required = true },
+        { type = 'number', label = t('inputs.blip_color'), default = tonumber(blip.color) or 3, min = 0, required = true },
+        { type = 'number', label = t('inputs.blip_scale'), default = tonumber(blip.scale) or 0.8, min = 0.1, required = true },
+        { type = 'input', label = t('inputs.blip_label'), default = blip.label or config.startExamLabel or '', required = true },
+    })
+
+    if not result then return Menu.openWhitelistLocations(config) end
+
+    config.blip = {
+        enabled = boolValue(result[1]),
+        sprite = tonumber(result[2]) or 525,
+        color = tonumber(result[3]) or 3,
+        scale = tonumber(result[4]) or 0.8,
+        label = tostring(result[5] or ''),
+    }
+
+    saveWhitelistConfig(config, function() Menu.openWhitelistLocations(config) end)
 end
 
 function Menu.openWhitelistPlayerAction(action)

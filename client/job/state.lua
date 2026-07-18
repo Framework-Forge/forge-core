@@ -39,6 +39,20 @@ function State.set(payload, canManage)
         revision = tostring(State.revision),
     }))
 
+    if ForgeCore.Client.JobPoints then
+        ForgeCore.Client.JobPoints.refresh({
+            jobs = State.jobs,
+            gangs = State.gangs,
+        })
+    end
+
+    if ForgeCore.Client.JobBusiness then
+        ForgeCore.Client.JobBusiness.refresh({
+            jobs = State.jobs,
+            gangs = State.gangs,
+        })
+    end
+
     return true
 end
 
