@@ -22,6 +22,22 @@ PR.Job.Callbacks = {
     forcePayment = 'forge-core:server:job:payments:force',
     saveMeiSettings = 'forge-core:server:job:mei:settings:save',
     createMei = 'forge-core:server:job:mei:create',
+    openStash = 'forge-core:server:job:stash:open',
+    toggleDuty = 'forge-core:server:job:duty:toggle',
+    registerAction = 'forge-core:server:job:business:register',
+    robRegister = 'forge-core:server:job:business:register:rob',
+    getRegisterBalance = 'forge-core:server:job:business:register:balance',
+    openShop = 'forge-core:server:job:business:shop:open',
+    getSupplyItems = 'forge-core:server:job:business:shop:supplyItems',
+    supplyShop = 'forge-core:server:job:business:shop:supply',
+    sendAlarm = 'forge-core:server:job:business:alarm',
+    submitApplication = 'forge-core:server:job:business:application:submit',
+    getApplications = 'forge-core:server:job:business:application:list',
+    reviewApplication = 'forge-core:server:job:business:application:review',
+    getEmployees = 'forge-core:server:job:business:employees',
+    hirePlayer = 'forge-core:server:job:business:hire',
+    fireEmployee = 'forge-core:server:job:business:fire',
+    setEmployeeGrade = 'forge-core:server:job:business:grade',
 }
 
 PR.Job.Commands = {
@@ -32,7 +48,6 @@ PR.Job.Commands = {
 
 PR.Job.Permissions = {
     ace = PR.AdminAce or 'forge-core.admin',
-    legacyAce = 'jobsystem',
 }
 
 PR.Job.Protected = {
@@ -83,6 +98,16 @@ PR.Job.Mei = {
     paymentAccount = getForgeConvar('mei:paymentAccount', 'bank'),
 }
 
+PR.Job.Points = {
+    stashPrefix = 'forge_core_stash',
+    targetSize = vec3(1.0, 1.0, 1.8),
+    targetDistance = 2.0,
+    defaultSlots = 50,
+    defaultWeight = 1000000,
+    defaultMinGrade = 0,
+    webhookColor = 65280,
+}
+
 PR.Job.Defaults = {
     job = {
         label = '',
@@ -97,7 +122,6 @@ PR.Job.Defaults = {
                 payment = 0,
             },
         },
-        craftings = {},
         stashes = {},
     },
     gang = {
@@ -109,7 +133,6 @@ PR.Job.Defaults = {
                 name = ForgeCore.t('jobs.defaults.member'),
             },
         },
-        craftings = {},
         stashes = {},
     },
 }

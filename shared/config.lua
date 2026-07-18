@@ -41,6 +41,15 @@ PR.PlayerKeybind = {
 -- Permissao principal. Pode ser liberada no server.cfg via ACE.
 PR.AdminAce = 'forge-core.admin'
 
+-- Integracoes diretas com outros sistemas Forge.
+PR.Garage = {
+    AdminMenu = {
+        enabled = true,
+        resource = 'forge-garage',
+        event = 'forge_garage:client:garagelist',
+    },
+}
+
 local function normalizeImagePath(path)
     return (path or 'nui://ox_inventory/web/images'):gsub('/+$', '') .. '/'
 end

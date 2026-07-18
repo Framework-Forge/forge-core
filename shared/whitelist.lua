@@ -4,6 +4,7 @@ PR.Whitelist = PR.Whitelist or {}
 PR.Whitelist.Storage = {
     playersTable = 'pinel_whitelist',
     configTable = 'pinel_whitelist_config',
+    configFile = 'data/whitelist.json',
 }
 
 PR.Whitelist.Callbacks = {
@@ -17,6 +18,7 @@ PR.Whitelist.Callbacks = {
     submitPreExam = 'forge-core:server:whitelist:submitPreExam',
     clientAdded = 'forge-core:client:whitelist:added',
     clientRemoved = 'forge-core:client:whitelist:removed',
+    clientConfigUpdated = 'forge-core:client:whitelist:configUpdated',
 }
 
 PR.Whitelist.Defaults = {
@@ -25,6 +27,16 @@ PR.Whitelist.Defaults = {
     loadNotify = 'Voce deve completar o exame de cidadania para jogar.',
     escapeNotify = 'Voce deve completar o exame de cidadania para jogar.',
     startExamLabel = 'Iniciar exame de cidadania',
+    interactionMode = 'drawtext',
+    markerEnabled = true,
+    targetEnabled = false,
+    blip = {
+        enabled = false,
+        sprite = 525,
+        color = 3,
+        scale = 0.8,
+        label = 'Exame de cidadania',
+    },
     startExamHeader = 'Exame de cidadania',
     startExamContent = 'Todos os novos cidadaos devem passar no exame antes de jogar. Responda com calma e bom senso.',
     successHeader = 'Voce passou no exame de cidadania!',
