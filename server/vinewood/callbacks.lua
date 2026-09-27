@@ -1,10 +1,10 @@
 ForgeCore = ForgeCore or {}
 
-pr_lib.callback.register(PR.Vinewood.Callbacks.getSettings, function(source)
+ForgeCore.Callbacks.register(PR.Vinewood.Callbacks.getSettings, function(source)
     if not ForgeCore.VinewoodService.canManage(source) then return false, 'no_permission' end
     return true, ForgeCore.VinewoodService.getSettings()
 end)
 
-pr_lib.callback.register(PR.Vinewood.Callbacks.saveSettings, function(source, settings)
+ForgeCore.Callbacks.register(PR.Vinewood.Callbacks.saveSettings, function(source, settings)
     return ForgeCore.VinewoodService.save(source, settings)
 end)

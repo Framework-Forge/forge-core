@@ -50,6 +50,14 @@ PR.Garage = {
     },
 }
 
+PR.Rental = {
+    AdminMenu = {
+        enabled = true,
+        resource = 'forge-rental',
+        event = 'forge-rental:server:openAdminMenu',
+    },
+}
+
 local function normalizeImagePath(path)
     return (path or 'nui://ox_inventory/web/images'):gsub('/+$', '') .. '/'
 end

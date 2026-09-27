@@ -59,6 +59,30 @@ local function runWeaponAction(callbackName, failureLocale, ...)
     return ok, response
 end
 
+local function giveWeaponToSelf(weapon)
+    local result = inputDialog(t('menu.inventory.give_self'), {
+        {
+            type = 'number',
+            label = t('menu.inventory.give_amount'),
+            default = 1,
+            min = 1,
+            max = 25,
+            required = true,
+        },
+    })
+
+    if not result then return false end
+
+    return runWeaponAction(
+        PR.Inventory.Callbacks.give,
+        'notify.inventory.give_failed',
+        GetPlayerServerId(PlayerId()),
+        'weapon',
+        weapon.name,
+        tonumber(result[1]) or 1
+    )
+end
+
 local function saveParsedWeapons(parsed)
     local entries = type(parsed) == 'table' and parsed.entries
     if type(entries) ~= 'table' then return false end
@@ -145,7 +169,7 @@ function Menu.openWeaponsMenu(parentMenu)
     if #(payload.weapons or {}) == 0 then
         options[#options + 1] = {
             title = t('menu.weapons.no_weapons'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -176,7 +200,7 @@ function Menu.openWeaponDetails(weapon)
             {
                 title = t('menu.weapons.info_status', { status = weaponStatus(weapon) }),
                 description = t('menu.weapons.info_status_description'),
-                icon = weapon.active == false and 'toggle-left' or 'toggle-right',
+                icon = weapon.active == false and 'toggle-off' or 'toggle-on',
                 disabled = true,
             },
             {
@@ -185,19 +209,19 @@ function Menu.openWeaponDetails(weapon)
                     category = weapon.weapontype or '',
                     ammo = weapon.ammotype or t('common.none'),
                 }),
-                icon = 'circle-info',
+                icon = 'info-circle-fill',
                 disabled = true,
             },
             {
                 title = t('menu.weapons.info_damage'),
                 description = weapon.damagereason or PR.Weapons.Defaults.damagereason,
-                icon = 'skull',
+                icon = 'emoji-dizzy-fill',
                 disabled = true,
             },
             {
                 title = nextActive and t('menu.weapons.activate') or t('menu.weapons.deactivate'),
                 description = nextActive and t('menu.weapons.activate_description') or t('menu.weapons.deactivate_description'),
-                icon = nextActive and 'toggle-right' or 'toggle-left',
+                icon = nextActive and 'toggle-on' or 'toggle-off',
                 iconColor = nextActive and 'green' or 'yellow',
                 onSelect = function()
                     runWeaponAction(PR.Weapons.Callbacks.setActive, 'notify.weapons.action_failed', weapon.name, nextActive)
@@ -205,6 +229,17 @@ function Menu.openWeaponDetails(weapon)
                     SetTimeout(500, function()
                         Menu.openWeaponsMenu()
                     end)
+                end,
+            },
+            {
+                title = t('menu.inventory.give_self'),
+                description = t('menu.inventory.give_self_description'),
+                icon = 'gift-fill',
+                iconColor = 'green',
+                disabled = weapon.active == false,
+                onSelect = function()
+                    giveWeaponToSelf(weapon)
+                    SetTimeout(400, function() Menu.openWeaponDetails(weapon) end)
                 end,
             },
             {
@@ -325,6 +360,7 @@ function Menu.openWeaponEditor(weapon)
         name = weapon.name or result[1],
         label = result[2],
         weapontype = result[3],
+        throwable = result[3] == 'Throwable',
         ammotype = result[4],
         damagereason = result[5],
         ammoname = tostring(result[6] or '') ~= '' and result[6] or nil,

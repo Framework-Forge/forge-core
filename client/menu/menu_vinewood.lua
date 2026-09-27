@@ -46,7 +46,7 @@ function Menu.openVinewoodMenu()
                     text = settings.text,
                     color = settings.color,
                 }),
-                icon = 'landmark',
+                icon = 'bank2',
                 onSelect = function()
                     Menu.openVinewoodEditor(settings)
                 end,

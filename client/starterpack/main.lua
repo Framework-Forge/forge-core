@@ -48,8 +48,8 @@ local function t(key, params)
 end
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('starterpack.title'),
             description = description,
             type = notifyType or 'inform',
@@ -229,7 +229,7 @@ local function addLamarTarget()
         {
             name = targetName,
             label = t('menu.starterpack.talk_lamar'),
-            icon = 'fa-solid fa-route',
+            icon = 'signpost-split-fill',
             distance = 2.5,
             canInteract = function()
                 return not Starterpack.routeActive
@@ -837,29 +837,17 @@ local function openKeyframeHelp(count)
         count = tostring(count or 0),
     })
 
-    if lib and lib.showTextUI then
-        lib.showTextUI(text, {
+    if pr_lib and pr_lib.ShowTextUI then
+        pr_lib.ShowTextUI(text, {
             position = 'left-center',
-            icon = 'video',
+            icon = 'camera-video-fill',
             iconColor = '#22c55e',
         })
-    elseif GetResourceState('ox_lib') == 'started' then
-        exports.ox_lib:showTextUI(text, {
-            position = 'left-center',
-            icon = 'video',
-            iconColor = '#22c55e',
-        })
-    else
-        print(('[forge-core:starterpack] ox_lib TextUI unavailable: %s'):format(text))
     end
 end
 
 local function closeKeyframeHelp()
-    if lib and lib.hideTextUI then
-        lib.hideTextUI()
-    elseif GetResourceState('ox_lib') == 'started' then
-        exports.ox_lib:hideTextUI()
-    end
+    if pr_lib and pr_lib.HideTextUI then pr_lib.HideTextUI() end
 end
 
 local function dirFromRot(rot)

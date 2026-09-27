@@ -98,29 +98,43 @@ RegisterCommand('forgeace', function(source, args)
     end
 
     local action = tostring(args[1] or 'status'):lower()
-    local targetSource = tonumber(args[2]) or source
-
-    if action == 'apply' or action == 'fix' then
-        if targetSource <= 0 then
-            print('[forge-core] Use: forgeace apply <id>')
-            return
-        end
-
-        ForgeCore.StaffService.forceApply(targetSource, 'group.admin')
-        notify(targetSource, 'Permissoes admin reaplicadas pelo Forge Core.', 'success')
+    if action ~= 'status' then
+        notify(source, 'forgeace e somente leitura. Use: forgeace status [id].', 'error')
+        return
     end
 
-    local status = ForgeCore.StaffService.permissionStatus(targetSource)
+    local targetSource = tonumber(args[2]) or source
+    local status = ForgeCore.StaffService.permissionDiagnostics
+        and ForgeCore.StaffService.permissionDiagnostics(targetSource)
+        or ForgeCore.StaffService.permissionStatus(targetSource)
     local lines = {}
+    local compactLines = {}
+    local compactAces = {
+        ['forge-core.admin'] = true,
+        admin = true,
+        ['group.admin'] = true,
+        ['group.mod'] = true,
+        ['group.staff'] = true,
+        ['pr_bridge.developer'] = true,
+    }
 
     for _, item in ipairs(status) do
-        lines[#lines + 1] = ('%s=%s'):format(item.ace, item.allowed and 'sim' or 'nao')
+        local allowed = item.allowed and 'sim' or 'nao'
+        local entry = ('%s=%s metadata=%s parent=%s parentAce=%s'):format(
+            item.ace, allowed, item.stored and 'sim' or 'nao',
+            item.parent or '-', item.parentAllowed and 'sim' or 'nao'
+        )
+        lines[#lines + 1] = entry
+        if compactAces[item.ace] then
+            compactLines[#compactLines + 1] = ('%s=%s'):format(item.ace, allowed)
+        end
     end
 
     local message = table.concat(lines, ' | ')
 
     if source > 0 then
-        notify(source, message, 'info')
+        notify(source, table.concat(compactLines, ' | '), 'info')
+        print(('[forge-core] ACE status %s requested by %s: %s'):format(targetSource, source, message))
     else
         print(('[forge-core] ACE status %s: %s'):format(targetSource, message))
     end

@@ -131,7 +131,7 @@ function Menu.openMultiJobDetails(job, settings, parent)
         options[#options + 1] = {
             title = t('menu.multijob.remove'),
             description = t('menu.multijob.remove_description'),
-            icon = 'trash-2',
+            icon = 'trash',
             iconColor = '#ef4444',
             onSelect = function()
                 local confirmed = alertDialog({
@@ -185,7 +185,7 @@ function Menu.openMultiJobAdminMenu()
                     max = tostring(settings.maxJobs),
                     remove = settings.allowPlayerRemove and t('common.yes') or t('common.no'),
                 }),
-                icon = 'settings',
+                icon = 'gear-fill',
                 onSelect = function()
                     Menu.openMultiJobSettingsEditor(settings)
                 end,
@@ -202,7 +202,7 @@ function Menu.openMultiJobAdminMenu()
             {
                 title = t('menu.multijob.admin_add'),
                 description = t('menu.multijob.admin_add_description'),
-                icon = 'user-plus',
+                icon = 'person-plus-fill',
                 onSelect = function()
                     Menu.openMultiJobAdminAdd()
                 end,
@@ -210,7 +210,7 @@ function Menu.openMultiJobAdminMenu()
             {
                 title = t('menu.multijob.admin_remove'),
                 description = t('menu.multijob.admin_remove_description'),
-                icon = 'user-minus',
+                icon = 'person-dash-fill',
                 onSelect = function()
                     Menu.openMultiJobAdminRemove()
                 end,

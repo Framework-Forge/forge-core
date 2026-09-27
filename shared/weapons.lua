@@ -46,6 +46,7 @@ PR.Weapons.Defaults = {
     name = '',
     label = '',
     weapontype = 'Pistol',
+    throwable = false,
     ammotype = 'AMMO_PISTOL',
     damagereason = 'Died',
     active = true,

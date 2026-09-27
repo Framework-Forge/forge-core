@@ -9,6 +9,19 @@ local showContext = Shared.showContext
 local awaitServer = Shared.awaitServer
 local notifyFailure = Shared.notifyFailure
 
+local function displayScalar(value)
+    if type(value) ~= 'string' and type(value) ~= 'number' and type(value) ~= 'boolean' then
+        return t('common.none')
+    end
+
+    local text = tostring(value)
+    if text == '' or text:match('^table:%s*0?x?[%x]+$') then
+        return t('common.none')
+    end
+
+    return text
+end
+
 local function fetchPlayerInfo()
     local ok, payload = awaitServer(PR.Player.Callbacks.getInfo)
     if not ok then
@@ -21,12 +34,21 @@ end
 
 function Menu.openPlayerMenu()
     local info = fetchPlayerInfo()
-    if not info then return false end
+    info = info or {}
 
     showContext({
         id = 'forge_core_player_menu',
         title = t('menu.player.title'),
         options = {
+            {
+                title = 'Logout',
+                description = 'Salva o personagem atual e volta para a seleção de personagens.',
+                icon = 'person-switch',
+                onSelect = function()
+                    local ok, reason = awaitServer(PR.CharacterSlots.playerCallbacks.logout)
+                    if not ok then notifyFailure('notify.player.load_failed', reason) end
+                end,
+            },
             {
                 title = t('menu.player.personal_data'),
                 description = ('%s: %s %s\n%s: %s\n%s: %s\n%s: %s'):format(
@@ -40,7 +62,7 @@ function Menu.openPlayerMenu()
                     t('menu.player.nationality'),
                     tostring(info.nationality or t('common.none'))
                 ),
-                icon = 'user',
+                icon = 'person-fill',
                 iconColor = '#ffffff',
             },
             {
@@ -51,15 +73,21 @@ function Menu.openPlayerMenu()
                     t('menu.player.gang'),
                     tostring(info.gang or t('common.none')),
                     t('menu.player.extra'),
-                    tostring(info.extra or t('common.none'))
+                    displayScalar(info.extra)
                 ),
                 icon = 'briefcase',
                 iconColor = '#ffffff',
             },
             {
+                title = 'VIP',
+                description = ('Classe: %s\\nValidade: %s'):format(tostring(info.vip or 'Standard'), tostring(info.vipExpiresAtFormatted or 'Sem VIP')),
+                icon = 'star-fill',
+                iconColor = info.vip and info.vip ~= 'Standard' and '#f5c542' or '#ffffff',
+            },
+            {
                 title = t('menu.multijob.title'),
                 description = t('menu.multijob.player_description'),
-                icon = 'briefcase-business',
+                icon = 'briefcase-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openMultiJobMenu('forge_core_player_menu')
@@ -68,7 +96,7 @@ function Menu.openPlayerMenu()
             {
                 title = t('menu.skills.my_skills'),
                 description = t('menu.player.skills_description'),
-                icon = 'brain',
+                icon = 'activity',
                 arrow = true,
                 onSelect = function()
                     Menu.openPlayerSkillsMenu('forge_core_player_menu')

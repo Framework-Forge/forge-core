@@ -281,34 +281,34 @@ ForgeCore.WeatherService = {
     end,
 }
 
-pr_lib.callback.register(PR.Weather.Callbacks.getState, function(source)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.getState, function(source)
     return ForgeCore.WeatherService.getState(source)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.setWeather, function(source, index, weatherType, weatherEvent)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.setWeather, function(source, index, weatherType, weatherEvent)
     return ForgeCore.WeatherService.setWeather(source, index, weatherType, weatherEvent)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.setDuration, function(source, index, duration, weatherEvent)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.setDuration, function(source, index, duration, weatherEvent)
     return ForgeCore.WeatherService.setDuration(source, index, duration, weatherEvent)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.addWeather, function(source, data)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.addWeather, function(source, data)
     return ForgeCore.WeatherService.addWeather(source, data)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.removeWeather, function(source, index, weatherEvent)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.removeWeather, function(source, index, weatherEvent)
     return ForgeCore.WeatherService.removeWeather(source, index, weatherEvent)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.setTime, function(source, hour, minute)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.setTime, function(source, hour, minute)
     return ForgeCore.WeatherService.setTime(source, hour, minute)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.setTimeScale, function(source, scale)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.setTimeScale, function(source, scale)
     return ForgeCore.WeatherService.setTimeScale(source, scale)
 end)
 
-pr_lib.callback.register(PR.Weather.Callbacks.setFreezeTime, function(source, enabled)
+ForgeCore.Callbacks.register(PR.Weather.Callbacks.setFreezeTime, function(source, enabled)
     return ForgeCore.WeatherService.setFreezeTime(source, enabled)
 end)

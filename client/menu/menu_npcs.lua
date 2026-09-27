@@ -12,8 +12,8 @@ local notifyFailure = Shared.notifyFailure
 local alertDialog = Shared.alertDialog
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('npcs.title'),
             description = description,
             type = notifyType or 'inform',
@@ -248,7 +248,7 @@ local function choosePedModel(group, search, page)
                 pages = tostring(totalPages),
                 count = tostring(#models),
             }),
-            icon = 'magnifying-glass',
+            icon = 'search',
             onSelect = function()
                 local result = inputDialog(t('menu.npcs.search_model'), {
                     {
@@ -282,7 +282,7 @@ local function choosePedModel(group, search, page)
         options[#options + 1] = {
             title = ped.label,
             description = ped.model,
-            icon = 'user',
+            icon = 'person-fill',
             image = pedImage(ped.model),
             metadata = {
                 { label = t('inputs.npc_model'), value = ped.model },
@@ -618,7 +618,7 @@ function Menu.openNpcsMenu()
         {
             title = ForgeCore.Client.Npcs.debugIds and t('menu.npcs.disable_debug') or t('menu.npcs.enable_debug'),
             description = t('menu.npcs.debug_description'),
-            icon = ForgeCore.Client.Npcs.debugIds and 'toggle-right' or 'toggle-left',
+            icon = ForgeCore.Client.Npcs.debugIds and 'toggle-on' or 'toggle-off',
             iconColor = ForgeCore.Client.Npcs.debugIds and 'green' or 'red',
             onSelect = function()
                 ForgeCore.Client.Npcs.toggleDebug()
@@ -627,7 +627,7 @@ function Menu.openNpcsMenu()
         },
         {
             title = t('menu.npcs.total_groups', { count = tostring(#payload.groups) }),
-            icon = 'users',
+            icon = 'people-fill',
             disabled = true,
         },
     }
@@ -673,7 +673,7 @@ function Menu.openNpcsGroup(groupId, groupName)
         {
             title = t('menu.npcs.create_npc'),
             description = t('menu.npcs.create_npc_description'),
-            icon = 'user-plus',
+            icon = 'person-plus-fill',
             onSelect = function()
                 createNpc(group)
             end,
@@ -681,7 +681,7 @@ function Menu.openNpcsGroup(groupId, groupName)
         {
             title = t('menu.npcs.rename_group'),
             description = t('menu.npcs.rename_group_description'),
-            icon = 'pen-to-square',
+            icon = 'pencil-square',
             onSelect = function()
                 renameGroup(group)
             end,
@@ -698,7 +698,7 @@ function Menu.openNpcsGroup(groupId, groupName)
         },
         {
             title = t('menu.npcs.total_npcs', { count = tostring(#groupNpcs) }),
-            icon = 'users',
+            icon = 'people-fill',
             disabled = true,
         },
     }
@@ -710,7 +710,7 @@ function Menu.openNpcsGroup(groupId, groupName)
                 model = npc.model,
                 status = npc.enabled == false and t('common.inactive') or t('common.active'),
             }),
-            icon = 'user',
+            icon = 'person-fill',
             image = pedImage(npc.model),
             onSelect = function()
                 Menu.openNpcActions(npc.id)
@@ -760,7 +760,7 @@ function Menu.openNpcActions(npcId)
             {
                 title = t('menu.npcs.edit_position'),
                 description = t('menu.npcs.edit_position_description'),
-                icon = 'move-3d',
+                icon = 'arrows-move',
                 onSelect = function()
                     ForgeCore.Client.Npcs.setOutline(npcId, false)
                     ForgeCore.Client.Npcs.edit(npcId)
@@ -769,7 +769,7 @@ function Menu.openNpcActions(npcId)
             {
                 title = t('menu.npcs.edit_basic'),
                 description = t('menu.npcs.edit_basic_description'),
-                icon = 'pen-to-square',
+                icon = 'pencil-square',
                 onSelect = function()
                     ForgeCore.Client.Npcs.setOutline(npcId, false)
                     editBasic(npc)
@@ -778,7 +778,7 @@ function Menu.openNpcActions(npcId)
             {
                 title = t('menu.npcs.edit_interaction'),
                 description = t('menu.npcs.edit_interaction_description'),
-                icon = 'bolt',
+                icon = 'lightning-fill',
                 onSelect = function()
                     ForgeCore.Client.Npcs.setOutline(npcId, false)
                     editInteraction(npc)
@@ -795,7 +795,7 @@ function Menu.openNpcActions(npcId)
             },
             {
                 title = t('menu.npcs.teleport_npc'),
-                icon = 'arrows-to-dot',
+                icon = 'bounding-box-circles',
                 onSelect = function()
                     ForgeCore.Client.Npcs.setOutline(npcId, false)
                     ForgeCore.Client.Npcs.teleportTo(npcId)

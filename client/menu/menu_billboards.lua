@@ -432,14 +432,14 @@ function Menu.openBillboardActions(billboardId)
             {
                 title = t('menu.billboards.fine_tune_billboard'),
                 description = t('menu.billboards.fine_tune_billboard_description'),
-                icon = 'sliders-horizontal',
+                icon = 'sliders',
                 onSelect = function()
                     fineTuneBillboard(billboard)
                 end,
             },
             {
                 title = boolValue(billboard.enabled, true) and t('menu.billboards.disable_billboard') or t('menu.billboards.enable_billboard'),
-                icon = boolValue(billboard.enabled, true) and 'toggle-right' or 'toggle-left',
+                icon = boolValue(billboard.enabled, true) and 'toggle-on' or 'toggle-off',
                 iconColor = boolValue(billboard.enabled, true) and 'green' or 'red',
                 onSelect = function()
                     local nextEnabled = not boolValue(billboard.enabled, true)

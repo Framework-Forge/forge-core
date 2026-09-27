@@ -17,8 +17,8 @@ local function t(key, params)
 end
 
 local function notify(data)
-    if not pr_lib or not pr_lib.notify or not pr_lib.notify.Notify then return end
-    pr_lib.notify.Notify({
+    if not pr_lib or not pr_lib.Notify then return end
+    pr_lib.Notify({
         title = data.title or t('farms.title'),
         description = data.description,
         type = data.type,
@@ -213,26 +213,17 @@ local function doFarmProgress(duration, label, animation)
         end
     end)
 
-    if lib and lib.progressBar then
-        local result = lib.progressBar({
-            duration = duration,
-            label = label,
-            useWhileDead = false,
-            canCancel = true,
-            disable = {
-                move = true,
-                car = true,
-                combat = true,
-            },
-        }) == true
-
-        running = false
-        ClearPedTasks(ped)
-        return result
-    end
-
-    local tuple = { 'amb@world_human_clipboard@male@idle_a', 'idle_a' }
-    local result = pr_lib.progress and pr_lib.progress.doProgressbar and pr_lib.progress.doProgressbar(duration, label, tuple) == true
+    local result = pr_lib and pr_lib.progressBar and pr_lib.progressBar({
+        duration = duration,
+        label = label,
+        useWhileDead = false,
+        canCancel = true,
+        disable = {
+            move = true,
+            car = true,
+            combat = true,
+        },
+    }) == true
     running = false
     ClearPedTasks(ped)
     return result
@@ -322,7 +313,7 @@ local function addPointTargets(farm, item)
                 options = {
                     {
                         name = ('forge_core_farm_collect_%s_%s_%s'):format(farm.id, item.id, index),
-                        icon = 'fa-solid fa-seedling',
+                        icon = 'flower1',
                         label = t('menu.farms.collect_target', { item = item.label or itemLabel(item.reward) }),
                         distance = PR.Farms.Defaults.targetDistance,
                         canInteract = function()
@@ -369,7 +360,7 @@ local function openFarmMenu(farm)
             options[#options + 1] = {
                 title = item.label or itemLabel(item.reward),
                 description = t('menu.farms.item_description', { min = tostring(item.min), max = tostring(item.max), points = tostring(#(item.points or {})) }),
-                icon = 'seedling',
+                icon = 'flower1',
                 disabled = Farms.active ~= nil,
                 onSelect = function()
                     startFarm(farm, item)
@@ -387,12 +378,12 @@ local function openFarmMenu(farm)
         }
     end
 
-    lib.registerContext({
+    pr_lib.menus.RegisterContext({
         id = 'forge_core_farm_player_' .. tostring(farm.id),
         title = farm.name,
         options = options,
     })
-    lib.showContext('forge_core_farm_player_' .. tostring(farm.id))
+    pr_lib.menus.ShowContext('forge_core_farm_player_' .. tostring(farm.id))
 end
 
 local function addStartZone(farm)
@@ -410,7 +401,7 @@ local function addStartZone(farm)
         options = {
             {
                 name = ('forge_core_farm_start_%s'):format(farm.id),
-                icon = 'fa-solid fa-tractor',
+                icon = 'truck-front-fill',
                 label = farm.start.label or t('menu.farms.open_target'),
                 distance = PR.Farms.Defaults.targetDistance,
                 onSelect = function()

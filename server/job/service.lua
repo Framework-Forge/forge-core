@@ -5,8 +5,81 @@ local Service = {
 }
 
 local ensureSocietyAccount
+local debug
 
-local function debug(level, message)
+local function fallbackValidGrade(grades, requested)
+    local nearest
+    local lowest
+
+    for key in pairs(type(grades) == 'table' and grades or {}) do
+        local grade = tonumber(key)
+        if grade then
+            if not lowest or grade < lowest then lowest = grade end
+            if grade <= requested and (not nearest or grade > nearest) then nearest = grade end
+        end
+    end
+
+    return nearest or lowest
+end
+
+local function reconcilePersistedGroups()
+    if GetResourceState('qbx_core') ~= 'started' or not pr_lib.database or not pr_lib.database.query or not pr_lib.database.transaction then
+        return false, 'unavailable'
+    end
+
+    local ok, jobs, gangs = pcall(function()
+        return exports.qbx_core:GetJobs(), exports.qbx_core:GetGangs()
+    end)
+    if not ok or type(jobs) ~= 'table' or type(gangs) ~= 'table' then
+        return false, 'catalog_unavailable'
+    end
+
+    local rows = pr_lib.database.query('SELECT citizenid, `group`, type, grade FROM player_groups')
+    if type(rows) ~= 'table' then return false, 'query_failed' end
+    local queries = {}
+    local removed = 0
+    local adjusted = 0
+
+    for i = 1, #rows do
+        local row = rows[i]
+        local catalog = row.type == 'gang' and gangs or jobs
+        local group = catalog[row.group]
+
+        if not group then
+            queries[#queries + 1] = {
+                query = 'DELETE FROM player_groups WHERE citizenid = ? AND `group` = ? AND type = ?',
+                values = { row.citizenid, row.group, row.type },
+            }
+            removed = removed + 1
+        else
+            local grades = type(group.grades) == 'table' and group.grades or {}
+            local grade = tonumber(row.grade)
+            if not (grades[grade] or grades[tostring(grade)]) then
+                local fallback = fallbackValidGrade(grades, grade or 0)
+                if fallback then
+                    queries[#queries + 1] = {
+                        query = 'UPDATE player_groups SET grade = ? WHERE citizenid = ? AND `group` = ? AND type = ?',
+                        values = { fallback, row.citizenid, row.group, row.type },
+                    }
+                    adjusted = adjusted + 1
+                end
+            end
+        end
+    end
+
+    if #queries > 0 then
+        local committed = pr_lib.database.transaction(queries)
+        if not committed then return false, 'transaction_failed' end
+    end
+
+    if removed > 0 or adjusted > 0 then
+        debug('info', ('Reconciled player groups: %s removed, %s grades adjusted.'):format(removed, adjusted))
+    end
+
+    return true, { removed = removed, adjusted = adjusted }
+end
+
+debug = function(level, message)
     local debugApi = pr_lib and pr_lib.debug
     if not debugApi then return end
 
@@ -144,6 +217,7 @@ function Service.reload()
         Service.save()
     end
     ForgeCore.JobQbxSync.syncAll()
+    reconcilePersistedGroups()
     if ForgeCore.JobPoints then
         ForgeCore.JobPoints.registerAll()
     end
@@ -159,6 +233,7 @@ function Service.saveAndSync()
     applyDutyDefaultRules()
     local saved = Service.save()
     ForgeCore.JobQbxSync.syncAll()
+    reconcilePersistedGroups()
     if ForgeCore.JobPoints then
         ForgeCore.JobPoints.registerAll()
     end
@@ -183,7 +258,7 @@ function Service.upsert(source, groupData, forcedType)
     local isNewJob = normalized.type == 'job' and not ForgeCore.JobRegistry.exists('job', normalized.name)
 
     if isNewJob then
-        local societyOk, societyErr = ensureSocietyAccount(source, normalized.name)
+        local societyOk, societyErr = ensureSocietyAccount(normalized.name, normalized.label)
         if not societyOk and societyErr ~= 'banking_unavailable' then return false, societyErr end
     end
 
@@ -271,39 +346,25 @@ local function getQbxPlayer(source)
     if ok then return player end
 end
 
-local function isResourceStarted(resource)
-    local state = GetResourceState(resource)
-    return state == 'started' or state == 'starting'
-end
-
-local function getSocietyAccount(accountName)
-    if not isResourceStarted('ps-banking') then return nil, 'banking_unavailable' end
-
-    local ok, account = pcall(function()
-        return exports['ps-banking']:GetAccount(accountName)
-    end)
-
-    if not ok then return nil, 'society_check_failed' end
-
-    return account
-end
-
-function ensureSocietyAccount(source, accountName)
-    local account, err = getSocietyAccount(accountName)
-    if account then return true, 'exists' end
-    if err and err ~= 'society_check_failed' then return false, err end
-    if not source or source <= 0 then return false, 'invalid_source' end
-
-    local ok, created = pcall(function()
-        return exports['ps-banking']:CreatePlayerAccount(source, accountName, 0, {})
-    end)
-
-    if not ok or created == false then
-        return false, 'society_create_failed'
+function ensureSocietyAccount(accountName, accountLabel)
+    if not pr_lib.banking or type(pr_lib.banking.EnsureJobAccount) ~= 'function' then
+        return false, 'banking_unavailable'
     end
 
-    debug('success', ForgeCore.t('debug.jobs.society_created', { account = accountName }))
-    return true, 'created'
+    local ok, ensured, status = pcall(
+        pr_lib.banking.EnsureJobAccount,
+        accountName,
+        accountLabel or accountName,
+        0
+    )
+
+    if not ok or ensured ~= true then return false, status or 'society_create_failed' end
+
+    if status == 'created' then
+        debug('success', ForgeCore.t('debug.jobs.society_created', { account = accountName }))
+    end
+
+    return true, status or 'exists'
 end
 
 local function highestGrade(grades)
@@ -361,7 +422,7 @@ function Service.createMei(source, data)
     local normalized, normalizeErr = ForgeCore.JobRegistry.normalizeGroup(group, 'job')
     if not normalized then return false, normalizeErr end
 
-    local societyOk, societyErr = ensureSocietyAccount(source, normalized.name)
+    local societyOk, societyErr = ensureSocietyAccount(normalized.name, normalized.label)
     if not societyOk then return false, societyErr end
 
     local charged, chargeErr = ForgeCore.JobPayments.chargeMeiOpening(player, settings)

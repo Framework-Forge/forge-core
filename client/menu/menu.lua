@@ -23,8 +23,8 @@ local function debug(level, message)
 end
 
 local function notify(data)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = data.title or t('core.title'),
             description = data.description,
             type = data.type,
@@ -96,7 +96,43 @@ local function openGarageAdminMenu()
         return false
     end
 
-    TriggerEvent(config.event or 'forge_garage:client:garagelist')
+    TriggerEvent(
+        config.event or 'forge_garage:client:garagelist',
+        'forge_core_main',
+        GetCurrentResourceName()
+    )
+    return true
+end
+
+local function openRentalAdminMenu()
+    local config = PR.Rental and PR.Rental.AdminMenu or {}
+    if config.enabled == false then return false end
+
+    local resource = config.resource or 'forge-rental'
+    if GetResourceState(resource) ~= 'started' then
+        notify({
+            title = t('rental.title'),
+            description = t('errors.rental_resource_unavailable', { resource = resource }),
+            type = 'error',
+        })
+        return false
+    end
+
+    TriggerServerEvent(config.event or 'forge-rental:server:openAdminMenu', 'forge-core')
+    return true
+end
+
+local function openInterfaceAdminMenu()
+    if not pr_lib or type(pr_lib.openVisualAdminMenu) ~= 'function' then
+        notify({
+            title = t('menu.interface.title'),
+            description = t('errors.no_menu_system'),
+            type = 'error',
+        })
+        return false
+    end
+
+    pr_lib.openVisualAdminMenu('forge_core_main')
     return true
 end
 
@@ -495,7 +531,7 @@ function Menu.openMain()
             {
                 title = t('menu.skills.title'),
                 description = t('menu.skills.description'),
-                icon = 'chart-no-axes-combined',
+                icon = 'graph-up-arrow',
                 onSelect = function()
                     Menu.openSkillsMenu()
                 end,
@@ -503,7 +539,7 @@ function Menu.openMain()
             {
                 title = t('menu.staff.title'),
                 description = t('menu.staff.description'),
-                icon = 'users-round',
+                icon = 'people-fill',
                 onSelect = function()
                     Menu.openStaffMenu()
                 end,
@@ -511,7 +547,7 @@ function Menu.openMain()
             {
                 title = t('menu.server.title'),
                 description = t('menu.server.description'),
-                icon = 'server-cog',
+                icon = 'server',
                 onSelect = function()
                     Menu.openServerSettingsMenu()
                 end,
@@ -519,13 +555,48 @@ function Menu.openMain()
             {
                 title = t('menu.garage.title'),
                 description = t('menu.garage.description'),
-                icon = 'warehouse',
+                icon = 'building-fill',
                 disabled = not (PR.Garage and PR.Garage.AdminMenu and PR.Garage.AdminMenu.enabled ~= false),
                 onSelect = function()
                     openGarageAdminMenu()
                 end,
             },
+            {
+                title = t('menu.rental.title'),
+                description = t('menu.rental.description'),
+                icon = 'car-front',
+                disabled = not (PR.Rental and PR.Rental.AdminMenu and PR.Rental.AdminMenu.enabled ~= false),
+                onSelect = function()
+                    openRentalAdminMenu()
+                end,
+            },
+            {
+                title = t('menu.interface.title'),
+                description = t('menu.interface.description'),
+                icon = 'palette-fill',
+                onSelect = function()
+                    openInterfaceAdminMenu()
+                end,
+            },
+            {
+                title = 'Gestão de Players',
+                description = 'Perfis, whitelist, empregos, VIP e metadata dos jogadores.',
+                icon = 'people-fill',
+                onSelect = function() Menu.openPlayersManagement() end,
+            },
+            {
+                title = 'Auto Atendimento Medico',
+                description = 'Configurar NPC medico, cooldown e perda de inventario.',
+                icon = 'heart-pulse-fill',
+                onSelect = function()
+                    Menu.openAutoMedicMenu()
+                end,
+            },
         },
     })
 end
+
+AddEventHandler('forge-core:client:openAdminMenu', function()
+    Menu.openMain()
+end)
 

@@ -16,8 +16,8 @@ local function t(key, params)
 end
 
 local function notify(data)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = data.title or t('whitelist.title'),
             description = data.description,
             type = data.type,
@@ -147,7 +147,7 @@ local function setupExamTarget(config)
             {
                 name = 'forge_core_whitelist_exam',
                 label = config.startExamLabel or t('whitelist.start'),
-                icon = 'fa-solid fa-clipboard-question',
+                icon = 'clipboard2-check-fill',
                 distance = 2.0,
                 canInteract = function()
                     return Whitelist.active and not Whitelist.examRunning
@@ -230,25 +230,13 @@ local function submitPreExam(config)
 end
 
 local function askQuestion(question)
+    local choices = shuffle(question.options or {})
     local options = {}
-
-    for _, option in ipairs(shuffle(question.options or {})) do
-        options[#options + 1] = {
-            value = option.value == true and 'true' or 'false',
-            label = option.label,
-        }
-    end
-
-    local result = inputDialog(question.question, {
-        {
-            type = 'select',
-            label = t('inputs.whitelist_answer'),
-            options = options,
-            required = true,
-        },
-    })
-
-    return result and result[1] == 'true'
+    for index, option in ipairs(choices) do options[#options + 1] = { value = tostring(index), label = option.label } end
+    local result = inputDialog(question.question, {{ type = 'select', label = t('inputs.whitelist_answer'), options = options, required = true }})
+    if not result then return false, { value = 'Sem resposta', correct = false } end
+    local selected = choices[tonumber(result[1])] or {}
+    return selected.value == true, { value = selected.label or 'Sem resposta', correct = selected.value == true }
 end
 
 local function finishWhitelist()
@@ -292,14 +280,15 @@ beginExam = function()
 
     local correct = 0
     local questions = shuffle(config.questions or {})
-
-    for _, question in ipairs(questions) do
-        if askQuestion(question) then
-            correct = correct + 1
-        end
+    local examAnswers = {}
+    for index, question in ipairs(questions) do
+        local isCorrect, answer = askQuestion(question)
+        if isCorrect then correct = correct + 1 end
+        examAnswers[question.question or tostring(index)] = answer
     end
-
     local percent = #questions > 0 and ((100 * correct) / #questions) or 0
+    examAnswers.Resultado = { value = ('%.1f%% (%s/%s)'):format(percent, correct, #questions), correct = percent >= (tonumber(config.percent) or 70) }
+    awaitServer(PR.Whitelist.Callbacks.submitPreExam, examAnswers)
 
     if percent >= (tonumber(config.percent) or 70) then
         alertDialog({

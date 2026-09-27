@@ -87,6 +87,7 @@ local plugins = {
             { path = 'payments.account', type = 'select', label = ForgeCore.t('inputs.payment_account'), action = 'savePayments', options = { { label = ForgeCore.t('payments.accounts.bank'), value = 'bank' }, { label = ForgeCore.t('payments.accounts.cash'), value = 'cash' }, { label = ForgeCore.t('payments.accounts.crypto'), value = 'crypto' } } },
             { path = 'payments.payOffDuty', type = 'boolean', label = ForgeCore.t('inputs.pay_off_duty'), action = 'savePayments', options = { { label = ForgeCore.t('common.yes'), value = true }, { label = ForgeCore.t('common.no'), value = false } } },
             { path = 'payments.useSociety', type = 'boolean', label = ForgeCore.t('inputs.use_society'), action = 'savePayments', options = { { label = ForgeCore.t('common.yes'), value = true }, { label = ForgeCore.t('common.no'), value = false } } },
+            { path = 'payments.societySalaryPercent', type = 'number', label = ForgeCore.t('inputs.society_salary_percent'), min = 0, max = 100, step = 1, action = 'savePayments' },
             { path = 'payments.notify', type = 'boolean', label = ForgeCore.t('inputs.notify_payment'), action = 'savePayments', options = { { label = ForgeCore.t('common.yes'), value = true }, { label = ForgeCore.t('common.no'), value = false } } },
             { path = 'payments.mei.enabled', type = 'boolean', label = ForgeCore.t('inputs.mei_enabled'), action = 'saveMei', options = { { label = ForgeCore.t('common.yes'), value = true }, { label = ForgeCore.t('common.no'), value = false } } },
             { path = 'payments.mei.openingCost', type = 'number', label = ForgeCore.t('inputs.mei_opening_cost'), min = 0, max = 100000000, step = 1, action = 'saveMei' },
@@ -120,7 +121,7 @@ local plugins = {
     {
         id = 'forge-skill',
         label = ForgeCore.t('plugins.skill.label'),
-        icon = 'book-open',
+        icon = 'book-fill',
         module = 'skill',
         order = 50,
         description = ForgeCore.t('plugins.skill.description'),
@@ -165,7 +166,7 @@ local plugins = {
     {
         id = 'forge-weapon',
         label = ForgeCore.t('plugins.weapon.label'),
-        icon = 'target',
+        icon = 'bullseye',
         module = 'weapon',
         order = 70,
         description = ForgeCore.t('plugins.weapon.description'),
@@ -221,7 +222,7 @@ local plugins = {
     {
         id = 'forge-whitelist',
         label = ForgeCore.t('plugins.whitelist.label'),
-        icon = 'user-check',
+        icon = 'person-check-fill',
         module = 'whitelist',
         order = 90,
         description = ForgeCore.t('plugins.whitelist.description'),
@@ -413,13 +414,13 @@ local function runAction(source, module, action, payload)
     return false, 'invalid_action'
 end
 
-pr_lib.callback.register(LOAD_CALLBACK, function(source, module)
+ForgeCore.Callbacks.register(LOAD_CALLBACK, function(source, module)
     return loadModule(source, tostring(module or ''))
-end)
+end, { access = 'admin', limit = 30 })
 
-pr_lib.callback.register(ACTION_CALLBACK, function(source, module, action, payload)
+ForgeCore.Callbacks.register(ACTION_CALLBACK, function(source, module, action, payload)
     return runAction(source, tostring(module or ''), tostring(action or ''), payload)
-end)
+end, { access = 'admin' })
 
 AddEventHandler('forge-management:server:pluginsReady', registerAllPlugins)
 

@@ -72,12 +72,7 @@ local function vectorValue(value)
 end
 
 local function colorValue(value)
-    value = type(value) == 'table' and value or {}
-    return {
-        r = math.max(0, math.min(255, math.floor(numberValue(value.r or value.x or value[1], 255)))),
-        g = math.max(0, math.min(255, math.floor(numberValue(value.g or value.y or value[2], 255)))),
-        b = math.max(0, math.min(255, math.floor(numberValue(value.b or value.z or value[3], 255)))),
-    }
+    return PR.Spotlights.NormalizeColor(value)
 end
 
 local function normalizeGroup(group)
@@ -221,7 +216,10 @@ function Service.load()
 end
 
 function Service.save()
-    Service.state.revision = GetGameTimer()
+    Service.state.revision = math.max(
+        math.floor(numberValue(Service.state.revision, 0)) + 1,
+        GetGameTimer()
+    )
     if not writeState(Service.state) then return false, 'save_failed' end
     publish()
     return true, Service.getAll()
@@ -303,20 +301,38 @@ function Service.updateLight(source, lightId, changes)
     local light = findById(Service.state.lights, lightId)
     if not light then return false, 'light_not_found' end
 
-    changes = normalizeLight(changes)
-    if changes.groupId > 0 and findById(Service.state.groups, changes.groupId) then
-        light.groupId = changes.groupId
+    changes = type(changes) == 'table' and changes or {}
+    local enabled = changes.enabled
+    if enabled == nil then enabled = light.enabled end
+
+    local normalized = normalizeLight({
+        id = light.id,
+        groupId = changes.groupId ~= nil and changes.groupId or light.groupId,
+        name = changes.name ~= nil and changes.name or light.name,
+        enabled = enabled,
+        origin = changes.origin ~= nil and changes.origin or light.origin,
+        target = changes.target ~= nil and changes.target or light.target,
+        color = changes.color ~= nil and changes.color or light.color,
+        distance = changes.distance ~= nil and changes.distance or light.distance,
+        brightness = changes.brightness ~= nil and changes.brightness or light.brightness,
+        hardness = changes.hardness ~= nil and changes.hardness or light.hardness,
+        radius = changes.radius ~= nil and changes.radius or light.radius,
+    })
+
+    if not findById(Service.state.groups, normalized.groupId) then
+        return false, 'group_not_found'
     end
 
-    light.name = changes.name
-    light.enabled = changes.enabled
-    light.origin = changes.origin
-    light.target = changes.target
-    light.color = changes.color
-    light.distance = changes.distance
-    light.brightness = changes.brightness
-    light.hardness = changes.hardness
-    light.radius = changes.radius
+    light.groupId = normalized.groupId
+    light.name = normalized.name
+    light.enabled = normalized.enabled
+    light.origin = normalized.origin
+    light.target = normalized.target
+    light.color = normalized.color
+    light.distance = normalized.distance
+    light.brightness = normalized.brightness
+    light.hardness = normalized.hardness
+    light.radius = normalized.radius
 
     local ok, payload = Service.save()
     if not ok then return false, payload end
@@ -324,7 +340,6 @@ function Service.updateLight(source, lightId, changes)
     notify(source, { description = ForgeCore.t('notify.spotlights.light_updated'), type = 'success' })
     return true, payload
 end
-
 function Service.deleteLight(source, lightId)
     if not canManage(source) then return false, 'no_permission' end
 

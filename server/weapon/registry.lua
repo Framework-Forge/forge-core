@@ -62,6 +62,7 @@ local function normalizeWeapon(rawWeapon, fallbackName)
 
     weapon.label = trim(weapon.label) ~= '' and trim(weapon.label) or weapon.name
     weapon.weapontype = trim(weapon.weapontype) ~= '' and trim(weapon.weapontype) or PR.Weapons.Defaults.weapontype
+    weapon.throwable = weapon.weapontype == 'Throwable'
     weapon.ammotype = trim(weapon.ammotype) ~= '' and trim(weapon.ammotype) or 'none'
     if weapon.ammotype:lower() == 'nil' then weapon.ammotype = 'none' end
     weapon.damagereason = trim(weapon.damagereason) ~= '' and trim(weapon.damagereason) or PR.Weapons.Defaults.damagereason

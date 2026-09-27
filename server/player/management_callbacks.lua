@@ -1,0 +1,3 @@
+ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.list,function(source)return ForgeCore.PlayerManagementService.list(source)end)
+ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.details,function(source,target)return ForgeCore.PlayerManagementService.details(source,target)end)
+ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.whitelist,function(source,target,enabled)return ForgeCore.PlayerManagementService.whitelist(source,target,enabled)end)

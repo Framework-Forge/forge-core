@@ -28,3 +28,21 @@ PR.Sit = {
         'PROP_HUMAN_SEAT_STRIP_WATCH',
     },
 }
+-- Encostar em veículos: aproximação e alinhamento controlados antes da animação.
+PR.Lean = {
+    Enabled = true,
+    Keybind = 'O',
+    Cooldown = 1000,
+    SearchRadius = 2.2,
+    SideOffset = 0.28,
+    SurfaceOffset = 0.22,
+    EntryOffset = 0.42,
+    RearInset = 0.35,
+    WalkSpeed = 1.0,
+    ApproachTimeout = 3500,
+    ArriveDistance = 0.65,
+    SettleTime = 100,
+    EnterTailCutMs = 1100,
+    IdleMinMs = 5500,
+    IdleMaxMs = 10500,
+}

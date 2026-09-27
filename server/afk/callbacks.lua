@@ -1,6 +1,6 @@
 ForgeCore = ForgeCore or {}
 
-pr_lib.callback.register(PR.Afk.Callbacks.getSettings, function(source)
+ForgeCore.Callbacks.register(PR.Afk.Callbacks.getSettings, function(source)
     if not ForgeCore.AfkService.canManage(source) then
         return false, 'no_permission'
     end
@@ -8,6 +8,6 @@ pr_lib.callback.register(PR.Afk.Callbacks.getSettings, function(source)
     return true, ForgeCore.AfkService.getSettings()
 end)
 
-pr_lib.callback.register(PR.Afk.Callbacks.saveSettings, function(source, settings)
+ForgeCore.Callbacks.register(PR.Afk.Callbacks.saveSettings, function(source, settings)
     return ForgeCore.AfkService.save(source, settings)
 end)

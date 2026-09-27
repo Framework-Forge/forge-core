@@ -13,8 +13,8 @@ local function t(key, params)
 end
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('spotlights.title'),
             description = description,
             type = notifyType or 'inform',
@@ -39,23 +39,11 @@ local function serialVector(value)
 end
 
 local function colorFromRgb(value)
-    value = tostring(value or '')
-    local r, g, b = value:match('rgb%((%d+),%s*(%d+),%s*(%d+)%)')
-
-    return {
-        r = tonumber(r) or 255,
-        g = tonumber(g) or 255,
-        b = tonumber(b) or 255,
-    }
+    return PR.Spotlights.NormalizeColor(value)
 end
 
 local function rgbString(color)
-    color = type(color) == 'table' and color or {}
-    return ('rgb(%d, %d, %d)'):format(
-        tonumber(color.r or color.x or color[1]) or 255,
-        tonumber(color.g or color.y or color[2]) or 255,
-        tonumber(color.b or color.z or color[3]) or 255
-    )
+    return PR.Spotlights.ColorToHex(color)
 end
 
 local function boolValue(value, fallback)
@@ -70,12 +58,16 @@ local function direction(origin, target)
     origin = vec3(origin)
     target = vec3(target)
     local dir = target - origin
+    local length = #(dir)
 
-    if #(dir) <= 0.001 then
+    if length <= 0.001 then
         return vector3(0.0, 0.0, -1.0)
     end
 
-    return dir
+    -- DrawSpotLight expects a direction, not the distance between both points.
+    -- Keeping this vector unitary prevents lights with short or long editor
+    -- segments from producing different (or invalid) native results.
+    return dir / length
 end
 
 local function drawLight(light)
@@ -83,7 +75,7 @@ local function drawLight(light)
 
     local origin = vec3(light.origin)
     local dir = direction(light.origin, light.target)
-    local color = type(light.color) == 'table' and light.color or {}
+    local color = colorFromRgb(light.color)
 
     DrawSpotLight(
         origin.x,
@@ -92,9 +84,9 @@ local function drawLight(light)
         dir.x,
         dir.y,
         dir.z,
-        math.floor(tonumber(color.r or color.x) or 255),
-        math.floor(tonumber(color.g or color.y) or 255),
-        math.floor(tonumber(color.b or color.z) or 255),
+        color.r,
+        color.g,
+        color.b,
         tonumber(light.distance) or 50.0,
         tonumber(light.brightness) or 1.0,
         tonumber(light.hardness) or 0.0,
@@ -103,11 +95,45 @@ local function drawLight(light)
     )
 end
 
+local function normalizeCachedLight(light)
+    light = type(light) == 'table' and light or {}
+
+    return {
+        id = math.floor(tonumber(light.id) or 0),
+        groupId = math.floor(tonumber(light.groupId or light.groupid) or 0),
+        name = tostring(light.name or ''),
+        enabled = boolValue(light.enabled, true),
+        origin = serialVector(light.origin),
+        target = serialVector(light.target),
+        color = colorFromRgb(light.color),
+        distance = math.max(0.1, tonumber(light.distance) or 50.0),
+        brightness = math.max(0.0, tonumber(light.brightness) or 1.0),
+        hardness = math.max(0.0, tonumber(light.hardness) or 0.0),
+        radius = math.max(0.0, tonumber(light.radius) or 20.0),
+    }
+end
+
 local function applyPayload(payload)
     payload = type(payload) == 'table' and payload or {}
-    Spotlights.lights = type(payload.lights) == 'table' and payload.lights or {}
+    local revision = tonumber(payload.revision)
+
+    if revision and Spotlights.revision and revision < Spotlights.revision then
+        return false
+    end
+
+    local lights = {}
+    for _, light in ipairs(type(payload.lights) == 'table' and payload.lights or {}) do
+        light = normalizeCachedLight(light)
+        if light.id > 0 and light.groupId > 0 then
+            lights[#lights + 1] = light
+        end
+    end
+
+    Spotlights.lights = lights
     Spotlights.enabled = boolValue(payload.enabled, false)
     Spotlights.drawDistance = tonumber(payload.drawDistance) or PR.Spotlights.Defaults.drawDistance
+    Spotlights.revision = revision or Spotlights.revision or 0
+    return true
 end
 
 function Spotlights.applyPayload(payload)
@@ -120,23 +146,17 @@ local function currentPayload()
 end
 
 local function setText(text)
-    if lib and lib.showTextUI then
-        lib.showTextUI(text, { position = 'right-center' })
-    elseif pr_lib and pr_lib.framework and pr_lib.framework.ShowTextUI then
-        pr_lib.framework.ShowTextUI(text)
+    if pr_lib and pr_lib.ShowTextUI then
+        pr_lib.ShowTextUI(text, { position = 'right-center' })
     end
 end
 
 local function hideText()
-    if lib and lib.hideTextUI then
-        lib.hideTextUI()
-    elseif pr_lib and pr_lib.framework and pr_lib.framework.HideTextUI then
-        pr_lib.framework.HideTextUI()
-    end
+    if pr_lib and pr_lib.HideTextUI then pr_lib.HideTextUI() end
 end
 
 local function raycastPoint(label, fromPoint)
-    if not lib or not lib.raycast or not lib.raycast.cam then
+    if not pr_lib or not pr_lib.raycast or not pr_lib.raycast.FromCamera then
         return nil, 'raycast_unavailable'
     end
 
@@ -154,7 +174,7 @@ local function raycastPoint(label, fromPoint)
         DisableControlAction(0, 202, true)
         DisablePlayerFiring(PlayerId(), true)
 
-        local hit, _, coords = lib.raycast.cam(1, 4, 1000.0)
+        local hit, _, coords = pr_lib.raycast.FromCamera(1000.0, 1, 4)
         if hit and coords then
             local point = vec3(coords)
             local head = GetPedBoneCoords(PlayerPedId(), 31086, 0.0, 0.0, 0.0)
@@ -292,7 +312,7 @@ function Spotlights.createLight(groupId, defaults, onFinish)
             { value = 'true', label = t('common.yes') },
             { value = 'false', label = t('common.no') },
         }, default = boolValue(defaults.enabled, true) and 'true' or 'false', required = true },
-        { type = 'color', label = t('inputs.spotlight_color'), format = 'rgb', default = rgbString(defaults.color), required = true },
+        { type = 'color', label = t('inputs.spotlight_color'), format = 'hex', default = rgbString(defaults.color), required = true },
         { type = 'number', label = t('inputs.spotlight_distance'), default = tonumber(defaults.distance) or 50.0, min = 0.1, required = true },
         { type = 'number', label = t('inputs.spotlight_brightness'), default = tonumber(defaults.brightness) or 1.0, min = 0.0, required = true },
         { type = 'number', label = t('inputs.spotlight_hardness'), default = tonumber(defaults.hardness) or 0.0, min = 0.0, required = true },

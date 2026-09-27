@@ -18,7 +18,9 @@ local countLinkedReputations = Shared.countLinkedReputations
 local skillSelectOptions = Shared.skillSelectOptions
 local levelCount = Shared.levelCount
 local saveSkillDefinition = Shared.saveSkillDefinition
-local fetchPlayerSkillsPayload = Shared.fetchPlayerSkillsPayload
+local function fetchPlayerSkillsPayload()
+    return pr_lib.cache.get('forge-core:skills') or Shared.fetchPlayerSkillsPayload()
+end
 local levelProgress = Shared.levelProgress
 local levelXpText = Shared.levelXpText
 local playerSkillDescription = Shared.playerSkillDescription
@@ -38,7 +40,7 @@ function Menu.openSkillsMenu()
             {
                 title = t('menu.skills.skills'),
                 description = t('menu.skills.skills_description', { count = tostring(#payload.skills) }),
-                icon = 'brain',
+                icon = 'activity',
                 onSelect = function()
                     Menu.openSkillList()
                 end,
@@ -78,7 +80,7 @@ function Menu.openPlayerSkillsMenu(parentMenu)
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.skills.no_items'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -118,7 +120,7 @@ function Menu.openPlayerReputationsMenu(parentSkill)
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.skills.no_items'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -224,7 +226,7 @@ function Menu.openSkillDetails(skill)
             {
                 title = t('menu.skills.levels'),
                 description = t('menu.skills.levels_description', { count = tostring(levelCount(skill)) }),
-                icon = 'list-ordered',
+                icon = 'list-ol',
                 onSelect = function()
                     Menu.openSkillLevelList('skill', skill)
                 end,
@@ -255,6 +257,39 @@ function Menu.openSkillDetails(skill)
             },
         },
     })
+end
+
+
+local function addIntegrationRows(rows, definition)
+    local integration = definition.integration or {}
+    local decay = definition.decay or {}
+    rows[#rows + 1] = { type = 'input', label = 'Resource do export (opcional)', default = integration.resource,
+        description = 'Ex.: forge-gym. Vazio utiliza somente o XP interno.' }
+    rows[#rows + 1] = { type = 'input', label = 'Nome do export', default = integration.export,
+        description = 'Ex.: updateSkill. Somente o nome da funcao, sem codigo Lua.' }
+    rows[#rows + 1] = { type = 'input', label = 'Skill/reputacao enviada ao export', default = integration.identifier,
+        description = 'Ex.: strength. Vazio utiliza o codigo deste cadastro.' }
+    rows[#rows + 1] = { type = 'number', label = 'Multiplicador do export', default = integration.multiplier or 1, min = 0, max = 10000, precision = 4 }
+    rows[#rows + 1] = { type = 'checkbox', label = 'Enviar ganhos ao export', checked = integration.gains ~= false }
+    rows[#rows + 1] = { type = 'checkbox', label = 'Enviar perdas ao export', checked = integration.losses ~= false }
+    rows[#rows + 1] = { type = 'checkbox', label = 'Ativar decay local', checked = decay.enabled == true }
+    rows[#rows + 1] = { type = 'number', label = 'XP perdido por intervalo', default = decay.amount or 0, min = 0, max = 1000000, precision = 4 }
+    rows[#rows + 1] = { type = 'number', label = 'Intervalo de decay (segundos)', default = (decay.intervalMs or 300000) / 1000, min = 10, max = 86400 }
+    rows[#rows + 1] = { type = 'checkbox', label = 'Permitir ganhos pelo export do cliente', checked = definition.clientGain == true }
+    rows[#rows + 1] = { type = 'number', label = 'Limite de variacao do cliente por minuto', default = definition.maxDeltaPerMinute or 100, min = 0, max = 1000000, precision = 4 }
+end
+
+local function readIntegrationRows(updated, result, offset)
+    local resource, export = result[offset] or '', result[offset + 1] or ''
+    updated.integration = resource ~= '' and {
+        resource = resource, export = export, identifier = result[offset + 2] or '',
+        multiplier = tonumber(result[offset + 3]) or 1,
+        gains = result[offset + 4] == true, losses = result[offset + 5] == true,
+    } or nil
+    updated.decay = { enabled = result[offset + 6] == true, amount = tonumber(result[offset + 7]) or 0,
+        intervalMs = (tonumber(result[offset + 8]) or 300) * 1000 }
+    updated.clientGain = result[offset + 9] == true
+    updated.maxDeltaPerMinute = tonumber(result[offset + 10]) or 100
 end
 
 function Menu.openSkillEditor(skill, isNew)
@@ -303,6 +338,7 @@ function Menu.openSkillEditor(skill, isNew)
         min = 0,
     }
 
+    addIntegrationRows(rows, skill)
     local result = inputDialog(isNew and t('menu.skills.create_skill') or t('dialogs.edit_skill'), rows)
     if not result then return Menu.openSkillList() end
     if skillActionLocked then return Menu.openSkillList() end
@@ -323,6 +359,7 @@ function Menu.openSkillEditor(skill, isNew)
     updated.calculation = result[index] or PR.Skills.Calculation.direct
     index = index + 1
     updated.maxXp = tonumber(result[index]) or PR.Skills.Defaults.maxXp
+    readIntegrationRows(updated, result, index + 1)
 
     skillActionLocked = true
     saveSkillDefinition('skill', updated)
@@ -342,7 +379,6 @@ function Menu.openReputationList(skillName)
         {
             title = t('menu.skills.create_reputation'),
             icon = 'plus',
-            disabled = #(payload.skills or {}) == 0,
             onSelect = function()
                 Menu.openReputationEditor(skillName and { skill = skillName } or nil, true)
             end,
@@ -389,7 +425,7 @@ function Menu.openReputationDetails(reputation, parentSkill)
             {
                 title = t('menu.skills.levels'),
                 description = t('menu.skills.levels_description', { count = tostring(levelCount(reputation)) }),
-                icon = 'list-ordered',
+                icon = 'list-ol',
                 onSelect = function()
                     Menu.openSkillLevelList('rep', reputation, parentSkill)
                 end,
@@ -457,9 +493,13 @@ function Menu.openReputationEditor(reputation, isNew, parentSkill)
     rows[#rows + 1] = {
         type = 'select',
         label = t('inputs.parent_skill'),
-        options = skillSelectOptions(payload),
-        default = reputation.skill or parentSkill,
-        required = true,
+        options = (function()
+            local options = skillSelectOptions(payload)
+            table.insert(options, 1, { value = '__none', label = 'Nenhuma (reputacao independente)' })
+            return options
+        end)(),
+        default = (reputation.skill and reputation.skill ~= '' and reputation.skill) or parentSkill or '__none',
+        required = false,
         searchable = true,
     }
     rows[#rows + 1] = {
@@ -470,6 +510,7 @@ function Menu.openReputationEditor(reputation, isNew, parentSkill)
         min = 0,
     }
 
+    addIntegrationRows(rows, reputation)
     local result = inputDialog(isNew and t('menu.skills.create_reputation') or t('dialogs.edit_reputation'), rows)
     if not result then return Menu.openReputationList(parentSkill) end
     if skillActionLocked then return Menu.openReputationList(parentSkill) end
@@ -487,10 +528,11 @@ function Menu.openReputationEditor(reputation, isNew, parentSkill)
     index = index + 1
     updated.icon = result[index] or PR.Skills.Defaults.icon
     index = index + 1
-    updated.skill = result[index]
-    updated.linkedSkill = result[index]
+    updated.skill = result[index] ~= '__none' and (result[index] or '') or ''
+    updated.linkedSkill = updated.skill
     index = index + 1
     updated.maxXp = tonumber(result[index]) or PR.Skills.Defaults.maxXp
+    readIntegrationRows(updated, result, index + 1)
 
     skillActionLocked = true
     saveSkillDefinition('rep', updated)
@@ -533,7 +575,7 @@ function Menu.openSkillLevelList(kind, item, parentSkill)
                 from = tostring(level.from or 0),
                 to = tostring(level.to or 0),
             }),
-            icon = 'list-ordered',
+            icon = 'list-ol',
             onSelect = function()
                 Menu.openSkillLevelDetails(kind, item, index, level, parentSkill)
             end,

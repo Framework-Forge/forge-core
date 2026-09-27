@@ -184,31 +184,6 @@ local function buildShopInventory(shop)
     return inventory
 end
 
-local function ensureRenewedSocietyAccount(accountName, accountLabel)
-    if GetResourceState('Renewed-Banking') ~= 'started' then return false end
-
-    local ok, account = pcall(function()
-        return exports['Renewed-Banking']:GetJobAccount(accountName)
-    end)
-
-    if ok and account then return true end
-
-    ok, account = pcall(function()
-        return exports['Renewed-Banking']:CreateJobAccount({
-            name = accountName,
-            label = accountLabel or accountName,
-        }, 0)
-    end)
-
-    if ok and account then
-        logBusiness('info', ('Renewed-Banking society account created account=%s'):format(accountName))
-        return true
-    end
-
-    logBusiness('warn', ('Renewed-Banking society account create failed account=%s result=%s'):format(accountName, tostring(account)))
-    return false
-end
-
 local function addSocietyRevenue(accountName, amount, accountLabel)
     accountName = normalizeId(accountName)
     amount = math.floor(tonumber(amount) or 0)
@@ -218,67 +193,41 @@ local function addSocietyRevenue(accountName, amount, accountLabel)
         return false
     end
 
-    if GetResourceState('Renewed-Banking') == 'started' then
-        ensureRenewedSocietyAccount(accountName, accountLabel)
-
-        local ok, result = pcall(function()
-            return exports['Renewed-Banking']:addAccountMoney(accountName, amount)
-        end)
-
-        if ok and result ~= false then
-            pcall(function()
-                exports['Renewed-Banking']:handleTransaction(accountName, ForgeCore.t('banking.shop_sale_title'), amount, reason, 'Forge Core', accountLabel or accountName, 'deposit')
-            end)
-
-            logBusiness('info', ('shop sale credited via Renewed-Banking account=%s amount=%s'):format(accountName, tostring(amount)))
-            return true
-        end
-
-        logBusiness('warn', ('Renewed-Banking addAccountMoney failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
+    if not pr_lib.banking or type(pr_lib.banking.EnsureJobAccount) ~= 'function' then
+        logBusiness('error', ('banking bridge unavailable account=%s'):format(accountName))
+        return false
     end
 
-    if pr_lib.banking and pr_lib.banking.AddJobAccountBalance then
-        local ok, result = pcall(pr_lib.banking.AddJobAccountBalance, accountName, amount, reason)
-        if ok and result ~= false then
-            logBusiness('info', ('shop sale credited via pr_lib.banking account=%s amount=%s'):format(accountName, tostring(amount)))
-            return true
-        end
+    local ensureOk, ensured, ensureStatus = pcall(
+        pr_lib.banking.EnsureJobAccount,
+        accountName,
+        accountLabel or accountName,
+        0
+    )
 
-        logBusiness('warn', ('pr_lib.banking society credit failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
+    if not ensureOk or ensured ~= true then
+        logBusiness('warn', ('society account unavailable account=%s result=%s'):format(accountName, tostring(ensureStatus)))
+        return false
     end
 
-    if pr_lib.framework and pr_lib.framework.AddJobAccountBalance then
-        local ok, result = pcall(pr_lib.framework.AddJobAccountBalance, accountName, amount, reason)
-        if ok and result ~= false then
-            logBusiness('info', ('shop sale credited via pr_lib.framework account=%s amount=%s'):format(accountName, tostring(amount)))
-            return true
+    local ok, result = pcall(pr_lib.banking.AddJobAccountBalance, accountName, amount, reason)
+    if ok and result ~= false then
+        if type(pr_lib.banking.RecordJobTransaction) == 'function' then
+            pcall(pr_lib.banking.RecordJobTransaction, accountName, {
+                title = ForgeCore.t('banking.shop_sale_title'),
+                amount = amount,
+                message = reason,
+                issuer = 'Forge Core',
+                receiver = accountLabel or accountName,
+                type = 'deposit',
+            })
         end
 
-        logBusiness('warn', ('pr_lib.framework society credit failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
+        logBusiness('info', ('shop sale credited via pr_lib.banking account=%s amount=%s'):format(accountName, tostring(amount)))
+        return true
     end
 
-    if pr_lib.framework and pr_lib.framework.addSocietyBalance then
-        local ok, result = pcall(pr_lib.framework.addSocietyBalance, accountName, amount, reason)
-        if ok and result ~= false then
-            logBusiness('info', ('shop sale credited via pr_lib.framework.addSocietyBalance account=%s amount=%s'):format(accountName, tostring(amount)))
-            return true
-        end
-
-        logBusiness('warn', ('pr_lib.framework.addSocietyBalance failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
-    end
-
-    if GetResourceState('ps-banking') == 'started' then
-        local ok, result = pcall(function()
-            return exports['ps-banking']:AddMoney(accountName, amount, reason)
-        end)
-
-        if ok and result ~= false then
-            logBusiness('info', ('shop sale credited via ps-banking account=%s amount=%s'):format(accountName, tostring(amount)))
-            return true
-        end
-
-        logBusiness('warn', ('ps-banking AddMoney failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
-    end
+    logBusiness('warn', ('pr_lib.banking society credit failed account=%s amount=%s result=%s'):format(accountName, tostring(amount), tostring(result)))
 
     logBusiness('error', ('unable to credit shop sale account=%s amount=%s'):format(accountName, tostring(amount)))
     return false
@@ -848,14 +797,14 @@ function Business.getEmployees(source, groupType, groupName)
         if ok then rows = result end
     end
 
-    if not rows and MySQL and MySQL.query and MySQL.query.await then
-        rows = MySQL.query.await('SELECT citizenid, grade FROM player_groups WHERE `group` = ? AND type = ?', {
+    if not rows and pr_lib.database and pr_lib.database.query then
+        rows = pr_lib.database.query('SELECT citizenid, grade FROM player_groups WHERE `group` = ? AND type = ?', {
             group.name,
             groupType == 'gang' and 'gang' or 'job',
-        }) or {}
+        })
     end
 
-    if not rows then return false, 'database_unavailable' end
+    if type(rows) ~= 'table' then return false, 'database_unavailable' end
 
     local employees = {}
     for i = 1, #rows do

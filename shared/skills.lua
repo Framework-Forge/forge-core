@@ -23,13 +23,37 @@ PR.Skills.Commands = {
     viewReputations = 'reps',
 }
 
+-- Client deltas are mirrored to the server cache; the QBX save cycle persists them.
+PR.Skills.Client = { mirrorMs = 1000, maxDeltaPerMinute = 100 }
+
+function PR.Skills.normalizeIntegration(value)
+    value = type(value) == 'table' and value or {}
+    local resource = tostring(value.resource or ''):match('^%s*(.-)%s*$')
+    local name = tostring(value.export or ''):match('^%s*(.-)%s*$')
+    if resource == '' and name == '' then return nil end
+    if not resource:match('^[%w_%-]+$') or not name:match('^[%w_]+$') then return nil end
+    local multiplier = tonumber(value.multiplier) or 1
+    if multiplier ~= multiplier or multiplier < 0 or multiplier > 10000 then multiplier = 1 end
+    return { resource = resource, export = name, identifier = tostring(value.identifier or ''),
+        multiplier = multiplier, gains = value.gains ~= false, losses = value.losses ~= false }
+end
+
+function PR.Skills.normalizeDecay(value)
+    value = type(value) == 'table' and value or {}
+    local amount = tonumber(value.amount) or 0
+    local interval = tonumber(value.intervalMs) or 300000
+    if amount ~= amount or amount < 0 or amount > 1000000 then amount = 0 end
+    if interval ~= interval or interval < 10000 or interval > 86400000 then interval = 300000 end
+    return { enabled = value.enabled == true and amount > 0, amount = amount, intervalMs = interval }
+end
+
 PR.Skills.Calculation = {
     direct = 'direct',
     sumReputations = 'sum_reputations',
 }
 
 PR.Skills.Defaults = {
-    icon = 'book-open',
+    icon = 'book-fill',
     maxXp = 1000000000,
     settings = {
         enabled = true,

@@ -59,6 +59,13 @@ local function gradeLevel(group)
     return tonumber(grade) or 0
 end
 
+local function accessSignature()
+    local data = getPlayerData()
+    local job, gang = data.job or {}, data.gang or {}
+    return table.concat({ tostring(job.name or ''):lower(), tostring(gradeLevel(job)),
+        tostring(gang.name or ''):lower(), tostring(gradeLevel(gang)) }, '|')
+end
+
 local function canUseGroup(groupType, groupName, minGrade)
     local data = getPlayerData()
     local group = playerGroup(data, groupType)
@@ -69,9 +76,9 @@ local function canUseGroup(groupType, groupName, minGrade)
 end
 
 local function notify(data)
-    if not pr_lib or not pr_lib.notify or not pr_lib.notify.Notify then return end
+    if not pr_lib or not pr_lib.Notify then return end
 
-    pr_lib.notify.Notify({
+    pr_lib.Notify({
         title = data.title or ForgeCore.t('core.title'),
         description = data.description,
         type = data.type,
@@ -193,7 +200,7 @@ local function buildForGroup(groupType, group)
                         options = {
                             {
                                 name = ('forge_core_stash_%s_%s_%s'):format(groupType, group.name, normalizeId(point.id)),
-                                icon = 'fa-solid fa-box-open',
+                                icon = 'box-seam-fill',
                                 label = stash.label or ForgeCore.t('menu.stashes.open_target', { title = title }),
                                 distance = PR.Job.Points.targetDistance or 2.0,
                                 canInteract = function()
@@ -218,7 +225,7 @@ local function buildForGroup(groupType, group)
                         options = {
                             {
                                 name = ('forge_core_duty_%s_%s'):format(group.name, normalizeId(point.id)),
-                                icon = 'fa-solid fa-clipboard-check',
+                                icon = 'clipboard2-check-fill',
                                 label = duty.label or ForgeCore.t('menu.stashes.duty_target', { title = title }),
                                 distance = PR.Job.Points.targetDistance or 2.0,
                                 canInteract = function()
@@ -241,6 +248,7 @@ function Points.refresh(payload)
 
     if type(payload) ~= 'table' then return end
     Points.lastPayload = payload
+    Points.accessSignature = accessSignature()
 
     local jobs = type(payload.jobs) == 'table' and payload.jobs or {}
     local gangs = type(payload.gangs) == 'table' and payload.gangs or {}
@@ -254,7 +262,8 @@ function Points.refresh(payload)
     end
 end
 
-function Points.refreshCurrent()
+function Points.refreshCurrent(accessOnly)
+    if accessOnly and Points.accessSignature == accessSignature() then return end
     if Points.refreshPending then return end
 
     Points.refreshPending = true
@@ -268,7 +277,7 @@ function Points.refreshCurrent()
 end
 
 RegisterNetEvent('QBCore:Player:SetPlayerData', function()
-    Points.refreshCurrent()
+    Points.refreshCurrent(true)
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function()

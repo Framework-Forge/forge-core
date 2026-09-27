@@ -12,8 +12,8 @@ local notifyFailure = Shared.notifyFailure
 local alertDialog = Shared.alertDialog
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('objects.title'),
             description = description,
             type = notifyType or 'inform',
@@ -223,7 +223,7 @@ function Menu.openObjectsMenu()
         {
             title = ForgeCore.Client.Objects.debugIds and t('menu.objects.disable_debug') or t('menu.objects.enable_debug'),
             description = t('menu.objects.debug_description'),
-            icon = ForgeCore.Client.Objects.debugIds and 'toggle-right' or 'toggle-left',
+            icon = ForgeCore.Client.Objects.debugIds and 'toggle-on' or 'toggle-off',
             iconColor = ForgeCore.Client.Objects.debugIds and 'green' or 'red',
             onSelect = function()
                 ForgeCore.Client.Objects.toggleDebug()
@@ -288,7 +288,7 @@ function Menu.openObjectsScene(sceneId, sceneName)
         {
             title = t('menu.objects.rename_scene'),
             description = t('menu.objects.rename_scene_description'),
-            icon = 'pen-to-square',
+            icon = 'pencil-square',
             onSelect = function()
                 renameScene(scene)
             end,
@@ -365,7 +365,7 @@ function Menu.openObjectActions(objectId)
         options = {
             {
                 title = t('menu.objects.edit_object'),
-                icon = 'move-3d',
+                icon = 'arrows-move',
                 onSelect = function()
                     ForgeCore.Client.Objects.setOutline(objectId, false)
                     ForgeCore.Client.Objects.edit(objectId)
@@ -381,7 +381,7 @@ function Menu.openObjectActions(objectId)
             },
             {
                 title = t('menu.objects.teleport_object'),
-                icon = 'arrows-to-dot',
+                icon = 'bounding-box-circles',
                 onSelect = function()
                     ForgeCore.Client.Objects.setOutline(objectId, false)
                     ForgeCore.Client.Objects.teleportTo(objectId)

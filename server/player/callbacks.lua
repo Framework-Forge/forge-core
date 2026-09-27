@@ -68,7 +68,7 @@ local function roleLabel(role)
     return role
 end
 
-pr_lib.callback.register(PR.Player.Callbacks.getInfo, function(source)
+ForgeCore.Callbacks.register(PR.Player.Callbacks.getInfo, function(source)
     local player = exports.qbx_core:GetPlayer(source)
     if not player or not player.PlayerData then return false, 'invalid_player' end
 
@@ -76,6 +76,7 @@ pr_lib.callback.register(PR.Player.Callbacks.getInfo, function(source)
     local charinfo = type(data.charinfo) == 'table' and data.charinfo or {}
     local metadata = type(data.metadata) == 'table' and data.metadata or {}
     local staffRole = PR.Staff and PR.Staff.Metadata and metadata[PR.Staff.Metadata] or nil
+    local vip = ForgeCore.VipService and ForgeCore.VipService.get(source) or nil
 
     return true, {
         firstname = valueOrNone(charinfo.firstname or charinfo.firstName),
@@ -86,5 +87,8 @@ pr_lib.callback.register(PR.Player.Callbacks.getInfo, function(source)
         job = groupLabel(data.job),
         gang = groupLabel(data.gang),
         extra = roleLabel(staffRole),
+        vip = vip and vip.config.label or 'Standard',
+        vipExpiresAt = vip and vip.expiresAt or 0,
+        vipExpiresAtFormatted = vip and os.date('%d/%m/%Y %H:%M', vip.expiresAt) or 'Sem VIP',
     }
 end)

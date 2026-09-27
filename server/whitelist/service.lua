@@ -292,50 +292,14 @@ end
 local function ensureSchema()
     local db = database()
     if not db then return false end
-
-    db.update(([[
-        CREATE TABLE IF NOT EXISTS `%s` (
-            `id` INT NOT NULL AUTO_INCREMENT,
-            `citizen` VARCHAR(50) NOT NULL,
-            `license` VARCHAR(80) NULL,
-            `discord` VARCHAR(80) NULL,
-            `fivem` VARCHAR(80) NULL,
-            `name` VARCHAR(120) NULL,
-            `whitelisted_at` INT NULL,
-            `added_by` VARCHAR(80) NULL,
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `citizen` (`citizen`)
-        )
-    ]]):format(PR.Whitelist.Storage.playersTable))
-
-    local columns = {
-        license = 'VARCHAR(80) NULL',
-        discord = 'VARCHAR(80) NULL',
-        fivem = 'VARCHAR(80) NULL',
-        name = 'VARCHAR(120) NULL',
-        whitelisted_at = 'INT NULL',
-        added_by = 'VARCHAR(80) NULL',
-    }
-
-    for column, definition in pairs(columns) do
-        local exists = db.scalar('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', {
-            PR.Whitelist.Storage.playersTable,
-            column,
-        })
-
-        if not tonumber(exists) or tonumber(exists) <= 0 then
-            db.update(('ALTER TABLE `%s` ADD COLUMN `%s` %s'):format(PR.Whitelist.Storage.playersTable, column, definition))
-        end
+    db.update(([[CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL AUTO_INCREMENT, `citizen` VARCHAR(50) NOT NULL, `license` VARCHAR(80) NULL, `discord` VARCHAR(80) NULL, `fivem` VARCHAR(80) NULL, `name` VARCHAR(120) NULL, `whitelisted_at` INT NULL, `added_by` VARCHAR(80) NULL, PRIMARY KEY (`id`), UNIQUE KEY `citizen` (`citizen`))]]):format(PR.Whitelist.Storage.playersTable))
+    local columns={license='VARCHAR(80) NULL',discord='VARCHAR(80) NULL',fivem='VARCHAR(80) NULL',name='VARCHAR(120) NULL',whitelisted_at='INT NULL',added_by='VARCHAR(80) NULL'}
+    for column,definition in pairs(columns) do
+        local exists=db.scalar('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',{PR.Whitelist.Storage.playersTable,column})
+        if not tonumber(exists) or tonumber(exists)<=0 then db.update(('ALTER TABLE `%s` ADD COLUMN `%s` %s'):format(PR.Whitelist.Storage.playersTable,column,definition)) end
     end
-
-    db.update(([[
-        CREATE TABLE IF NOT EXISTS `%s` (
-            `id` INT NOT NULL,
-            `config` LONGTEXT NOT NULL,
-            PRIMARY KEY (`id`)
-        )
-    ]]):format(PR.Whitelist.Storage.configTable))
-
+    db.update(([[CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `config` LONGTEXT NOT NULL, PRIMARY KEY (`id`))]]):format(PR.Whitelist.Storage.configTable))
+    db.update(([[CREATE TABLE IF NOT EXISTS `%s` (`citizen` VARCHAR(50) NOT NULL, `answers` LONGTEXT NULL, `submitted_at` INT NULL, PRIMARY KEY (`citizen`))]]):format(PR.Whitelist.Storage.answersTable))
     return true
 end
 
@@ -736,58 +700,41 @@ function Service.ban(source, data)
 end
 
 function Service.submitPreExam(source, data)
-    local config = Service.getConfig()
-    local preExam = config.preExam or {}
-    if not preExam.webhook or preExam.webhook == '' then return true end
-
-    local player = getQbxPlayer(source)
-    if not player or not player.PlayerData then return false, 'invalid_player' end
-
-    local fields = {
-        { name = 'Identificador', value = tostring(player.PlayerData.name or source), inline = true },
-        { name = 'CitizenID', value = tostring(player.PlayerData.citizenid or ''), inline = true },
-    }
-
-    local charinfo = player.PlayerData.charinfo or {}
-    fields[#fields + 1] = {
-        name = 'Nome do personagem',
-        value = ('%s %s'):format(charinfo.firstname or '', charinfo.lastname or ''),
-        inline = false,
-    }
-
-    for label, item in pairs(type(data) == 'table' and data or {}) do
-        local value = item.value
-        if item.kind == 'phone' and preExam.formatPhone then
-            value = ('https://wa.me/55%s'):format(value)
-        end
-
-        fields[#fields + 1] = {
-            name = tostring(label),
-            value = tostring(value or ''),
-            inline = false,
-        }
+    local config=Service.getConfig(); local preExam=config.preExam or {}; local player=getQbxPlayer(source)
+    if not player or not player.PlayerData then return false,'invalid_player' end
+    local db=database()
+    if db then
+        local rows=db.query(('SELECT `answers` FROM `%s` WHERE `citizen` = ? LIMIT 1'):format(PR.Whitelist.Storage.answersTable),{player.PlayerData.citizenid}) or {}
+        local stored={}
+        if rows[1] and rows[1].answers then local ok,decoded=pcall(json.decode,rows[1].answers);if ok and type(decoded)=='table'then stored=decoded end end
+        for label,answer in pairs(type(data)=='table' and data or {})do stored[label]=answer end
+        db.update(([[INSERT INTO `%s` (`citizen`, `answers`, `submitted_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `answers`=VALUES(`answers`), `submitted_at`=VALUES(`submitted_at`)]]):format(PR.Whitelist.Storage.answersTable),{player.PlayerData.citizenid,json.encode(stored),os.time()})
     end
-
-    local payload = json.encode({
-        embeds = {
-            {
-                title = 'Dados Pre-Exame',
-                fields = fields,
-                footer = {
-                    text = 'Forge Core - ' .. os.date('%d/%m/%Y %X'),
-                },
-                color = rgbToLong({ r = 0, g = 255, b = 255 }),
-            },
-        },
-    })
-
-    PerformHttpRequest(preExam.webhook, function() end, 'POST', payload, {
-        ['Content-Type'] = 'application/json',
-    })
-
-    return true
+    if not preExam.webhook or preExam.webhook=='' then return true end
+    local fields={{name='Identificador',value=tostring(player.PlayerData.name or source),inline=true},{name='CitizenID',value=tostring(player.PlayerData.citizenid or ''),inline=true}}
+    local charinfo=player.PlayerData.charinfo or {}; fields[#fields+1]={name='Nome do personagem',value=('%s %s'):format(charinfo.firstname or '',charinfo.lastname or ''),inline=false}
+    for label,item in pairs(type(data)=='table' and data or {}) do local value=item.value; if item.kind=='phone' and preExam.formatPhone then value=('https://wa.me/55%s'):format(value) end; fields[#fields+1]={name=tostring(label),value=tostring(value or ''),inline=false} end
+    local payload=json.encode({embeds={{title='Dados Pre-Exame',fields=fields,footer={text='Forge Core - '..os.date('%d/%m/%Y %X')},color=rgbToLong({r=0,g=255,b=255})}}})
+    PerformHttpRequest(preExam.webhook,function()end,'POST',payload,{['Content-Type']='application/json'}); return true
 end
 
+function Service.getPlayerRecord(source, identifier)
+    if not canManage(source) then return false, 'no_permission' end
+    local target = targetData(identifier)
+    if not target or not target.citizenid then return false, 'invalid_player' end
+    local db = database()
+    if not db then return false, 'database_unavailable' end
+    local whitelistRows = db.query(('SELECT `citizen`, `whitelisted_at`, `added_by`, `name` FROM `%s` WHERE `citizen` = ? LIMIT 1'):format(PR.Whitelist.Storage.playersTable), { target.citizenid }) or {}
+    local submittedRows = db.query(('SELECT `answers`, `submitted_at` FROM `%s` WHERE `citizen` = ? LIMIT 1'):format(PR.Whitelist.Storage.answersTable), { target.citizenid }) or {}
+    local whitelist = whitelistRows[1]
+    local submitted = submittedRows[1]
+    local answers = {}
+    if submitted and submitted.answers then
+        local ok, decoded = pcall(json.decode, submitted.answers)
+        if ok and type(decoded) == 'table' then answers = decoded end
+    end
+    return true, { citizenid = target.citizenid, whitelisted = whitelist ~= nil, whitelistedAt = whitelist and whitelist.whitelisted_at or nil, addedBy = whitelist and whitelist.added_by or nil, answers = answers, submittedAt = submitted and submitted.submitted_at or nil }
+end
 function Service.start()
     if Service.started then return true end
     Service.started = true

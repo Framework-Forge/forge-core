@@ -5,6 +5,7 @@ PR.Whitelist.Storage = {
     playersTable = 'pinel_whitelist',
     configTable = 'pinel_whitelist_config',
     configFile = 'data/whitelist.json',
+    answersTable = 'pinel_whitelist_answers',
 }
 
 PR.Whitelist.Callbacks = {

@@ -129,7 +129,7 @@ function Menu.openStarterpackMenu()
                 description = t('menu.starterpack.actions_description', {
                     claimed = tostring(payload.claimedCount or 0),
                 }),
-                icon = 'wand-sparkles',
+                icon = 'magic',
                 onSelect = function()
                     Menu.openStarterpackActions()
                 end,
@@ -203,7 +203,7 @@ function Menu.openStarterpackItems()
                 count = tostring(item.count or 1),
                 status = item.enabled == false and t('common.inactive') or t('common.active'),
             }),
-            icon = item.enabled == false and 'package-x' or 'package-check',
+            icon = item.enabled == false and 'x-square-fill' or 'check-square-fill',
             onSelect = function()
                 Menu.openStarterpackItem(item)
             end,
@@ -337,7 +337,7 @@ function Menu.openStarterpackActions()
             {
                 title = t('menu.starterpack.give_player'),
                 description = t('menu.starterpack.give_player_description'),
-                icon = 'user-plus',
+                icon = 'person-plus-fill',
                 onSelect = function()
                     local result = inputDialog(t('menu.starterpack.give_player'), {
                         { type = 'number', label = t('inputs.target_source'), required = true, min = 1 },
@@ -354,7 +354,7 @@ function Menu.openStarterpackActions()
             {
                 title = t('menu.starterpack.reset_claim'),
                 description = t('menu.starterpack.reset_claim_description'),
-                icon = 'rotate-ccw',
+                icon = 'arrow-counterclockwise',
                 onSelect = function()
                     local result = inputDialog(t('menu.starterpack.reset_claim'), {
                         { type = 'input', label = t('inputs.citizenid'), required = true },
@@ -393,7 +393,7 @@ function Menu.openStarterpackPrologue()
         {
             title = t('menu.starterpack.place_vehicle'),
             description = t('menu.starterpack.place_vehicle_description'),
-            icon = 'car',
+            icon = 'car-front-fill',
             onSelect = function()
                 Menu.placeStarterpackVehicle(prologue)
             end,
@@ -401,7 +401,7 @@ function Menu.openStarterpackPrologue()
         {
             title = t('menu.starterpack.place_lamar'),
             description = t('menu.starterpack.place_lamar_description'),
-            icon = 'user-round',
+            icon = 'person-circle',
             onSelect = function()
                 Menu.placeStarterpackLamar(prologue)
             end,
@@ -425,7 +425,7 @@ function Menu.openStarterpackPrologue()
                 dialogs = tostring(#(stop.routeDialogs or {})),
                 rewards = tostring(#(stop.rewards or {})),
             }),
-            icon = stop.enabled == false and 'map-pin-off' or 'map-pin',
+            icon = stop.enabled == false and 'geo-alt' or 'geo-alt-fill',
             onSelect = function()
                 Menu.openStarterpackStop(stop)
             end,
@@ -629,7 +629,7 @@ function Menu.openStarterpackStop(stop)
             {
                 title = t('menu.starterpack.mark_stop_coords'),
                 description = t('menu.starterpack.mark_stop_coords_description'),
-                icon = 'map-pin',
+                icon = 'geo-alt-fill',
                 onSelect = function()
                     stop.coords = coordsNow()
                     stop.heading = headingNow()
@@ -645,7 +645,7 @@ function Menu.openStarterpackStop(stop)
                 description = t('menu.starterpack.route_dialogs_description', {
                     count = tostring(#(stop.routeDialogs or {})),
                 }),
-                icon = 'message-square-text',
+                icon = 'chat-square-text-fill',
                 onSelect = function()
                     Menu.openStarterpackStopDialogs(stop)
                 end,
@@ -655,9 +655,9 @@ function Menu.openStarterpackStop(stop)
                 description = t('menu.starterpack.camera_frames_description', {
                     count = tostring(#(stop.cameraFrames or {})),
                 }),
-                icon = 'video',
+                icon = 'camera-video-fill',
                 onSelect = function()
-                    if lib and lib.hideContext then lib.hideContext(false) end
+                    if pr_lib and pr_lib.menus and pr_lib.menus.HideContext then pr_lib.menus.HideContext(false) end
                     TriggerEvent(PR.Starterpack.Events.editStopKeyframes, stop)
                 end,
             },
@@ -712,7 +712,7 @@ function Menu.openStarterpackStopRewards(stop)
                 item = reward.item or '',
                 count = tostring(reward.count or 1),
             }),
-            icon = reward.enabled == false and 'gift' or 'gift-open',
+            icon = reward.enabled == false and 'gift' or 'gift-fill',
             onSelect = function()
                 Menu.openStarterpackReward(stop, index)
             end,
@@ -862,7 +862,7 @@ function Menu.openStarterpackStopDialogs(stop)
                 progress = tostring(dialog.progress or 0),
             }),
             description = dialog.text or '',
-            icon = 'message-square',
+            icon = 'chat-square-fill',
             onSelect = function()
                 Menu.openStarterpackDialog(stop, index)
             end,

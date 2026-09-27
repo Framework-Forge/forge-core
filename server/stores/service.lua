@@ -4,6 +4,8 @@ local Service = {
     state = {},
     locks = {},
     shops = {},
+    dailyStock = {},
+    notificationHistory = {},
     purchaseHookId = nil,
 }
 
@@ -25,11 +27,21 @@ end
 
 local function notify(source, data)
     if not source or source <= 0 then return end
-    if not pr_lib or not pr_lib.notify or not pr_lib.notify.NotifyPlayer then return end
+    local notifications = pr_lib and pr_lib.notifications
+    if (not notifications or not notifications.NotifyPlayer) and pr_lib then notifications = pr_lib.notify end
+    if not notifications or not notifications.NotifyPlayer then return end
 
-    pr_lib.notify.NotifyPlayer(source, {
+    local description = tostring(data.description or '')
+    local key = ('%s:%s:%s'):format(source, tostring(data.type or 'info'), description)
+    local now = GetGameTimer()
+    local previous = Service.notificationHistory[key]
+    if previous and now - previous < 1000 then return end
+    Service.notificationHistory[key] = now
+
+    notifications.NotifyPlayer(source, {
+        id = data.id or ('forge_core_stores_%s'):format(tostring(data.type or 'info')),
         title = data.title or ForgeCore.t('stores.title'),
-        description = data.description,
+        description = description,
         type = data.type,
         position = data.position or PR.NotifyPos,
     })
@@ -241,7 +253,7 @@ local function normalizeItem(item)
         name = name,
         label = trim(item.label) ~= '' and trim(item.label) or itemLabel(name),
         price = math.max(0, math.floor(numberValue(item.price))),
-        dailyStock = math.max(0, math.floor(numberValue(item.dailyStock or item.daily or item.count, PR.Stores.Defaults.defaultDailyStock))),
+        dailyStock = math.max(0, math.floor(numberValue(item.dailyStock or item.daily, PR.Stores.Defaults.defaultDailyStock))),
         metadata = type(item.metadata) == 'table' and item.metadata or nil,
         currency = trim(item.currency) ~= '' and trim(item.currency) or 'money',
         grade = item.grade,
@@ -249,9 +261,38 @@ local function normalizeItem(item)
     }
 end
 
+local function normalizeStorePoints(store)
+    local points = {}
+    local source = type(store.points) == 'table' and store.points or {}
+
+    for _, point in ipairs(source) do
+        local coords = normalizeVector(type(point) == 'table' and (point.coords or point) or nil)
+        if coords then
+            points[#points + 1] = {
+                coords = coords,
+                rotation = numberValue(type(point) == 'table' and (point.rotation or point.heading) or nil),
+            }
+        end
+    end
+
+    if #points == 0 then
+        local coords = normalizeVector(store.coords or store.shopcoords)
+        if coords then
+            points[1] = {
+                coords = coords,
+                rotation = numberValue(store.rotation or store.heading),
+            }
+        end
+    end
+
+    return points
+end
+
 local function normalizeStore(store)
     store = type(store) == 'table' and store or {}
     local id = normalizeId(store.id ~= nil and store.id or store.label)
+    local points = normalizeStorePoints(store)
+    local primaryPoint = points[1]
 
     local normalized = {
         id = id,
@@ -264,8 +305,9 @@ local function normalizeStore(store)
         purchasePrice = math.max(0, math.floor(numberValue(store.purchasePrice or store.price))),
         saleListed = boolValue(store.saleListed, false),
         balance = math.max(0, math.floor(numberValue(store.balance))),
-        coords = normalizeVector(store.coords or store.shopcoords),
-        rotation = numberValue(store.rotation or store.heading),
+        coords = primaryPoint and primaryPoint.coords or nil,
+        rotation = primaryPoint and primaryPoint.rotation or 0.0,
+        points = points,
         targetLabel = trim(store.targetLabel),
         blip = type(store.blip) == 'table' and store.blip or nil,
         groups = type(store.groups) == 'table' and store.groups or nil,
@@ -282,7 +324,11 @@ local function normalizeStore(store)
         if item.name ~= '' and not seenItems[item.name] then
             seenItems[item.name] = true
             normalized.items[#normalized.items + 1] = item
-            normalized.stock[item.name] = math.max(0, math.floor(numberValue(normalized.stock[item.name], item.dailyStock)))
+            if normalized.owner == '' then
+                normalized.stock[item.name] = nil
+            else
+                normalized.stock[item.name] = math.max(0, math.floor(numberValue(normalized.stock[item.name])))
+            end
         end
     end
 
@@ -315,10 +361,52 @@ local function itemName(item)
     return trim(item)
 end
 
+local function usesOwnerStock(store)
+    return trim(store and store.owner) ~= ''
+end
+
+local function availableStock(store, item)
+    if usesOwnerStock(store) then
+        return math.max(0, math.floor(numberValue(store.stock and store.stock[item.name])))
+    end
+
+    Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
+    local remaining = Service.dailyStock[store.id][item.name]
+    if remaining == nil then
+        remaining = math.max(0, math.floor(numberValue(item.dailyStock)))
+        Service.dailyStock[store.id][item.name] = remaining
+    end
+    return remaining
+end
+
+local function setAvailableStock(store, item, amount)
+    amount = math.max(0, math.floor(numberValue(amount)))
+    if usesOwnerStock(store) then
+        store.stock = type(store.stock) == 'table' and store.stock or {}
+        store.stock[item.name] = amount
+        return
+    end
+
+    Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
+    Service.dailyStock[store.id][item.name] = amount
+end
+
+local function initializeDailyStock()
+    Service.dailyStock = {}
+    for _, store in ipairs(Service.state.stores or {}) do
+        if not usesOwnerStock(store) then
+            Service.dailyStock[store.id] = {}
+            for _, item in ipairs(store.items or {}) do
+                Service.dailyStock[store.id][item.name] = math.max(0, math.floor(numberValue(item.dailyStock)))
+            end
+        end
+    end
+end
+
 local function buildShopInventory(store)
     local inventory = {}
     for _, item in ipairs(store.items or {}) do
-        local stock = math.max(0, math.floor(numberValue(store.stock and store.stock[item.name])))
+        local stock = availableStock(store, item)
         if item.enabled ~= false and stock > 0 and not isBlacklisted(item.name) and itemExists(item.name) then
             inventory[#inventory + 1] = {
                 name = item.name,
@@ -328,7 +416,7 @@ local function buildShopInventory(store)
                 currency = item.currency ~= 'money' and item.currency or nil,
                 grade = item.grade,
             }
-        else
+        elseif item.enabled ~= false and not itemExists(item.name) then
             logStore('warn', ('shop item ignored store=%s item=%s stock=%s enabled=%s exists=%s'):format(
                 tostring(store.id),
                 tostring(item.name),
@@ -370,9 +458,12 @@ local function handleShopPurchase(success, payload)
     local total = math.max(0, math.floor(numberValue(payload.totalPrice, numberValue(payload.price) * count)))
     if name == '' or count <= 0 then return end
 
-    store.stock = type(store.stock) == 'table' and store.stock or {}
-    local previousStock = math.max(0, math.floor(numberValue(store.stock[name])))
-    store.stock[name] = math.max(previousStock - count, 0)
+    local purchasedItem
+    for _, candidate in ipairs(store.items or {}) do
+        if candidate.name == name then purchasedItem = candidate break end
+    end
+    local previousStock = purchasedItem and availableStock(store, purchasedItem) or 0
+    if purchasedItem then setAvailableStock(store, purchasedItem, previousStock - count) end
 
     if isMoneyCurrency(payload.currency or 'money') then
         store.balance = math.max(0, math.floor(numberValue(store.balance) + total))
@@ -399,7 +490,7 @@ local function handleShopPurchase(success, payload)
         name,
         tostring(count),
         tostring(previousStock),
-        tostring(store.stock[name]),
+        tostring(purchasedItem and availableStock(store, purchasedItem) or 0),
         tostring(total)
     ))
 end
@@ -436,6 +527,7 @@ local function normalizeSettings(settings)
         dailyStockEnabled = boolValue(settings.dailyStockEnabled, PR.Stores.Defaults.dailyStockEnabled),
         defaultDailyStock = math.max(0, math.floor(numberValue(settings.defaultDailyStock, PR.Stores.Defaults.defaultDailyStock))),
         lastRestock = trim(settings.lastRestock),
+        stockModelVersion = math.max(1, math.floor(numberValue(settings.stockModelVersion, 1))),
         blacklist = blacklist,
     }
 end
@@ -552,15 +644,22 @@ local function restockDaily()
     local today = todayKey()
     if settings.lastRestock == today then return false end
 
-    for _, store in ipairs(Service.state.stores or {}) do
-        if store.owner == '' then
-            for _, item in ipairs(store.items or {}) do
-                store.stock[item.name] = math.max(0, math.floor(numberValue(item.dailyStock, settings.defaultDailyStock)))
-            end
-        end
-    end
 
     settings.lastRestock = today
+    return true
+end
+
+local function migrateStockModel()
+    local settings = Service.state.settings
+    local currentVersion = math.max(1, math.floor(numberValue(settings.stockModelVersion, 1)))
+    local targetVersion = math.max(4, math.floor(numberValue(PR.Stores.Defaults.stockModelVersion, 4)))
+    if currentVersion >= targetVersion then return false end
+
+    for _, store in ipairs(Service.state.stores or {}) do
+        if not usesOwnerStock(store) then store.stock = {} end
+    end
+
+    settings.stockModelVersion = targetVersion
     return true
 end
 
@@ -600,7 +699,10 @@ function Service.load()
     end
 
     Service.state = normalizeState(state)
-    if restockDaily() then writeState(Service.state) end
+    initializeDailyStock()
+    local migrated = migrateStockModel()
+    local restocked = restockDaily()
+    if migrated or restocked then writeState(Service.state) end
     registerAllShops()
     publish()
     return Service.getAll()
@@ -665,8 +767,31 @@ function Service.updateStore(source, storeId, changes)
     if changes.purchasePrice ~= nil or changes.price ~= nil then store.purchasePrice = math.max(0, math.floor(numberValue(changes.purchasePrice or changes.price))) end
     if changes.saleListed ~= nil then store.saleListed = boolValue(changes.saleListed, store.saleListed) end
     if changes.targetLabel ~= nil then store.targetLabel = trim(changes.targetLabel) end
-    if changes.coords ~= nil then store.coords = normalizeVector(changes.coords) end
-    if changes.rotation ~= nil or changes.heading ~= nil then store.rotation = numberValue(changes.rotation or changes.heading) end
+    if changes.points ~= nil then
+        local candidate = normalizeStorePoints({ points = changes.points })
+        if #candidate == 0 then return false, 'invalid_store_points' end
+
+        local origin = candidate[1].coords
+        local radius = math.max(0.0, numberValue(PR.Stores.Defaults.additionalPointRadius, 50.0))
+        for index = 2, #candidate do
+            local coords = candidate[index].coords
+            local dx, dy, dz = coords.x - origin.x, coords.y - origin.y, coords.z - origin.z
+            if math.sqrt(dx * dx + dy * dy + dz * dz) > radius then
+                return false, 'store_point_out_of_range'
+            end
+        end
+
+        store.points = candidate
+        store.coords = candidate[1].coords
+        store.rotation = candidate[1].rotation
+    elseif changes.coords ~= nil then
+        store.coords = normalizeVector(changes.coords)
+        store.rotation = numberValue(changes.rotation or changes.heading or store.rotation)
+        store.points = { { coords = store.coords, rotation = store.rotation } }
+    elseif changes.rotation ~= nil or changes.heading ~= nil then
+        store.rotation = numberValue(changes.rotation or changes.heading)
+        if type(store.points) == 'table' and store.points[1] then store.points[1].rotation = store.rotation end
+    end
     if changes.blip ~= nil then store.blip = type(changes.blip) == 'table' and changes.blip or nil end
 
     local ok, payload = Service.save()
@@ -680,9 +805,33 @@ function Service.updateOwnerStore(source, storeId, changes)
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
     changes = type(changes) == 'table' and changes or {}
+    if changes.label ~= nil then
+        local label = trim(changes.label)
+        if label == '' then return false, 'invalid_label' end
+        store.label = label
+    end
+    if changes.targetLabel ~= nil then store.targetLabel = trim(changes.targetLabel) end
     if changes.salesPaused ~= nil then store.salesPaused = boolValue(changes.salesPaused, store.salesPaused) end
     if changes.saleListed ~= nil then store.saleListed = boolValue(changes.saleListed, store.saleListed) end
     if changes.purchasePrice ~= nil or changes.price ~= nil then store.purchasePrice = math.max(0, math.floor(numberValue(changes.purchasePrice or changes.price))) end
+    if changes.points ~= nil then
+        local candidate = normalizeStorePoints({ points = changes.points })
+        if #candidate == 0 then return false, 'invalid_store_points' end
+
+        local origin = candidate[1].coords
+        local radius = math.max(0.0, numberValue(PR.Stores.Defaults.additionalPointRadius, 50.0))
+        for index = 2, #candidate do
+            local coords = candidate[index].coords
+            local dx, dy, dz = coords.x - origin.x, coords.y - origin.y, coords.z - origin.z
+            if math.sqrt(dx * dx + dy * dy + dz * dz) > radius then
+                return false, 'store_point_out_of_range'
+            end
+        end
+
+        store.points = candidate
+        store.coords = candidate[1].coords
+        store.rotation = candidate[1].rotation
+    end
 
     local ok, payload = Service.save()
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_saved'), type = 'success' }) end
@@ -699,6 +848,35 @@ function Service.deleteStore(source, storeId)
     local ok, payload = Service.save()
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_deleted'), type = 'success' }) end
     return ok, payload
+end
+
+function Service.getItems(source)
+    local rawItems
+    if pr_lib and pr_lib.inventory and pr_lib.inventory.Items then
+        local ok, result = pcall(pr_lib.inventory.Items)
+        if ok then rawItems = result end
+    end
+
+    if type(rawItems) ~= 'table' and GetResourceState('ox_inventory'):find('start') then
+        local ok, result = pcall(function() return exports.ox_inventory:Items() end)
+        if ok then rawItems = result end
+    end
+
+    local items = {}
+    for name, data in pairs(type(rawItems) == 'table' and rawItems or {}) do
+        local itemName = type(name) == 'string' and name or type(data) == 'table' and data.name
+        if itemName and itemName ~= '' and not isBlacklisted(itemName) then
+            items[#items + 1] = {
+                name = itemName,
+                label = type(data) == 'table' and (data.label or data.name) or itemName,
+            }
+        end
+    end
+
+    table.sort(items, function(left, right)
+        return tostring(left.label or left.name):lower() < tostring(right.label or right.name):lower()
+    end)
+    return true, items
 end
 
 function Service.setItem(source, storeId, itemData)
@@ -720,7 +898,13 @@ function Service.setItem(source, storeId, itemData)
     end
 
     if not replaced then store.items[#store.items + 1] = item end
-    store.stock[item.name] = math.max(0, math.floor(numberValue(itemData and itemData.stock, store.stock[item.name] or item.dailyStock)))
+    if trim(store.owner) == '' then
+        store.stock[item.name] = nil
+        Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
+        Service.dailyStock[store.id][item.name] = math.max(0, math.floor(numberValue(item.dailyStock)))
+    elseif store.stock[item.name] == nil then
+        store.stock[item.name] = 0
+    end
 
     local ok, payload = Service.save()
     if ok then notify(source, { description = ForgeCore.t('notify.stores.item_saved'), type = 'success' }) end
@@ -737,6 +921,7 @@ function Service.removeItem(source, storeId, itemName)
         if item.name == itemName then
             table.remove(store.items, index)
             store.stock[itemName] = nil
+            if Service.dailyStock[store.id] then Service.dailyStock[store.id][itemName] = nil end
             local ok, payload = Service.save()
             if ok then notify(source, { description = ForgeCore.t('notify.stores.item_removed'), type = 'success' }) end
             return ok, payload
@@ -803,7 +988,7 @@ function Service.buyItem(source, storeId, itemName, count)
     if Service.locks[lockKey] then return false, 'busy' end
     Service.locks[lockKey] = true
 
-    local stock = math.max(0, math.floor(numberValue(store.stock[itemName])))
+    local stock = availableStock(store, item)
     if stock < count then
         Service.locks[lockKey] = nil
         return false, 'no_stock'
@@ -827,7 +1012,7 @@ function Service.buyItem(source, storeId, itemName, count)
         return false, 'add_item_failed'
     end
 
-    store.stock[itemName] = stock - count
+    setAvailableStock(store, item, stock - count)
     if isMoneyCurrency(item.currency) then
         store.balance = math.max(0, math.floor(numberValue(store.balance) + total))
     else
@@ -855,7 +1040,7 @@ function Service.buyItem(source, storeId, itemName, count)
         label = item.label or itemLabel(itemName),
         count = count,
         total = total,
-        stock = store.stock[itemName],
+        stock = availableStock(store, item),
     }
 end
 
@@ -879,8 +1064,14 @@ function Service.buyStore(source, storeId, account)
     store.owner = cid
     store.ownerName = playerName(source)
     store.ownerPhone = playerContact(source)
+    store.salesPaused = false
     store.saleListed = false
     store.managers = {}
+    Service.dailyStock[store.id] = nil
+    store.stock = type(store.stock) == 'table' and store.stock or {}
+    for _, item in ipairs(store.items or {}) do
+        store.stock[item.name] = 0
+    end
 
     local ok, payload = Service.save()
     if not ok then

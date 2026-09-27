@@ -144,7 +144,7 @@ function Menu.openJobsMenu()
             {
                 title = t('menu.work.gang'),
                 description = t('menu.work.gang_description', { count = state and #state.gangs or 0 }),
-                icon = 'users',
+                icon = 'people-fill',
                 onSelect = function()
                     Menu.openGroupList('gang')
                 end,
@@ -155,7 +155,7 @@ function Menu.openJobsMenu()
                     status = meiSettings.enabled and t('common.active') or t('common.inactive'),
                     cost = tostring(meiSettings.openingCost or 0),
                 }),
-                icon = 'store',
+                icon = 'shop',
                 onSelect = function()
                     Menu.openMeiCreator()
                 end,
@@ -175,7 +175,7 @@ function Menu.openJobsMenu()
             {
                 title = t('menu.multijob.admin_title'),
                 description = t('menu.multijob.admin_description'),
-                icon = 'briefcase-business',
+                icon = 'briefcase-fill',
                 onSelect = function()
                     Menu.openMultiJobAdminMenu()
                 end,
@@ -203,7 +203,7 @@ function Menu.openGroupList(groupType)
         options[#options + 1] = {
             title = groupTitle(group),
             description = t('menu.work.grades_count', { count = tostring(countGrades(group.grades)) }),
-            icon = groupType == 'gang' and 'users' or 'briefcase',
+            icon = groupType == 'gang' and 'people-fill' or 'briefcase-fill',
             onSelect = function()
                 Menu.openGroupDetails(groupType, group)
             end,
@@ -234,7 +234,7 @@ function Menu.openPaymentSettings()
                     interval = tostring(settings.intervalMinutes or 10),
                     account = accountLabel(settings.account),
                 }),
-                icon = 'settings',
+                icon = 'gear-fill',
                 onSelect = function()
                     Menu.openPaymentEditor(settings)
                 end,
@@ -242,7 +242,7 @@ function Menu.openPaymentSettings()
             {
                 title = t('menu.payments.force_now'),
                 description = t('menu.payments.force_description'),
-                icon = 'circle-dollar-sign',
+                icon = 'currency-dollar',
                 onSelect = function()
                     local confirmed = alertDialog({
                         header = t('dialogs.force_payment_header'),
@@ -273,9 +273,10 @@ function Menu.openPaymentSettings()
                 description = t('menu.payments.current_params_description', {
                     offDuty = boolLabel(settings.payOffDuty),
                     society = boolLabel(settings.useSociety),
+                    percent = tostring(tonumber(settings.societySalaryPercent) or 100),
                     notify = boolLabel(settings.notify),
                 }),
-                icon = 'list-checks',
+                icon = 'list-check',
                 disabled = true,
             },
             {
@@ -286,7 +287,7 @@ function Menu.openPaymentSettings()
                     monthly = tostring(settings.mei.monthlyCost or 0),
                     account = tostring(settings.mei.governmentAccount or 'government'),
                 }) or nil,
-                icon = 'store',
+                icon = 'shop',
                 onSelect = function()
                     Menu.openMeiSettingsEditor(settings.mei or {})
                 end,
@@ -337,6 +338,16 @@ function Menu.openPaymentEditor(settings)
             required = true,
         },
         {
+            type = 'number',
+            label = t('inputs.society_salary_percent'),
+            description = t('inputs.society_salary_percent_description'),
+            default = tonumber(settings.societySalaryPercent) or 100,
+            required = true,
+            min = 0,
+            max = 100,
+            step = 1,
+        },
+        {
             type = 'select',
             label = t('inputs.notify_payment'),
             options = boolOptions(),
@@ -356,7 +367,8 @@ function Menu.openPaymentEditor(settings)
         account = result[3] or 'bank',
         payOffDuty = boolValue(result[4]),
         useSociety = boolValue(result[5]),
-        notify = boolValue(result[6]),
+        societySalaryPercent = tonumber(result[6]) or 100,
+        notify = boolValue(result[7]),
     })
 
     if not ok then
@@ -462,7 +474,7 @@ function Menu.openGroupDetails(groupType, group)
             {
                 title = t('menu.stashes.title'),
                 description = t('menu.stashes.count_description', { count = tostring(countPoints(group)) }),
-                icon = 'building-2',
+                icon = 'buildings-fill',
                 onSelect = function()
                     Menu.openGroupPointList(groupType, group)
                 end,
@@ -576,8 +588,8 @@ function Menu.openGroupPointList(groupType, group)
                 stash = stash.enabled ~= false and t('common.yes') or t('common.no'),
                 duty = groupType == 'job' and duty.enabled == true and t('common.yes') or t('common.no'),
             }),
-            icon = enabled and 'map-pin' or 'map-pin-off',
-            iconColor = enabled and '#22c55e' or '#ffffff',
+            icon = enabled and 'geo-alt-fill' or 'geo-alt',
+            iconColor = enabled and 'green' or 'red',
             onSelect = function()
                 Menu.openGroupPointDetails(groupType, group, point)
             end,
@@ -635,17 +647,17 @@ function Menu.openGroupPointDetails(groupType, group, point)
     options[#options + 1] = {
         title = t('menu.business.boss_panel'),
         description = t('menu.business.boss_panel_description'),
-        icon = 'crown',
+        icon = 'award-fill',
         onSelect = function()
             Menu.openBossPanel(groupType, group)
         end,
     }
 
     local resources = {
-        { key = 'bossMenus', icon = 'crown', title = 'menu.business.boss_menus' },
-        { key = 'registers', icon = 'vault', title = 'menu.business.registers' },
-        { key = 'shops', icon = 'store', title = 'menu.business.shops' },
-        { key = 'applications', icon = 'file-signature', title = 'menu.business.applications' },
+        { key = 'bossMenus', icon = 'award-fill', title = 'menu.business.boss_menus' },
+        { key = 'registers', icon = 'safe2-fill', title = 'menu.business.registers' },
+        { key = 'shops', icon = 'shop', title = 'menu.business.shops' },
+        { key = 'applications', icon = 'file-earmark-text-fill', title = 'menu.business.applications' },
         { key = 'alarms', icon = 'bell', title = 'menu.business.alarms' },
     }
 
@@ -663,7 +675,8 @@ function Menu.openGroupPointDetails(groupType, group, point)
 
     options[#options + 1] = {
         title = point.enabled == false and t('menu.stashes.activate') or t('menu.stashes.deactivate'),
-        icon = point.enabled == false and 'toggle-right' or 'toggle-left',
+        icon = point.enabled == false and 'toggle-on' or 'toggle-off',
+        iconColor = point.enabled == false and 'green' or 'red',
         onSelect = function()
             local updated = clone(group)
             updated.stashes = updated.stashes or {}
@@ -887,7 +900,7 @@ function Menu.openGradeList(groupType, group)
         options[#options + 1] = {
             title = gradeTitle(grade.level, grade.data),
             description = gradeDescription(groupType, grade.data),
-            icon = grade.data.isboss and 'crown' or 'user',
+            icon = grade.data.isboss and 'award-fill' or 'person-fill',
             onSelect = function()
                 Menu.openGradeDetails(groupType, group, grade.level, grade.key, grade.data)
             end,

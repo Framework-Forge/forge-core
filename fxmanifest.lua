@@ -7,7 +7,6 @@ description 'Core System for dedicated qbx'
 version '1.1.0'
 
 shared_scripts {
-    '@ox_lib/init.lua',
     '@pr_bridge/init.lua',
     'shared/config.lua',
     'shared/job.lua',
@@ -19,7 +18,9 @@ shared_scripts {
     'shared/density.lua',
     'shared/weapons.lua',
     'shared/inventory.lua',
+    'shared/vehicles.lua',
     'shared/skills.lua',
+    '@pr_bridge/shared/progression.lua',
     'shared/staff.lua',
     'shared/multijob.lua',
     'shared/vinewood.lua',
@@ -33,6 +34,11 @@ shared_scripts {
     'shared/farms.lua',
     'shared/starterpack.lua',
     'shared/sit.lua',
+    'shared/database_backup.lua',
+    'shared/automedic.lua',
+    'shared/vip.lua',
+    'shared/player_management.lua',
+    'shared/character_slots.lua',
 }
 
 client_scripts {
@@ -47,11 +53,14 @@ client_scripts {
     'client/farms/main.lua',
     'client/starterpack/main.lua',
     'client/sit/main.lua',
+    'client/automedic/main.lua',
+    'client/inventory/consumables.lua',
     'client/menu/menu.lua',
     'client/menu/menu_job.lua',
     'client/menu/menu_business.lua',
     'client/menu/menu_mei.lua',
     'client/menu/menu_skills.lua',
+    'client/skills.lua',
     'client/menu/menu_staff.lua',
     'client/menu/menu_server.lua',
     'client/menu/menu_weather.lua',
@@ -59,6 +68,7 @@ client_scripts {
     'client/menu/menu_density.lua',
     'client/menu/menu_weapons.lua',
     'client/menu/menu_inventory.lua',
+    'client/menu/menu_vehicles.lua',
     'client/menu/menu_vinewood.lua',
     'client/menu/menu_objects.lua',
     'client/menu/menu_npcs.lua',
@@ -68,7 +78,11 @@ client_scripts {
     'client/menu/menu_farms.lua',
     'client/menu/menu_starterpack.lua',
     'client/menu/menu_multijob.lua',
+    'client/menu/menu_automedic.lua',
     'client/menu/menu_player.lua',
+    'client/menu/menu_vip.lua',
+    'client/menu/menu_character_slots.lua',
+    'client/menu/menu_players.lua',
     'client/menu/menu_bindings.lua',
     'client/whitelist/main.lua',
     'client/density/main.lua',
@@ -79,6 +93,7 @@ client_scripts {
 }
 
 server_scripts {
+    'server/callback_security.lua',
     'server/job/storage.lua',
     'server/job/registry.lua',
     'server/job/qbx_sync.lua',
@@ -89,6 +104,8 @@ server_scripts {
     'server/job/callbacks.lua',
     'server/job/commands.lua',
     'server/player/callbacks.lua',
+    'server/vip/service.lua',
+    'server/vip/callbacks.lua',
     'server/weapon/storage.lua',
     'server/weapon/registry.lua',
     'server/weapon/qbx_sync.lua',
@@ -97,6 +114,11 @@ server_scripts {
     'server/weapon/callbacks.lua',
     'server/weapon/commands.lua',
     'server/inventory/service.lua',
+    'server/inventory/consumables.lua',
+    'server/character_slots/service.lua',
+    'server/character_slots/callbacks.lua',
+    'server/vehicle/service.lua',
+    'server/vehicle/callbacks.lua',
     'server/inventory/callbacks.lua',
     'server/skill/storage.lua',
     'server/skill/registry.lua',
@@ -117,6 +139,8 @@ server_scripts {
     'server/density/callbacks.lua',
     'server/multijob/service.lua',
     'server/multijob/callbacks.lua',
+    'server/player/management.lua',
+    'server/player/management_callbacks.lua',
     'server/vinewood/service.lua',
     'server/vinewood/callbacks.lua',
     'server/objects/service.lua',
@@ -136,22 +160,25 @@ server_scripts {
     'server/starterpack/service.lua',
     'server/starterpack/callbacks.lua',
     'server/starterpack/commands.lua',
+    'server/database_backup/service.lua',
+    'server/database_backup/callbacks.lua',
+    'server/automedic/service.lua',
+    'server/automedic/callbacks.lua',
     'server/plugins.lua',
     'server/menu.lua',
     'server/main.lua',
 }
 
 dependencies {
-    'ox_lib',
     'pr_bridge',
     'qbx_core',
     'ox_inventory',
 }
 
-data_file 'DLC_ITYP_REQUEST' 'stream/**/*.ytyp'
+--data_file 'DLC_ITYP_REQUEST' 'stream/**/*.ytyp'
 
 files {
-    'stream/**/*.ytyp',
+    --'stream/**/*.ytyp',
     'data/*.json',
     'locale/*.lua',
 }

@@ -86,6 +86,7 @@ PR.Job.Payments = {
     account = getForgeConvar('paycheck:account', 'bank'),
     payOffDuty = getForgeConvar('paycheck:payOffDuty', 'false') == 'true',
     useSociety = getForgeConvar('paycheck:society', 'false') == 'true',
+    societySalaryPercent = getForgeConvarInt('paycheck:societyPercent', 100),
     notify = getForgeConvar('paycheck:notify', 'true') == 'true',
     file = 'data/payments.json',
 }

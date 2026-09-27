@@ -12,14 +12,17 @@ PR.Stores.Defaults = {
     salesEnabled = true,
     dailyStockEnabled = true,
     defaultDailyStock = 50,
+    stockModelVersion = 4,
     targetDistance = 2.0,
     targetSize = vec3(0.8, 0.8, 1.4),
+    additionalPointRadius = 50.0,
     paymentAccounts = { 'cash', 'bank' },
 }
 
 PR.Stores.Callbacks = {
     getAll = 'forge-core:server:stores:getAll',
     getStore = 'forge-core:server:stores:getStore',
+    getItems = 'forge-core:server:stores:getItems',
     saveSettings = 'forge-core:server:stores:settings:save',
     createStore = 'forge-core:server:stores:create',
     updateStore = 'forge-core:server:stores:update',

@@ -35,19 +35,13 @@ local function normalizePoint(coords)
 end
 
 local function showDevLaserText()
-    if pr_lib and pr_lib.framework and pr_lib.framework.ShowTextUI then
-        pr_lib.framework.ShowTextUI(t('menu.farms.devlaser_instructions'))
-    elseif lib and lib.showTextUI then
-        lib.showTextUI(t('menu.farms.devlaser_instructions'))
+    if pr_lib and pr_lib.ShowTextUI then
+        pr_lib.ShowTextUI(t('menu.farms.devlaser_instructions'))
     end
 end
 
 local function hideDevLaserText()
-    if pr_lib and pr_lib.framework and pr_lib.framework.HideTextUI then
-        pr_lib.framework.HideTextUI()
-    elseif lib and lib.hideTextUI then
-        lib.hideTextUI()
-    end
+    if pr_lib and pr_lib.HideTextUI then pr_lib.HideTextUI() end
 end
 
 local function capturePointWithDevLaser(onCapture, onCancel)
@@ -279,7 +273,7 @@ function Menu.openFarmsMenu()
         options[#options + 1] = {
             title = farm.name,
             description = farmDescription(farm),
-            icon = farm.enabled == false and 'tractor' or 'seedling',
+            icon = farm.enabled == false and 'truck-front-fill' or 'flower1',
             onSelect = function()
                 Menu.openFarmAdmin(farm.id)
             end,
@@ -363,19 +357,19 @@ function Menu.openFarmAdmin(farmId)
                 description = t('menu.farms.access_description', {
                     access = farm.public == true and t('menu.farms.public') or ((farm.groupType or 'job') .. ':' .. (farm.groupName or '')),
                 }),
-                icon = 'user-lock',
+                icon = 'person-lock',
                 onSelect = function() Menu.openFarmAccessMenu(farm.id) end,
             },
             {
                 title = t('menu.farms.entrance'),
                 description = t('menu.farms.entrance_description'),
-                icon = 'location-crosshairs',
+                icon = 'crosshair',
                 onSelect = function() Menu.openFarmEntranceMenu(farm.id) end,
             },
             {
                 title = t('menu.farms.items'),
                 description = t('menu.farms.items_description', { count = tostring(#(farm.items or {})) }),
-                icon = 'seedling',
+                icon = 'flower1',
                 onSelect = function() Menu.openFarmItems(farm.id) end,
             },
             {
@@ -417,7 +411,7 @@ function Menu.openFarmAccessMenu(farmId)
             {
                 title = t('menu.farms.access_public'),
                 description = t('menu.farms.access_public_description'),
-                icon = 'users',
+                icon = 'people-fill',
                 onSelect = function()
                     farm.public = true
                     farm.groupType = 'job'
@@ -437,7 +431,7 @@ function Menu.openFarmAccessMenu(farmId)
             {
                 title = t('menu.farms.access_gang'),
                 description = t('menu.farms.access_gang_description'),
-                icon = 'users-gear',
+                icon = 'people-fill',
                 onSelect = function()
                     Menu.openFarmGroupList(farm.id, 'gang')
                 end,
@@ -455,7 +449,7 @@ function Menu.openFarmGroupList(farmId, groupType)
         options[#options + 1] = {
             title = group.label or group.name,
             description = group.name,
-            icon = groupType == 'gang' and 'users-gear' or 'briefcase',
+            icon = groupType == 'gang' and 'people-fill' or 'briefcase-fill',
             onSelect = function()
                 Menu.openFarmGroupGrade(farm.id, groupType, group)
             end,
@@ -465,7 +459,7 @@ function Menu.openFarmGroupList(farmId, groupType)
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.farms.no_groups'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -507,13 +501,13 @@ function Menu.openFarmEntranceMenu(farmId)
             {
                 title = t('menu.farms.mark_position'),
                 description = t('menu.farms.mark_start_description'),
-                icon = 'location-crosshairs',
+                icon = 'crosshair',
                 onSelect = function() Menu.markFarmStart(farm.id) end,
             },
             {
                 title = t('menu.farms.mark_devlaser'),
                 description = t('menu.farms.mark_devlaser_description'),
-                icon = 'crosshairs',
+                icon = 'crosshair',
                 onSelect = function() Menu.markFarmStartWithDevLaser(farm.id) end,
             },
             {
@@ -524,7 +518,7 @@ function Menu.openFarmEntranceMenu(farmId)
             },
             {
                 title = t('menu.farms.teleport_start'),
-                icon = 'location-arrow',
+                icon = 'cursor-fill',
                 onSelect = function()
                     teleport(farm.start and farm.start.coords)
                     Menu.openFarmEntranceMenu(farm.id)
@@ -609,7 +603,7 @@ function Menu.openFarmItems(farmId)
         options[#options + 1] = {
             title = item.label,
             description = t('menu.farms.item_description', { min = tostring(item.min), max = tostring(item.max), points = tostring(#(item.points or {})) }),
-            icon = item.enabled == false and 'ban' or 'seedling',
+            icon = item.enabled == false and 'ban' or 'flower1',
             onSelect = function() Menu.openFarmItemMenu(farm.id, item.id) end,
         }
     end
@@ -640,7 +634,7 @@ function Menu.openFarmItemCreateSelect(farmId)
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.farms.no_items'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -700,10 +694,10 @@ function Menu.openFarmItemMenu(farmId, itemId)
         menu = 'forge_core_farm_items_' .. tostring(farm.id),
         options = {
             { title = t('menu.farms.edit_item'), description = t('menu.farms.edit_item_description'), icon = 'pen', onSelect = function() Menu.openFarmItemEdit(farm.id, item.id) end },
-            { title = t('menu.farms.required_item'), description = t('menu.farms.required_item_description'), icon = 'toolbox', onSelect = function() Menu.openFarmItemRequired(farm.id, item.id) end },
-            { title = t('menu.farms.limits'), description = t('menu.farms.limits_description'), icon = 'hourglass-half', onSelect = function() Menu.openFarmItemLimits(farm.id, item.id) end },
-            { title = t('menu.farms.animation'), description = t('menu.farms.animation_description'), icon = 'person-running', onSelect = function() Menu.openFarmItemAnimation(farm.id, item.id) end },
-            { title = t('menu.farms.points'), description = t('menu.farms.points_description', { count = tostring(#(item.points or {})) }), icon = 'map-pin', onSelect = function() Menu.openFarmItemPoints(farm.id, item.id) end },
+            { title = t('menu.farms.required_item'), description = t('menu.farms.required_item_description'), icon = 'tools', onSelect = function() Menu.openFarmItemRequired(farm.id, item.id) end },
+            { title = t('menu.farms.limits'), description = t('menu.farms.limits_description'), icon = 'hourglass-split', onSelect = function() Menu.openFarmItemLimits(farm.id, item.id) end },
+            { title = t('menu.farms.animation'), description = t('menu.farms.animation_description'), icon = 'person-walking', onSelect = function() Menu.openFarmItemAnimation(farm.id, item.id) end },
+            { title = t('menu.farms.points'), description = t('menu.farms.points_description', { count = tostring(#(item.points or {})) }), icon = 'geo-alt-fill', onSelect = function() Menu.openFarmItemPoints(farm.id, item.id) end },
             { title = t('menu.farms.extra_rewards'), description = t('menu.farms.extra_rewards_description', { count = tostring(#(item.extraItems or {})) }), icon = 'gift', onSelect = function() Menu.openFarmItemExtras(farm.id, item.id) end },
             { title = t('menu.farms.delete_item'), icon = 'trash', iconColor = 'red', onSelect = function() Menu.deleteFarmItem(farm.id, item.id) end },
         },
@@ -855,7 +849,7 @@ function Menu.openFarmItemPoints(farmId, itemId)
         options[#options + 1] = {
             title = t('menu.farms.point_title', { index = tostring(index) }),
             description = t('menu.farms.point_description', { x = tostring(point.x), y = tostring(point.y), z = tostring(point.z) }),
-            icon = 'map-pin',
+            icon = 'geo-alt-fill',
             onSelect = function()
                 Menu.openFarmPointMenu(farm.id, item.id, index)
             end,
@@ -884,7 +878,7 @@ function Menu.openFarmPointCaptureMenu(farmId, itemId)
             {
                 title = t('menu.farms.mark_position'),
                 description = t('menu.farms.add_point_current_description'),
-                icon = 'map-pin',
+                icon = 'geo-alt-fill',
                 onSelect = function()
                     item.points = type(item.points) == 'table' and item.points or {}
                     item.points[#item.points + 1] = playerCoords()
@@ -894,7 +888,7 @@ function Menu.openFarmPointCaptureMenu(farmId, itemId)
             {
                 title = t('menu.farms.mark_devlaser'),
                 description = t('menu.farms.add_point_devlaser_description'),
-                icon = 'crosshairs',
+                icon = 'crosshair',
                 onSelect = function()
                     capturePointWithDevLaser(function(point)
                         item.points = type(item.points) == 'table' and item.points or {}
@@ -922,10 +916,10 @@ function Menu.openFarmPointMenu(farmId, itemId, pointIndex)
         title = t('menu.farms.point_title', { index = tostring(pointIndex) }),
         menu = 'forge_core_farm_points_' .. tostring(farm.id) .. '_' .. item.id,
         options = {
-            { title = t('menu.farms.teleport_point'), icon = 'location-arrow', onSelect = function() teleport(point) Menu.openFarmPointMenu(farm.id, item.id, pointIndex) end },
+            { title = t('menu.farms.teleport_point'), icon = 'cursor-fill', onSelect = function() teleport(point) Menu.openFarmPointMenu(farm.id, item.id, pointIndex) end },
             {
                 title = t('menu.farms.replace_point'),
-                icon = 'location-crosshairs',
+                icon = 'crosshair',
                 onSelect = function() Menu.openFarmPointReplaceMenu(farm.id, item.id, pointIndex) end,
             },
             {
@@ -954,7 +948,7 @@ function Menu.openFarmPointReplaceMenu(farmId, itemId, pointIndex)
         options = {
             {
                 title = t('menu.farms.mark_position'),
-                icon = 'map-pin',
+                icon = 'geo-alt-fill',
                 onSelect = function()
                     item.points[pointIndex] = playerCoords()
                     saveFarm(farm, function() Menu.openFarmItemPoints(farm.id, item.id) end)
@@ -962,7 +956,7 @@ function Menu.openFarmPointReplaceMenu(farmId, itemId, pointIndex)
             },
             {
                 title = t('menu.farms.mark_devlaser'),
-                icon = 'crosshairs',
+                icon = 'crosshair',
                 onSelect = function()
                     capturePointWithDevLaser(function(point)
                         item.points[pointIndex] = point

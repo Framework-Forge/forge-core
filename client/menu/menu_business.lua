@@ -92,14 +92,14 @@ function Menu.openBossPanel(groupType, group)
         options = {
             {
                 title = t('menu.business.employees'),
-                icon = 'users',
+                icon = 'people-fill',
                 onSelect = function()
                     Menu.openBossEmployees(groupType, group)
                 end,
             },
             {
                 title = t('menu.business.candidates'),
-                icon = 'file-signature',
+                icon = 'file-earmark-text-fill',
                 onSelect = function()
                     Menu.openBossApplications(groupType, group)
                 end,
@@ -117,7 +117,7 @@ function Menu.openBossEmployees(groupType, group)
     local options = {
         {
             title = t('menu.business.hire_by_citizenid'),
-            icon = 'user-plus',
+            icon = 'person-plus-fill',
             onSelect = function()
                 local result = inputDialog(t('menu.business.hire_by_citizenid'), {
                     { type = 'input', label = t('inputs.business_citizenid'), required = true },
@@ -134,7 +134,7 @@ function Menu.openBossEmployees(groupType, group)
         options[#options + 1] = {
             title = employee.name or employee.citizenid,
             description = t('menu.business.employee_description', { citizenid = employee.citizenid, grade = tostring(employee.grade or 0) }),
-            icon = 'user',
+            icon = 'person-fill',
             onSelect = function()
                 Menu.openBossEmployeeActions(groupType, group, employee)
             end,
@@ -169,7 +169,7 @@ function Menu.openBossEmployeeActions(groupType, group, employee)
             },
             {
                 title = t('menu.business.fire_employee'),
-                icon = 'user-minus',
+                icon = 'person-dash-fill',
                 iconColor = 'red',
                 onSelect = function()
                     local ok, response = awaitServer(PR.Job.Callbacks.fireEmployee, groupType, group.name, employee.citizenid)
@@ -180,11 +180,11 @@ function Menu.openBossEmployeeActions(groupType, group, employee)
     })
 end
 local stationServiceTypes = {
-    shops = { icon = 'store', title = 'menu.business.shops', create = 'menu.business.create_shop' },
-    registers = { icon = 'vault', title = 'menu.business.registers', create = 'menu.business.create_register' },
+    shops = { icon = 'shop', title = 'menu.business.shops', create = 'menu.business.create_shop' },
+    registers = { icon = 'safe2-fill', title = 'menu.business.registers', create = 'menu.business.create_register' },
     alarms = { icon = 'bell', title = 'menu.business.alarms', create = 'menu.business.create_alarm' },
-    bossMenus = { icon = 'crown', title = 'menu.business.boss_menus', create = 'menu.business.create_boss' },
-    applications = { icon = 'file-signature', title = 'menu.business.applications', create = 'menu.business.create_application' },
+    bossMenus = { icon = 'award-fill', title = 'menu.business.boss_menus', create = 'menu.business.create_boss' },
+    applications = { icon = 'file-earmark-text-fill', title = 'menu.business.applications', create = 'menu.business.create_application' },
 }
 
 local function upsertStationPoint(group, stationId, key, point)
@@ -273,7 +273,7 @@ function Menu.openStationBusinessList(groupType, group, station, key)
                 status = point.enabled ~= false and t('common.active') or t('common.inactive'),
                 coords = coordsText(point.coords),
             }),
-            icon = point.enabled ~= false and meta.icon or 'circle-off',
+            icon = point.enabled ~= false and meta.icon or 'slash-circle',
             iconColor = point.enabled ~= false and '#22c55e' or '#ffffff',
             onSelect = function()
                 Menu.openStationBusinessPointDetails(groupType, group, station, key, point)
@@ -301,7 +301,7 @@ function Menu.openStationBusinessPointDetails(groupType, group, station, key, po
         },
         {
             title = point.enabled == false and t('menu.business.activate') or t('menu.business.deactivate'),
-            icon = point.enabled == false and 'toggle-right' or 'toggle-left',
+            icon = point.enabled == false and 'toggle-on' or 'toggle-off',
             onSelect = function()
                 local updatedPoint = clone(point)
                 updatedPoint.enabled = point.enabled == false
@@ -326,7 +326,7 @@ function Menu.openStationBusinessPointDetails(groupType, group, station, key, po
         options[#options + 1] = {
             title = t('menu.business.items'),
             description = t('menu.business.category_count', { count = tostring(#(point.items or {})) }),
-            icon = 'boxes-stacked',
+            icon = 'boxes',
             onSelect = function()
                 Menu.openStationShopItems(groupType, group, station, point)
             end,
@@ -335,14 +335,14 @@ function Menu.openStationBusinessPointDetails(groupType, group, station, key, po
         options[#options + 1] = {
             title = t('menu.business.questions'),
             description = t('menu.business.category_count', { count = tostring(#(point.questions or {})) }),
-            icon = 'circle-question',
+            icon = 'question-circle-fill',
             onSelect = function()
                 Menu.openStationApplicationQuestions(groupType, group, station, point)
             end,
         }
         options[#options + 1] = {
             title = t('menu.business.candidates'),
-            icon = 'users',
+            icon = 'people-fill',
             onSelect = function()
                 Menu.openStationCandidates(groupType, group, station, point)
             end,
@@ -555,7 +555,7 @@ function Menu.openStationApplicationQuestions(groupType, group, station, applica
         options[#options + 1] = {
             title = question.label or question.question,
             description = t('menu.whitelist.question_summary', { index = tostring(index), options = tostring(#(question.options or {})) }),
-            icon = 'circle-question',
+            icon = 'question-circle-fill',
             onSelect = function()
                 Menu.openStationQuestionEditor(groupType, group, station, application, question, index)
             end,
@@ -613,7 +613,7 @@ function Menu.openStationCandidates(groupType, group, station, application)
                 status = tostring(candidate.status or 'pending'),
                 phone = tostring(candidate.phone or t('common.none')),
             }),
-            icon = candidate.passed and 'user-check' or 'user-x',
+            icon = candidate.passed and 'person-check-fill' or 'person-x-fill',
             iconColor = candidate.passed and '#22c55e' or '#ef4444',
             onSelect = function()
                 Menu.openStationCandidateActions(groupType, group, station, application, candidate)
@@ -639,7 +639,7 @@ function Menu.openStationCandidateActions(groupType, group, station, application
         options = {
             {
                 title = t('menu.business.accept_candidate'),
-                icon = 'user-plus',
+                icon = 'person-plus-fill',
                 onSelect = function()
                     local ok, response = awaitServer(PR.Job.Callbacks.reviewApplication, groupType, group.name, station.id, application.id, candidate.id, 'accepted')
                     notify({ description = ok and t('notify.business.hired') or t('notify.business.hire_failed', { error = tostring(response or 'unknown') }), type = ok and 'success' or 'error' })
@@ -647,7 +647,7 @@ function Menu.openStationCandidateActions(groupType, group, station, application
             },
             {
                 title = t('menu.business.reject_candidate'),
-                icon = 'user-minus',
+                icon = 'person-dash-fill',
                 onSelect = function()
                     local ok, response = awaitServer(PR.Job.Callbacks.reviewApplication, groupType, group.name, station.id, application.id, candidate.id, 'rejected')
                     notify({ description = ok and t('notify.business.rejected') or t('notify.business.reject_failed', { error = tostring(response or 'unknown') }), type = ok and 'success' or 'error' })
@@ -672,7 +672,7 @@ function Menu.openBossApplications(groupType, group)
                 station = tostring(application.stationTitle or application.stationId or t('common.none')),
                 count = tostring(#(application.submissions or {})),
             }),
-            icon = 'file-signature',
+            icon = 'file-earmark-text-fill',
             onSelect = function()
                 Menu.openStationCandidates(groupType, group, { id = application.stationId, title = application.stationTitle }, application)
             end,

@@ -14,8 +14,8 @@ local function t(key, params)
 end
 
 local function notify(data)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = data.title or t('stores.title'),
             description = data.description,
             type = data.type,
@@ -31,11 +31,9 @@ local function coordsVector(value)
 end
 
 local function currentCitizenId()
-    if not pr_lib or not pr_lib.framework or not pr_lib.framework.GetPlayerData then return '' end
-
-    local data = pr_lib.framework.GetPlayerData()
-    data = type(data) == 'table' and data or {}
-    return tostring(data.citizenid or data.citizenId or data.citizenID or '')
+    if not pr_lib or not pr_lib.framework or not pr_lib.framework.GetPlayerIdentifier then return '' end
+    local ok, citizenid = pcall(pr_lib.framework.GetPlayerIdentifier)
+    return ok and tostring(citizenid or '') or ''
 end
 
 local function hasStoreAccess(store)
@@ -86,15 +84,16 @@ local function createBlip(store, coords)
     Stores.blips[#Stores.blips + 1] = blip
 end
 
-local function addStoreZone(store)
+local function addStoreZone(store, point, pointIndex)
     if not pr_lib or not pr_lib.target or not pr_lib.target.addBoxZone then return end
 
-    local coords = coordsVector(store.coords)
+    point = type(point) == 'table' and point or {}
+    local coords = coordsVector(point.coords or point)
     if not coords then return end
     local options = {
         {
-            name = ('forge_core_store_buy_%s'):format(store.id),
-            icon = 'fa-solid fa-cart-shopping',
+            name = ('forge_core_store_buy_%s_%s'):format(store.id, pointIndex),
+            icon = 'cart-fill',
             label = tostring(store.targetLabel or '') ~= '' and store.targetLabel or t('menu.stores.open_inventory_store'),
             distance = PR.Stores.Defaults.targetDistance or 2.0,
             onSelect = function()
@@ -107,33 +106,46 @@ local function addStoreZone(store)
         },
     }
 
-    local canManage = hasStoreAccess(store)
-    if canManage or tostring(store.owner or '') == '' or store.saleListed == true then
+    local function openStorefront()
+        if ForgeCore.Client.Menu and ForgeCore.Client.Menu.openStorefront then
+            ForgeCore.Client.Menu.openStorefront(store.id)
+        else
+            notify({ description = t('notify.stores.menu_unavailable'), type = 'error' })
+        end
+    end
+
+    if tostring(store.owner or '') ~= '' then
         options[#options + 1] = {
-            name = ('forge_core_store_manage_%s'):format(store.id),
-            icon = canManage and 'fa-solid fa-crown' or 'fa-solid fa-store',
-            label = canManage and t('menu.stores.owner_manage') or t('menu.stores.buy_store', { price = tostring(store.purchasePrice or 0) }),
+            name = ('forge_core_store_manage_%s_%s'):format(store.id, pointIndex),
+            icon = 'award-fill',
+            label = t('menu.stores.owner_manage'),
             distance = PR.Stores.Defaults.targetDistance or 2.0,
-            onSelect = function()
-                if ForgeCore.Client.Menu and ForgeCore.Client.Menu.openStorefront then
-                    ForgeCore.Client.Menu.openStorefront(store.id)
-                else
-                    notify({ description = t('notify.stores.menu_unavailable'), type = 'error' })
-                end
-            end,
+            canInteract = function() return hasStoreAccess(store) end,
+            onSelect = openStorefront,
+        }
+    end
+
+    if tostring(store.owner or '') == '' or store.saleListed == true then
+        options[#options + 1] = {
+            name = ('forge_core_store_purchase_%s_%s'):format(store.id, pointIndex),
+            icon = 'shop',
+            label = t('menu.stores.buy_store', { price = tostring(store.purchasePrice or 0) }),
+            distance = PR.Stores.Defaults.targetDistance or 2.0,
+            canInteract = function() return not hasStoreAccess(store) end,
+            onSelect = openStorefront,
         }
     end
 
     local zoneId = pr_lib.target.addBoxZone({
         coords = coords,
         size = PR.Stores.Defaults.targetSize or vec3(0.8, 0.8, 1.4),
-        rotation = tonumber(store.rotation) or 0.0,
+        rotation = tonumber(point.rotation or point.heading or store.rotation) or 0.0,
         debug = PR.Debug == true,
         options = options,
     })
 
     if zoneId then Stores.zones[#Stores.zones + 1] = zoneId end
-    createBlip(store, coords)
+    if pointIndex == 1 then createBlip(store, coords) end
 end
 
 function Stores.refresh(payload)
@@ -148,7 +160,11 @@ function Stores.refresh(payload)
 
     for _, store in ipairs(type(payload.stores) == 'table' and payload.stores or {}) do
         if type(store) == 'table' and store.enabled ~= false then
-            addStoreZone(store)
+            local points = type(store.points) == 'table' and store.points or {}
+            if #points == 0 and store.coords then points = { { coords = store.coords, rotation = store.rotation } } end
+            for pointIndex, point in ipairs(points) do
+                addStoreZone(store, point, pointIndex)
+            end
         end
     end
 end

@@ -53,6 +53,13 @@ local function gradeLevel(group)
     return tonumber(grade) or 0
 end
 
+local function accessSignature()
+    local data = getPlayerData()
+    local job, gang = data.job or {}, data.gang or {}
+    return table.concat({ tostring(job.name or ''):lower(), tostring(gradeLevel(job)),
+        tostring(gang.name or ''):lower(), tostring(gradeLevel(gang)) }, '|')
+end
+
 local function canUseGroup(groupType, groupName, minGrade)
     local data = getPlayerData()
     local group = playerGroup(data, groupType)
@@ -63,8 +70,8 @@ local function canUseGroup(groupType, groupName, minGrade)
 end
 
 local function notify(data)
-    if pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib.Notify then
+        pr_lib.Notify({
             title = data.title or t('core.title'),
             description = data.description,
             type = data.type,
@@ -205,7 +212,7 @@ local function openRegister(groupType, group, station, register)
     if employeeAccess then
         options[#options + 1] = {
             title = t('menu.business.deposit'),
-            icon = 'arrow-down-to-line',
+            icon = 'download',
             onSelect = function()
                 local result = inputDialog(t('menu.business.deposit'), {
                     { type = 'number', label = t('inputs.business_amount'), min = 1, required = true },
@@ -219,7 +226,7 @@ local function openRegister(groupType, group, station, register)
         }
         options[#options + 1] = {
             title = t('menu.business.withdraw'),
-            icon = 'arrow-up-from-line',
+            icon = 'upload',
             onSelect = function()
                 local result = inputDialog(t('menu.business.withdraw'), {
                     { type = 'number', label = t('inputs.business_amount'), min = 1, required = true },
@@ -236,7 +243,7 @@ local function openRegister(groupType, group, station, register)
     if register.robberyEnabled == true then
         options[#options + 1] = {
             title = t('menu.business.rob_register'),
-            icon = 'lock-open',
+            icon = 'unlock-fill',
             iconColor = '#ef4444',
             onSelect = function()
                 if not runLockpick(register.robbery) then
@@ -340,7 +347,7 @@ local function buildStation(groupType, group, station)
                 local options = {
                     {
                         name = ('forge_core_shop_open_%s_%s_%s_%s'):format(groupType, group.name, normalizeId(station.id), normalizeId(shop.id)),
-                        icon = 'fa-solid fa-store',
+                        icon = 'shop',
                         label = shop.targetLabel or shop.label or t('menu.business.shop_target', { title = group.label or group.name }),
                         distance = PR.Job.Points.targetDistance or 2.0,
                         canInteract = function()
@@ -366,7 +373,7 @@ local function buildStation(groupType, group, station)
                 if canUseGroup(groupType, group.name, tonumber(shop.supplyGrade or shop.minGrade) or 0) then
                     options[#options + 1] = {
                         name = ('forge_core_shop_supply_%s_%s_%s_%s'):format(groupType, group.name, normalizeId(station.id), normalizeId(shop.id)),
-                        icon = 'fa-solid fa-boxes-stacked',
+                        icon = 'boxes',
                         label = t('menu.business.supply_shop'),
                         distance = PR.Job.Points.targetDistance or 2.0,
                         onSelect = function()
@@ -389,7 +396,7 @@ local function buildStation(groupType, group, station)
                 options = {
                     {
                         name = ('forge_core_business_registers_%s_%s_%s_%s'):format(groupType, group.name, normalizeId(station.id), normalizeId(register.id)),
-                        icon = 'fa-solid fa-vault',
+                        icon = 'safe2-fill',
                         label = register.targetLabel or register.label or register.title or t('menu.business.register_target', { title = group.label or group.name }),
                         distance = PR.Job.Points.targetDistance or 2.0,
                         canInteract = function()
@@ -428,12 +435,14 @@ function Business.refresh(payload)
 
     if type(payload) ~= 'table' then return end
     Business.lastPayload = payload
+    Business.accessSignature = accessSignature()
 
     for _, group in ipairs(payload.jobs or {}) do buildForGroup('job', group) end
     for _, group in ipairs(payload.gangs or {}) do buildForGroup('gang', group) end
 end
 
-function Business.refreshCurrent()
+function Business.refreshCurrent(accessOnly)
+    if accessOnly and Business.accessSignature == accessSignature() then return end
     if Business.refreshPending then return end
 
     Business.refreshPending = true
@@ -444,7 +453,7 @@ function Business.refreshCurrent()
 end
 
 RegisterNetEvent('QBCore:Player:SetPlayerData', function()
-    Business.refreshCurrent()
+    Business.refreshCurrent(true)
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function()

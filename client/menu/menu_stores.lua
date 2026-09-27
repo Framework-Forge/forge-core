@@ -13,6 +13,7 @@ local notifyFailure = Shared.notifyFailure
 local boolValue = Shared.boolValue
 local boolDefault = Shared.boolDefault
 local boolOptions = Shared.boolOptions
+local storeDevLaserActive = false
 
 local function notify(data)
     Shared.notify({
@@ -45,6 +46,26 @@ local function fetchStore(storeId)
     return type(payload) == 'table' and payload or nil
 end
 
+local function storeItemOptions()
+    local ok, items = awaitServer(PR.Stores.Callbacks.getItems)
+    if not ok then
+        notifyFailure('notify.stores.load_failed', items)
+        return {}
+    end
+
+    local options = {}
+    for _, item in ipairs(type(items) == 'table' and items or {}) do
+        local name = tostring(item.name or '')
+        if name ~= '' then
+            options[#options + 1] = {
+                value = name,
+                label = ('%s (%s)'):format(tostring(item.label or name), name),
+            }
+        end
+    end
+    return options
+end
+
 local function playerCoords()
     local coords = GetEntityCoords(PlayerPedId())
     return {
@@ -56,6 +77,62 @@ end
 
 local function heading()
     return tonumber(('%0.2f'):format(GetEntityHeading(PlayerPedId())))
+end
+
+local function normalizePoint(coords)
+    if not coords or coords.x == nil or coords.y == nil or coords.z == nil then return nil end
+    return {
+        x = tonumber(('%0.3f'):format(tonumber(coords.x) or 0.0)),
+        y = tonumber(('%0.3f'):format(tonumber(coords.y) or 0.0)),
+        z = tonumber(('%0.3f'):format(tonumber(coords.z) or 0.0)),
+    }
+end
+
+local function capturePointWithDevLaser(onCapture, onCancel)
+    local devlaser = pr_lib and (pr_lib.devlaser or pr_lib.devLaser or (pr_lib.fivem and (pr_lib.fivem.devlaser or pr_lib.fivem.devLaser)))
+    if not devlaser or not devlaser.start or not devlaser.getTarget then
+        notifyFailure('notify.stores.devlaser_failed', 'devlaser_unavailable')
+        if onCancel then onCancel() end
+        return false
+    end
+    if storeDevLaserActive then return false end
+
+    storeDevLaserActive = true
+    if pr_lib.ShowTextUI then pr_lib.ShowTextUI(t('menu.stores.devlaser_instructions')) end
+    devlaser.start({
+        distance = 1000.0,
+        flags = -1,
+        onStop = function()
+            if not storeDevLaserActive then return end
+            storeDevLaserActive = false
+            if pr_lib.HideTextUI then pr_lib.HideTextUI() end
+            if onCancel then onCancel() end
+        end,
+    })
+
+    CreateThread(function()
+        while storeDevLaserActive and devlaser.isActive and devlaser.isActive() do
+            Wait(0)
+            if IsControlJustReleased(0, 201) or IsDisabledControlJustReleased(0, 201) then
+                local target = devlaser.getTarget()
+                local point = target and normalizePoint(target.coords)
+                if point then
+                    storeDevLaserActive = false
+                    if pr_lib.HideTextUI then pr_lib.HideTextUI() end
+                    devlaser.stop(true)
+                    onCapture(point)
+                else
+                    notifyFailure('notify.stores.devlaser_failed', 'target_not_found')
+                end
+            elseif IsControlJustReleased(0, 177) or IsDisabledControlJustReleased(0, 177) or IsControlJustReleased(0, 202) or IsDisabledControlJustReleased(0, 202) then
+                storeDevLaserActive = false
+                if pr_lib.HideTextUI then pr_lib.HideTextUI() end
+                devlaser.stop(true)
+                if onCancel then onCancel() end
+            end
+        end
+    end)
+    return true
 end
 
 local function teleportToStore(store)
@@ -227,18 +304,90 @@ function Menu.openStoreCreate()
 
     if not result then return Menu.openStoresAdminMenu() end
 
-    local ok, response = awaitServer(PR.Stores.Callbacks.createStore, {
-        label = tostring(result[1] or ''),
-        purchasePrice = tonumber(result[2]) or 0,
-        enabled = boolValue(result[3]),
-        targetLabel = tostring(result[4] or ''),
-        coords = playerCoords(),
-        rotation = heading(),
-        blip = { enabled = true, sprite = 59, color = 69, scale = 0.8 },
-    })
+    capturePointWithDevLaser(function(point)
+        local ok, response = awaitServer(PR.Stores.Callbacks.createStore, {
+            label = tostring(result[1] or ''),
+            purchasePrice = tonumber(result[2]) or 0,
+            enabled = boolValue(result[3]),
+            targetLabel = tostring(result[4] or ''),
+            coords = point,
+            rotation = heading(),
+            points = { { coords = point, rotation = heading() } },
+            blip = { enabled = true, sprite = 59, color = 69, scale = 0.8 },
+        })
+        if not ok then notifyFailure('notify.stores.save_failed', response) end
+        SetTimeout(400, Menu.openStoresAdminMenu)
+    end, Menu.openStoresAdminMenu)
+end
 
-    if not ok then notifyFailure('notify.stores.save_failed', response) end
-    SetTimeout(400, Menu.openStoresAdminMenu)
+function Menu.openStorePoints(storeId, ownerMode)
+    local payload = fetchStore(storeId)
+    if not payload then return end
+    if ownerMode == true and payload.isOwner ~= true then
+        notifyFailure('notify.stores.save_failed', 'no_permission')
+        return Menu.openStorefront(storeId)
+    end
+
+    local store = payload.store
+    local updateCallback = ownerMode == true and PR.Stores.Callbacks.updateOwnerStore or PR.Stores.Callbacks.updateStore
+    local parentMenu = ownerMode == true and ('forge_core_store_owner_%s'):format(store.id) or ('forge_core_store_admin_%s'):format(store.id)
+    local points = type(store.points) == 'table' and Shared.clone(store.points) or {}
+    if #points == 0 and store.coords then points[1] = { coords = store.coords, rotation = store.rotation } end
+
+    local options = {
+        {
+            title = t('menu.stores.add_access_point'),
+            description = t('menu.stores.add_access_point_description', { radius = tostring(PR.Stores.Defaults.additionalPointRadius or 50) }),
+            icon = 'plus-circle',
+            onSelect = function()
+                capturePointWithDevLaser(function(coords)
+                    points[#points + 1] = { coords = coords, rotation = heading() }
+                    local ok, response = awaitServer(updateCallback, store.id, { points = points })
+                    if not ok then notifyFailure('notify.stores.save_failed', response) end
+                    SetTimeout(400, function() Menu.openStorePoints(store.id, ownerMode) end)
+                end, function() Menu.openStorePoints(store.id, ownerMode) end)
+            end,
+        },
+    }
+
+    for index, point in ipairs(points) do
+        local coords = type(point) == 'table' and (point.coords or point) or {}
+        options[#options + 1] = {
+            title = t('menu.stores.access_point_title', { index = tostring(index) }),
+            description = ('%.2f, %.2f, %.2f'):format(tonumber(coords.x) or 0.0, tonumber(coords.y) or 0.0, tonumber(coords.z) or 0.0),
+            icon = index == 1 and 'geo-alt-fill' or 'geo-alt',
+            onSelect = function()
+                if index == 1 then
+                    capturePointWithDevLaser(function(newCoords)
+                        points[1] = { coords = newCoords, rotation = heading() }
+                        local ok, response = awaitServer(updateCallback, store.id, { points = points })
+                        if not ok then notifyFailure('notify.stores.save_failed', response) end
+                        SetTimeout(400, function() Menu.openStorePoints(store.id, ownerMode) end)
+                    end, function() Menu.openStorePoints(store.id, ownerMode) end)
+                    return
+                end
+
+                local confirmed = not alertDialog or alertDialog({
+                    header = t('menu.stores.remove_access_point'),
+                    content = t('dialogs.remove_store_point_content', { index = tostring(index) }),
+                    centered = true,
+                    cancel = true,
+                }) == 'confirm'
+                if not confirmed then return Menu.openStorePoints(store.id, ownerMode) end
+                table.remove(points, index)
+                local ok, response = awaitServer(updateCallback, store.id, { points = points })
+                if not ok then notifyFailure('notify.stores.save_failed', response) end
+                SetTimeout(400, function() Menu.openStorePoints(store.id, ownerMode) end)
+            end,
+        }
+    end
+
+    showContext({
+        id = ('forge_core_store_points_%s'):format(store.id),
+        title = t('menu.stores.access_points'),
+        menu = parentMenu,
+        options = options,
+    })
 end
 
 function Menu.openStoreAdmin(storeId)
@@ -254,27 +403,22 @@ function Menu.openStoreAdmin(storeId)
             {
                 title = t('menu.stores.edit_store'),
                 description = storeDescription(store),
-                icon = 'pen-to-square',
+                icon = 'pencil-square',
                 onSelect = function()
                     Menu.openStoreEdit(store)
                 end,
             },
             {
-                title = t('menu.stores.set_coords'),
-                description = t('menu.stores.set_coords_description'),
-                icon = 'location-crosshairs',
+                title = t('menu.stores.access_points'),
+                description = t('menu.stores.access_points_description', { count = tostring(#(store.points or {})) }),
+                icon = 'crosshair',
                 onSelect = function()
-                    local ok, response = awaitServer(PR.Stores.Callbacks.updateStore, store.id, {
-                        coords = playerCoords(),
-                        rotation = heading(),
-                    })
-                    if not ok then notifyFailure('notify.stores.save_failed', response) end
-                    SetTimeout(400, function() Menu.openStoreAdmin(store.id) end)
+                    Menu.openStorePoints(store.id)
                 end,
             },
             {
                 title = t('menu.stores.teleport_store'),
-                icon = 'location-dot',
+                icon = 'geo-alt-fill',
                 onSelect = function()
                     teleportToStore(store)
                     Menu.openStoreAdmin(store.id)
@@ -283,14 +427,14 @@ function Menu.openStoreAdmin(storeId)
             {
                 title = t('menu.stores.products'),
                 description = t('menu.stores.products_description', { count = tostring(#(store.items or {})) }),
-                icon = 'boxes-stacked',
+                icon = 'boxes',
                 onSelect = function()
                     Menu.openStoreProducts(store.id)
                 end,
             },
             {
                 title = t('menu.stores.open_storefront'),
-                icon = 'cart-shopping',
+                icon = 'cart-fill',
                 onSelect = function()
                     Menu.openStorefront(store.id)
                 end,
@@ -393,7 +537,7 @@ function Menu.openStoreProductActions(storeId, item)
         options = {
             {
                 title = t('menu.stores.edit_product'),
-                icon = 'pen-to-square',
+                icon = 'pencil-square',
                 onSelect = function()
                     Menu.openStoreProductEditor(storeId, item)
                 end,
@@ -414,12 +558,13 @@ end
 
 function Menu.openStoreProductEditor(storeId, item)
     item = type(item) == 'table' and item or {}
+    local options = storeItemOptions()
+    if #options == 0 then return Menu.openStoreProducts(storeId) end
+
     local result = inputDialog(t('menu.stores.product_editor'), {
-        { type = 'input', label = t('inputs.store_item_name'), default = item.name or '', required = true },
-        { type = 'input', label = t('inputs.store_item_label'), default = item.label or '' },
+        { type = 'select', label = t('inputs.store_item_name'), options = options, default = item.name or nil, required = true, searchable = true },
         { type = 'number', label = t('inputs.store_item_price'), min = 0, default = tonumber(item.price) or 0, required = true },
-        { type = 'number', label = t('inputs.store_item_stock'), min = 0, default = tonumber(item.stock or item.currentStock) or 0, required = true },
-        { type = 'number', label = t('inputs.store_item_daily_stock'), min = 0, default = tonumber(item.dailyStock) or 0, required = true },
+        { type = 'number', label = t('inputs.store_item_daily_stock'), min = 0, default = tonumber(item.dailyStock) or PR.Stores.Defaults.defaultDailyStock, required = true },
         { type = 'select', label = t('inputs.store_item_enabled'), options = boolOptions(), default = boolDefault(item.enabled ~= false), required = true },
     })
 
@@ -427,11 +572,10 @@ function Menu.openStoreProductEditor(storeId, item)
 
     local ok, response = awaitServer(PR.Stores.Callbacks.setItem, storeId, {
         name = tostring(result[1] or ''),
-        label = tostring(result[2] or ''),
-        price = tonumber(result[3]) or 0,
-        stock = tonumber(result[4]) or 0,
-        dailyStock = tonumber(result[5]) or 0,
-        enabled = boolValue(result[6]),
+        label = item.name == result[1] and tostring(item.label or '') or '',
+        price = tonumber(result[2]) or 0,
+        dailyStock = tonumber(result[3]) or PR.Stores.Defaults.defaultDailyStock,
+        enabled = boolValue(result[4]),
     })
 
     if not ok then notifyFailure('notify.stores.item_save_failed', response) end
@@ -470,18 +614,18 @@ function Menu.openStorefront(storeId)
         options[#options + 1] = {
             title = t('menu.stores.owner_manage'),
             description = t('menu.stores.owner_manage_description', { balance = tostring(store.balance or 0) }),
-            icon = 'crown',
+            icon = 'award-fill',
             onSelect = function()
                 Menu.openStoreOwnerMenu(store.id)
             end,
         }
     end
 
-    if store.owner == '' or store.saleListed == true then
+    if (store.owner == '' or store.saleListed == true) and payload.isOwner ~= true then
         options[#options + 1] = {
             title = t('menu.stores.buy_store', { price = tostring(store.purchasePrice or 0) }),
             description = t('menu.stores.buy_store_description'),
-            icon = 'store',
+            icon = 'shop',
             onSelect = function()
                 Menu.openStoreBuyStore(store.id)
             end,
@@ -491,7 +635,7 @@ function Menu.openStorefront(storeId)
     options[#options + 1] = {
         title = t('menu.stores.open_inventory_store'),
         description = t('menu.stores.open_inventory_store_description'),
-        icon = 'cart-shopping',
+        icon = 'cart-fill',
         onSelect = function()
             Menu.openStoreInventory(store.id)
         end,
@@ -500,7 +644,7 @@ function Menu.openStorefront(storeId)
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.stores.no_products'),
-            icon = 'box-open',
+            icon = 'box-seam-fill',
             disabled = true,
         }
     end
@@ -533,10 +677,12 @@ function Menu.openStoreBuyStore(storeId)
     if not result then return Menu.openStorefront(storeId) end
 
     local ok, response = awaitServer(PR.Stores.Callbacks.buyStore, store.id, tostring(result[1] or 'cash'))
-    notify({
-        description = ok and t('notify.stores.store_bought') or t('notify.stores.buy_store_failed', { error = tostring(response or 'unknown') }),
-        type = ok and 'success' or 'error',
-    })
+    if not ok then
+        notify({
+            description = t('notify.stores.buy_store_failed', { error = tostring(response or 'unknown') }),
+            type = 'error',
+        })
+    end
     SetTimeout(400, function() Menu.openStorefront(store.id) end)
 end
 
@@ -569,7 +715,7 @@ function Menu.openStoreOwnerMenu(storeId)
         {
             title = t('menu.stores.open_inventory_store'),
             description = t('menu.stores.open_inventory_store_description'),
-            icon = 'cart-shopping',
+            icon = 'cart-fill',
             onSelect = function()
                 Menu.openStoreInventory(store.id)
             end,
@@ -586,18 +732,11 @@ function Menu.openStoreOwnerMenu(storeId)
                 Menu.openStoreOwnerSettings(store)
             end,
         },
-        {
-            title = t('menu.stores.products'),
-            description = t('menu.stores.products_description', { count = tostring(#(store.items or {})) }),
-            icon = 'boxes-stacked',
-            onSelect = function()
-                Menu.openStoreProducts(store.id)
-            end,
-        },
+
         {
             title = t('menu.stores.owner_stock'),
             description = t('menu.stores.owner_stock_description'),
-            icon = 'boxes-stacked',
+            icon = 'boxes',
             onSelect = function()
                 Menu.openStoreOwnerStock(store.id)
             end,
@@ -606,9 +745,27 @@ function Menu.openStoreOwnerMenu(storeId)
 
     if payload.isOwner then
         options[#options + 1] = {
+            title = t('menu.stores.edit_store'),
+            description = store.label,
+            icon = 'pencil-square',
+            onSelect = function()
+                Menu.openStoreOwnerEdit(store)
+            end,
+        }
+
+        options[#options + 1] = {
+            title = t('menu.stores.access_points'),
+            description = t('menu.stores.access_points_description', { count = tostring(#(store.points or {})) }),
+            icon = 'crosshair',
+            onSelect = function()
+                Menu.openStorePoints(store.id, true)
+            end,
+        }
+
+        options[#options + 1] = {
             title = t('menu.stores.managers'),
             description = t('menu.stores.managers_description', { count = tostring(#(store.managers or {})) }),
-            icon = 'users-gear',
+            icon = 'people-fill',
             onSelect = function()
                 Menu.openStoreManagers(store.id)
             end,
@@ -617,7 +774,7 @@ function Menu.openStoreOwnerMenu(storeId)
         options[#options + 1] = {
             title = t('menu.stores.transfer_store'),
             description = t('menu.stores.transfer_store_description'),
-            icon = 'right-left',
+            icon = 'arrow-left-right',
             onSelect = function()
                 Menu.openStoreTransfer(store.id)
             end,
@@ -625,7 +782,7 @@ function Menu.openStoreOwnerMenu(storeId)
 
         options[#options + 1] = {
             title = t('menu.stores.withdraw', { amount = tostring(store.balance or 0) }),
-            icon = 'money-bill-wave',
+            icon = 'cash-stack',
             onSelect = function()
                 local ok, response = awaitServer(PR.Stores.Callbacks.withdraw, store.id)
                 notify({
@@ -643,6 +800,23 @@ function Menu.openStoreOwnerMenu(storeId)
         menu = ('forge_core_storefront_%s'):format(store.id),
         options = options,
     })
+end
+
+function Menu.openStoreOwnerEdit(store)
+    local result = inputDialog(t('menu.stores.edit_store'), {
+        { type = 'input', label = t('inputs.store_label'), default = store.label, required = true },
+        { type = 'input', label = t('inputs.store_target_label'), default = store.targetLabel or '' },
+    })
+
+    if not result then return Menu.openStoreOwnerMenu(store.id) end
+
+    local ok, response = awaitServer(PR.Stores.Callbacks.updateOwnerStore, store.id, {
+        label = tostring(result[1] or ''),
+        targetLabel = tostring(result[2] or ''),
+    })
+
+    if not ok then notifyFailure('notify.stores.save_failed', response) end
+    SetTimeout(400, function() Menu.openStoreOwnerMenu(store.id) end)
 end
 
 function Menu.openStoreOwnerSettings(store)
@@ -686,7 +860,7 @@ function Menu.openStoreManagers(storeId)
     local options = {
         {
             title = t('menu.stores.add_manager'),
-            icon = 'user-plus',
+            icon = 'person-plus-fill',
             onSelect = function()
                 Menu.openStoreAddManager(store.id)
             end,
@@ -698,7 +872,7 @@ function Menu.openStoreManagers(storeId)
         options[#options + 1] = {
             title = type(manager) == 'table' and manager.name or managerId,
             description = managerId,
-            icon = 'user-gear',
+            icon = 'person-gear',
             onSelect = function()
                 local ok, response = awaitServer(PR.Stores.Callbacks.removeManager, store.id, managerId)
                 notify({
@@ -762,10 +936,12 @@ function Menu.openStoreOwnerStock(storeId)
     if not result then return Menu.openStoreOwnerMenu(storeId) end
 
     local success, response = awaitServer(PR.Stores.Callbacks.addStockFromPlayer, storeId, result[1], result[2], result[3])
-    notify({
-        description = success and t('notify.stores.stock_added') or t('notify.stores.stock_add_failed', { error = tostring(response or 'unknown') }),
-        type = success and 'success' or 'error',
-    })
+    if not success then
+        notify({
+            description = t('notify.stores.stock_add_failed', { error = tostring(response or 'unknown') }),
+            type = 'error',
+        })
+    end
 
     SetTimeout(400, function() Menu.openStoreOwnerMenu(storeId) end)
 end

@@ -16,8 +16,8 @@ local function t(key, params)
 end
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('npcs.title'),
             description = description,
             type = notifyType or 'inform',
@@ -326,7 +326,7 @@ local function addTarget(entry)
         {
             name = targetName,
             label = interaction.label ~= '' and interaction.label or entry.name,
-            icon = 'fa-solid fa-user',
+            icon = 'person-fill',
             distance = tonumber(interaction.distance) or PR.Npcs.Defaults.interactionDistance,
             canInteract = function()
                 return canInteract(entry)

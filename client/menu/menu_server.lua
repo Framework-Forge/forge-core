@@ -7,7 +7,9 @@ local Shared = ForgeCore.Client.MenuShared
 local t = Shared.t
 local showContext = Shared.showContext
 local inputDialog = Shared.inputDialog
+local alertDialog = Shared.alertDialog
 local awaitServer = Shared.awaitServer
+local notify = Shared.notify
 local notifyFailure = Shared.notifyFailure
 local boolValue = Shared.boolValue
 local boolDefault = Shared.boolDefault
@@ -15,6 +17,53 @@ local boolOptions = Shared.boolOptions
 
 local afkActionLocked = false
 local passwordActionLocked = false
+local backupActionLocked = false
+
+local function databaseBackupModeLabel(mode)
+    if mode == 'schema' then return t('menu.database_backup.schema') end
+    if mode == 'data' then return t('menu.database_backup.data') end
+    return t('menu.database_backup.both')
+end
+
+local function createDatabaseBackup(mode)
+    local confirmed = alertDialog({
+        header = t('dialogs.database_backup_header'),
+        content = t('dialogs.database_backup_content', { mode = databaseBackupModeLabel(mode) }),
+        centered = true,
+        cancel = true,
+    })
+
+    if confirmed ~= 'confirm' then
+        Menu.openDatabaseBackupMenu()
+        return
+    end
+
+    if backupActionLocked then return end
+    backupActionLocked = true
+
+    local ok, result = pr_lib.callback.await(PR.DatabaseBackup.Callbacks.create, 300000, mode)
+    if ok then
+        notify({
+            title = t('menu.database_backup.title'),
+            description = t('notify.database_backup.created', {
+                path = tostring(result.path or ''),
+                tables = tostring(result.tables or 0),
+                rows = tostring(result.rows or 0),
+            }),
+            type = 'success',
+        })
+    else
+        notifyFailure('notify.database_backup.failed', result)
+    end
+
+    SetTimeout(500, function()
+        Menu.openDatabaseBackupMenu()
+    end)
+
+    SetTimeout(1000, function()
+        backupActionLocked = false
+    end)
+end
 
 local function fetchAfkSettings()
     local ok, payload = awaitServer(PR.Afk.Callbacks.getSettings)
@@ -86,9 +135,17 @@ function Menu.openServerSettingsMenu()
                     status = password.enabled and t('common.active') or t('common.inactive'),
                     support = password.supportLink ~= '' and password.supportLink or t('common.none'),
                 }),
-                icon = 'key-round',
+                icon = 'key-fill',
                 onSelect = function()
                     Menu.openPasswordSettingsEditor(password)
+                end,
+            },
+            {
+                title = t('menu.database_backup.title'),
+                description = t('menu.database_backup.description'),
+                icon = 'database-lock',
+                onSelect = function()
+                    Menu.openDatabaseBackupMenu()
                 end,
             },
             {
@@ -102,7 +159,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.whitelist.title'),
                 description = t('menu.whitelist.description'),
-                icon = 'user-lock',
+                icon = 'person-lock',
                 onSelect = function()
                     Menu.openWhitelistMenu()
                 end,
@@ -110,7 +167,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.density.title'),
                 description = t('menu.density.description'),
-                icon = 'traffic-cone',
+                icon = 'cone-striped',
                 onSelect = function()
                     Menu.openDensityMenu()
                 end,
@@ -118,15 +175,23 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.inventory.title'),
                 description = t('menu.inventory.description'),
-                icon = 'boxes-stacked',
+                icon = 'boxes',
                 onSelect = function()
                     Menu.openInventoryMenu()
                 end,
             },
             {
+                title = t('menu.vehicles.title'),
+                description = t('menu.vehicles.description'),
+                icon = 'car-front-fill',
+                onSelect = function()
+                    Menu.openVehiclesMenu()
+                end,
+            },
+            {
                 title = t('menu.vinewood.title'),
                 description = t('menu.vinewood.description'),
-                icon = 'landmark',
+                icon = 'bank2',
                 onSelect = function()
                     Menu.openVinewoodMenu()
                 end,
@@ -134,7 +199,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.objects.title'),
                 description = t('menu.objects.description'),
-                icon = 'boxes-stacked',
+                icon = 'boxes',
                 onSelect = function()
                     Menu.openObjectsMenu()
                 end,
@@ -142,7 +207,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.npcs.title'),
                 description = t('menu.npcs.description'),
-                icon = 'users-gear',
+                icon = 'people-fill',
                 onSelect = function()
                     Menu.openNpcsMenu()
                 end,
@@ -150,7 +215,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.spotlights.title'),
                 description = t('menu.spotlights.description'),
-                icon = 'spotlight',
+                icon = 'lamp-fill',
                 onSelect = function()
                     Menu.openSpotlightsMenu()
                 end,
@@ -164,9 +229,198 @@ function Menu.openServerSettingsMenu()
                 end,
             },
             {
+                title = t('menu.chat.title'),
+                description = t('menu.chat.description'),
+                icon = 'chat-dots-fill',
+                onSelect = function()
+                    local resource = 'forge-chat'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.chat.title'),
+                            description = t('errors.chat_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.chat.title'),
+                            description = t('errors.chat_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = t('menu.safezones.title'),
+                description = t('menu.safezones.description'),
+                icon = 'bi bi-bounding-box-circles',
+                onSelect = function()
+                    local resource = 'forge-smallresources'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.safezones.title'),
+                            description = t('errors.safezones_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.safezones.title'),
+                            description = t('errors.safezones_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = t('menu.prison.title'),
+                description = t('menu.prison.description'),
+                icon = 'building-lock',
+                onSelect = function()
+                    local resource = 'xt-prison'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.prison.title'),
+                            description = t('errors.prison_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.prison.title'),
+                            description = t('errors.prison_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = 'Forge HUD',
+                description = 'Gerencie limites das vias e o HUD de helicoptero.',
+                icon = 'bi bi-speedometer2',
+                onSelect = function()
+                    local resource = 'forge-hud'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = 'Forge HUD',
+                            description = ('O recurso %s nao esta iniciado.'):format(resource),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = 'Forge HUD',
+                            description = 'Nao foi possivel abrir o painel administrativo do HUD.',
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = t('menu.gym.title'),
+                description = t('menu.gym.description'),
+                icon = 'bi bi-person-arms-up',
+                onSelect = function()
+                    local resource = 'forge-gym'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.gym.title'),
+                            description = t('errors.gym_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.gym.title'),
+                            description = t('errors.gym_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = t('menu.backpacks.title'),
+                description = t('menu.backpacks.description'),
+                icon = 'backpack',
+                onSelect = function()
+                    local resource = 'forge-backpack'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.backpacks.title'),
+                            description = t('errors.backpack_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.backpacks.title'),
+                            description = t('errors.backpack_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
+                title = t('menu.appearance.title'),
+                description = t('menu.appearance.description'),
+                icon = 'person-bounding-box',
+                onSelect = function()
+                    local resource = 'illenium-appearance'
+                    if GetResourceState(resource) ~= 'started' then
+                        notify({
+                            title = t('menu.appearance.title'),
+                            description = t('errors.appearance_resource_unavailable', { resource = resource }),
+                            type = 'error',
+                        })
+                        return
+                    end
+
+                    local ok = pcall(function()
+                        exports[resource]:OpenAdminMenu('forge_core_server_settings', GetCurrentResourceName())
+                    end)
+                    if not ok then
+                        notify({
+                            title = t('menu.appearance.title'),
+                            description = t('errors.appearance_menu_unavailable'),
+                            type = 'error',
+                        })
+                    end
+                end,
+            },
+            {
                 title = t('menu.stores.title'),
                 description = t('menu.stores.description'),
-                icon = 'store',
+                icon = 'shop',
                 onSelect = function()
                     Menu.openStoresAdminMenu()
                 end,
@@ -174,7 +428,7 @@ function Menu.openServerSettingsMenu()
             {
                 title = t('menu.farms.title'),
                 description = t('menu.farms.description'),
-                icon = 'tractor',
+                icon = 'truck-front-fill',
                 onSelect = function()
                     Menu.openFarmsMenu()
                 end,
@@ -188,6 +442,76 @@ function Menu.openServerSettingsMenu()
                 end,
             },
         },
+    })
+end
+
+function Menu.openDatabaseBackupMenu()
+    local ok, payload = awaitServer(PR.DatabaseBackup.Callbacks.getHistory)
+    if not ok then
+        notifyFailure('notify.database_backup.load_failed', payload)
+        Menu.openServerSettingsMenu()
+        return
+    end
+
+    payload = type(payload) == 'table' and payload or {}
+    local options = {
+        {
+            title = t('menu.database_backup.schema'),
+            description = t('menu.database_backup.schema_description'),
+            icon = 'table',
+            disabled = payload.running == true,
+            onSelect = function()
+                createDatabaseBackup('schema')
+            end,
+        },
+        {
+            title = t('menu.database_backup.data'),
+            description = t('menu.database_backup.data_description'),
+            icon = 'file-earmark-code',
+            disabled = payload.running == true,
+            onSelect = function()
+                createDatabaseBackup('data')
+            end,
+        },
+        {
+            title = t('menu.database_backup.both'),
+            description = t('menu.database_backup.both_description'),
+            icon = 'database-fill-down',
+            disabled = payload.running == true,
+            onSelect = function()
+                createDatabaseBackup('both')
+            end,
+        },
+    }
+
+    local history = type(payload.entries) == 'table' and payload.entries or {}
+    for i = 1, #history do
+        local entry = history[i]
+        options[#options + 1] = {
+            title = t('menu.database_backup.history_entry', {
+                date = tostring(entry.createdAt or ''),
+                mode = databaseBackupModeLabel(entry.mode),
+            }),
+            description = entry.success and t('menu.database_backup.history_success', {
+                admin = tostring(entry.adminName or entry.adminSource or ''),
+                tables = tostring(entry.tables or 0),
+                rows = tostring(entry.rows or 0),
+                path = tostring(entry.path or ''),
+            }) or t('menu.database_backup.history_failed', {
+                admin = tostring(entry.adminName or entry.adminSource or ''),
+                error = tostring(entry.error or 'unknown'),
+            }),
+            icon = entry.success and 'check-circle-fill' or 'x-circle-fill',
+            iconColor = entry.success and '#22c55e' or '#ef4444',
+            disabled = true,
+        }
+    end
+
+    showContext({
+        id = 'forge_core_database_backups',
+        title = t('menu.database_backup.title'),
+        menu = 'forge_core_server_settings',
+        options = options,
     })
 end
 

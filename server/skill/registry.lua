@@ -91,6 +91,10 @@ local function normalizeSkill(rawSkill, fallbackName)
         label = label ~= '' and label or name,
         icon = trim(rawSkill.icon) ~= '' and trim(rawSkill.icon) or PR.Skills.Defaults.icon,
         calculation = calculation,
+        integration = PR.Skills.normalizeIntegration(rawSkill.integration),
+        decay = PR.Skills.normalizeDecay(rawSkill.decay),
+        clientGain = rawSkill.clientGain == true,
+        maxDeltaPerMinute = math.max(0, tonumber(rawSkill.maxDeltaPerMinute) or PR.Skills.Client.maxDeltaPerMinute),
         maxXp = math.max(0, math.floor(tonumber(rawSkill.maxXp or rawSkill.maxLevel) or PR.Skills.Defaults.maxXp)),
         levels = #levels > 0 and levels or nil,
     }
@@ -103,8 +107,7 @@ local function normalizeReputation(rawRep, fallbackName)
     if name == '' then return nil, 'missing_name' end
 
     local skill = normalizeName(rawRep.skill or rawRep.linkedSkill or rawRep.parentSkill or rawRep.parent)
-    if skill == '' then return nil, 'missing_skill' end
-    if not Registry.skills[skill] then return nil, 'skill_not_found' end
+    if skill ~= '' and not Registry.skills[skill] then return nil, 'skill_not_found' end
 
     local label = trim(rawRep.label)
     local levels = normalizeLevels(rawRep.levels or rawRep.skillLevels)
@@ -116,6 +119,10 @@ local function normalizeReputation(rawRep, fallbackName)
         icon = trim(rawRep.icon) ~= '' and trim(rawRep.icon) or PR.Skills.Defaults.icon,
         skill = skill,
         linkedSkill = skill,
+        integration = PR.Skills.normalizeIntegration(rawRep.integration),
+        decay = PR.Skills.normalizeDecay(rawRep.decay),
+        clientGain = rawRep.clientGain == true,
+        maxDeltaPerMinute = math.max(0, tonumber(rawRep.maxDeltaPerMinute) or PR.Skills.Client.maxDeltaPerMinute),
         maxXp = math.max(0, math.floor(tonumber(rawRep.maxXp or rawRep.maxLevel) or PR.Skills.Defaults.maxXp)),
         levels = #levels > 0 and levels or nil,
     }
@@ -188,6 +195,11 @@ function Registry.payload()
 end
 
 function Registry.upsertSkill(skill)
+    if type(skill) ~= 'table' then return false, 'invalid_definition' end
+    if skill.integration and not PR.Skills.normalizeIntegration(skill.integration) then
+        return false, 'invalid_integration'
+    end
+    if Registry.reputations[normalizeName(skill.name or skill.code)] then return false, 'code_used_by_reputation' end
     local normalized, err = normalizeSkill(skill)
     if not normalized then return false, err end
 
@@ -198,6 +210,11 @@ function Registry.upsertSkill(skill)
 end
 
 function Registry.upsertReputation(reputation)
+    if type(reputation) ~= 'table' then return false, 'invalid_definition' end
+    if reputation.integration and not PR.Skills.normalizeIntegration(reputation.integration) then
+        return false, 'invalid_integration'
+    end
+    if Registry.skills[normalizeName(reputation.name or reputation.code)] then return false, 'code_used_by_skill' end
     local normalized, err = normalizeReputation(reputation)
     if not normalized then return false, err end
 

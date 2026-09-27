@@ -4,6 +4,9 @@ local Service = {
     started = false,
     schemaReady = false,
 }
+local P = PRProgression
+local sessions, loading, forwarding = {}, {}, {}
+local syncSession
 
 local function debug(level, message)
     local debugApi = pr_lib and pr_lib.debug
@@ -74,7 +77,7 @@ local function valueFromData(data, key)
         value = value.Current or value.current or value.xp
     end
 
-    return math.max(0, math.floor(tonumber(value) or 0))
+    return math.max(0, P.round(P.number(value) or 0))
 end
 
 local function database()
@@ -86,15 +89,15 @@ local function database()
 end
 
 local function normalizePlayerValues(data)
-    local values = {}
+    local values = P.copy(type(data) == 'table' and data or {})
     local payload = ForgeCore.SkillRegistry.payload()
 
     for _, skill in ipairs(payload.skills or {}) do
-        values[skill.name] = valueFromData(data, skill.name)
+        values[skill.name] = math.min(skill.maxXp, valueFromData(data, skill.name))
     end
 
     for _, reputation in ipairs(payload.reputations or {}) do
-        values[reputation.name] = valueFromData(data, reputation.name)
+        values[reputation.name] = math.min(reputation.maxXp, valueFromData(data, reputation.name))
     end
 
     return values
@@ -128,23 +131,45 @@ local function ensureSkillsColumn()
 end
 
 local function loadPlayerValues(source)
+    source = tonumber(source)
     local citizenid = getCitizenid(source)
     if not citizenid then return nil, 'invalid_player' end
+    if sessions[source] and sessions[source].citizenid == citizenid then
+        return sessions[source].values, citizenid
+    end
+    if loading[source] then
+        Citizen.Await(loading[source])
+        if sessions[source] and sessions[source].citizenid == citizenid then return sessions[source].values, citizenid end
+        return nil, 'load_failed'
+    end
     if not ensureSkillsColumn() then return nil, 'database_unavailable' end
 
     local db = database()
     if not db then return nil, 'database_unavailable' end
 
+
     local column = PR.Skills.Storage.playerColumn
-    local stored = db.scalar(('SELECT `%s` FROM `players` WHERE `citizenid` = ?'):format(column), { citizenid })
-    local values = normalizePlayerValues(decodeValues(stored))
-
-    db.update(('UPDATE `players` SET `%s` = ? WHERE `citizenid` = ?'):format(column), {
-        encodeValues(values),
-        citizenid,
-    })
-
-    return values, citizenid
+    local pending = promise.new()
+    loading[source] = pending
+    local ok, stored = pcall(db.scalar, ('SELECT `%s` FROM `players` WHERE `citizenid` = ?'):format(column), { citizenid })
+    loading[source] = nil
+    if not ok or getCitizenid(source) ~= citizenid then pending:resolve(false); return nil, 'load_failed' end
+    local decoded = decodeValues(stored)
+    local values = normalizePlayerValues(decoded)
+    local capped = false
+    local previousCaps = type(values._previousCaps) == 'table' and values._previousCaps or {}
+    for name, value in pairs(values) do
+        if type(value) == 'number' and valueFromData(decoded, name) > value then
+            if previousCaps[name] == nil then previousCaps[name] = P.copy(decoded[name]) end
+            capped = true
+        end
+    end
+    if capped then values._previousCaps = previousCaps end
+    local session = P.session(values, citizenid .. ':' .. GetGameTimer() .. ':' .. math.random(100000, 999999), GetGameTimer())
+    session.citizenid, session.dirty = citizenid, capped
+    sessions[source] = session
+    pending:resolve(true)
+    return session.values, citizenid
 end
 
 local function savePlayerValues(citizenid, values)
@@ -177,7 +202,7 @@ local function getEffectiveXp(values, name)
         total = total + valueFromData(values, reputationName)
     end
 
-    return total
+    return math.min(skill.maxXp or total, P.round(total))
 end
 
 local function getLevelData(definition, xp)
@@ -258,6 +283,9 @@ function Service.save()
         debug('success', ForgeCore.t('debug.skills.saved'))
     end
 
+    if saved and syncSession then
+        for src in pairs(sessions) do syncSession(src, true) end
+    end
     return saved
 end
 
@@ -333,7 +361,9 @@ function Service.fetchPlayer(source)
     return true, buildPlayerPayload(values)
 end
 
-function Service.addXp(source, name, amount)
+function Service.addXp(source, name, amount, context)
+    source = tonumber(source)
+    if ForgeCore.SkillRegistry.settings.enabled == false then return false, 'disabled' end
     local values, citizenid = loadPlayerValues(source)
     if not values then return false, citizenid end
 
@@ -347,14 +377,22 @@ function Service.addXp(source, name, amount)
 
     local current = valueFromData(values, definition.name)
     local maxXp = math.max(0, tonumber(definition.maxXp) or PR.Skills.Defaults.maxXp)
-    local nextValue = current + math.floor(tonumber(amount) or 0)
+    local rawAmount = P.number(amount)
+    if not rawAmount then return false, 'invalid_amount' end
+    local multiplier = 1.0
+    if rawAmount > 0 and not (type(context) == 'table' and context.normalizedXp) and ForgeCore.VipService then
+        local activeVip = ForgeCore.VipService.get(source)
+        multiplier = activeVip and (tonumber(activeVip.config.xpMultiplier) or 1.0) or 1.0
+    end
+    local nextValue = P.round(current + rawAmount * multiplier)
 
     if nextValue < 0 then nextValue = 0 end
     if nextValue > maxXp then nextValue = maxXp end
 
-    values[definition.name] = nextValue
 
-    if not savePlayerValues(citizenid, values) then return false, 'save_failed' end
+    local actual = P.change(sessions[source], definition.name, nextValue - current, maxXp)
+    if Service.forwardChange then Service.forwardChange(source, definition, actual, context) end
+    syncSession(source)
 
     return true, buildPlayerPayload(values)
 end
@@ -399,8 +437,8 @@ end
 
 ForgeCore.SkillService = Service
 
-exports('updateSkill', function(source, name, amount)
-    return Service.addXp(source, name, amount)
+exports('updateSkill', function(source, name, amount, context)
+    return Service.addXp(source, name, amount, context)
 end)
 
 exports('fetchSkills', function(source)
@@ -419,3 +457,148 @@ end)
 exports('getSkillInfo', function(name)
     return Service.getSkillInfo(name)
 end)
+
+-- Server cache mirrors client counters. SQL is only used on load/checkpoint.
+local function clientRule(name)
+    if ForgeCore.SkillRegistry.settings.enabled == false then return nil end
+    local definition = ForgeCore.SkillRegistry.getDefinition(name)
+    if not definition or definition.calculation == PR.Skills.Calculation.sumReputations then return nil end
+    return { maximum = definition.maxXp, client = definition.clientGain or (definition.decay and definition.decay.enabled),
+        gains = definition.clientGain == true, losses = definition.clientGain == true or (definition.decay and definition.decay.enabled == true) or false,
+        rate = definition.maxDeltaPerMinute or PR.Skills.Client.maxDeltaPerMinute }
+end
+
+syncSession = function(src, definitions)
+    local session = sessions[src]
+    if not session then return end
+    local packet = P.packet(session)
+    if definitions or session.definitionRevision ~= ForgeCore.SkillRegistry.revision then
+        packet.definitions = ForgeCore.SkillRegistry.payload()
+        session.definitionRevision = ForgeCore.SkillRegistry.revision
+    end
+    pr_lib.cache.set('forge-core:skills:' .. src, P.copy(session.values))
+    TriggerClientEvent('forge-core:client:skills:sync', src, packet)
+end
+
+function Service.forward(src, definition, delta, context)
+    if delta == 0 then return end
+    local integration = definition.integration
+    if not integration or (delta > 0 and not integration.gains) or (delta < 0 and not integration.losses) then return end
+    context = type(context) == 'table' and context or {}
+    local visited = P.copy(context.visited or {})
+    local route = GetCurrentResourceName() .. ':' .. definition.name
+    if visited[route] or forwarding[src] then return end
+    visited[route] = true
+    if GetResourceState(integration.resource) ~= 'started' then return end
+    local targetName = integration.identifier ~= '' and integration.identifier or definition.name
+    if visited[integration.resource .. ':' .. targetName] then return end
+    forwarding[src] = true
+    local ok, result = pcall(function()
+        local api = exports[integration.resource]
+        return api[integration.export](api, src, targetName, delta * integration.multiplier, { visited = visited })
+    end)
+    forwarding[src] = nil
+    if not ok or result == false then
+        print(('[forge-core:skills] export failed %s:%s (%s)'):format(integration.resource, integration.export, tostring(result)))
+    end
+end
+
+function Service.forwardChange(src, definition, delta, context)
+    local parent = definition.skill and ForgeCore.SkillRegistry.getSkill(definition.skill)
+    local parentDelta = 0
+    if parent and parent.calculation == PR.Skills.Calculation.sumReputations then
+        local total = 0
+        for name in pairs(ForgeCore.SkillRegistry.getLinkedReputations(parent.name)) do
+            total = total + valueFromData(sessions[src].values, name)
+        end
+        parentDelta = P.round(math.min(parent.maxXp, total) - math.min(parent.maxXp, total - delta))
+    end
+    Service.forward(src, definition, delta, context)
+    if parentDelta ~= 0 then Service.forward(src, parent, parentDelta, context) end
+end
+
+local function accept(src, packet)
+    local session = sessions[src]
+    if not session then return false end
+    local before = P.copy(session.values)
+    local ok, changes = P.accept(session, packet, clientRule, GetGameTimer())
+    if ok then
+        local parents, outgoing = {}, {}
+        for name, delta in pairs(changes) do
+            local definition = ForgeCore.SkillRegistry.getDefinition(name)
+            outgoing[#outgoing + 1] = { definition = definition, delta = delta }
+            local parent = definition.skill and ForgeCore.SkillRegistry.getSkill(definition.skill)
+            if parent and parent.calculation == PR.Skills.Calculation.sumReputations then parents[parent.name] = parent end
+        end
+        for name, parent in pairs(parents) do
+            outgoing[#outgoing + 1] = { definition = parent,
+                delta = P.round(getEffectiveXp(session.values, name) - getEffectiveXp(before, name)) }
+        end
+        for _, change in ipairs(outgoing) do Service.forward(src, change.definition, change.delta) end
+    end
+    syncSession(src)
+    return ok
+end
+
+function Service.flush(src, citizenid)
+    src = tonumber(src)
+    local session = sessions[src]
+    if not session or (citizenid and session.citizenid ~= citizenid) then return true end
+    if session.saving then Citizen.Await(session.saving) end
+    if not session.dirty then return true end
+    local lock = promise.new()
+    session.saving = lock
+    local success = true
+    repeat
+        local revision = session.revision
+        local ok, saved = pcall(savePlayerValues, session.citizenid, P.copy(session.values))
+        success = ok and saved == true
+        if success and revision == session.revision then session.dirty = false end
+    until not success or not session.dirty
+    session.saving = nil
+    lock:resolve(success)
+    return success
+end
+
+local lastRequest, lastMirror = {}, {}
+RegisterNetEvent('forge-core:server:skills:initialize', function()
+    local src = source
+    local now = GetGameTimer()
+    if lastRequest[src] and now - lastRequest[src] < 1000 then return end
+    lastRequest[src] = now
+    if loadPlayerValues(src) then syncSession(src, true) end
+end)
+
+RegisterNetEvent('forge-core:server:skills:mirror', function(packet)
+    local src, now = source, GetGameTimer()
+    if lastMirror[src] and now - lastMirror[src] < 250 then return end
+    lastMirror[src] = now
+    accept(src, packet)
+end)
+
+AddEventHandler('qbx_core:server:statusExtensions', function(src, extensions)
+    if extensions.forgeSkills then accept(tonumber(src), extensions.forgeSkills) end
+end)
+AddEventHandler('qbx_core:server:progressionCheckpoint', function(src, citizenid)
+    if not Service.flush(src, citizenid) then print('[forge-core:skills] checkpoint failed for ' .. tostring(src)) end
+end)
+AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
+    src = tonumber(src)
+    local session = sessions[src]
+    if Service.flush(src) and sessions[src] == session then sessions[src] = nil end
+    lastRequest[src], lastMirror[src] = nil, nil
+    pr_lib.cache.clear('forge-core:skills:' .. src)
+end)
+AddEventHandler('playerDropped', function()
+    local src = tonumber(source)
+    local session = sessions[src]
+    if Service.flush(src) and sessions[src] == session then sessions[src] = nil end
+    lastRequest[src], lastMirror[src] = nil, nil
+    pr_lib.cache.clear('forge-core:skills:' .. src)
+end)
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    for src in pairs(sessions) do Service.flush(src) end
+end)
+
+exports('getSkillDefinitions', function() return ForgeCore.SkillRegistry.payload() end)

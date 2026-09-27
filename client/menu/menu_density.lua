@@ -66,7 +66,7 @@ function Menu.openDensityMenu()
                     status = settings.enabled and t('common.active') or t('common.inactive'),
                     all = settings.disableAll and t('common.no') or t('common.yes'),
                 }),
-                icon = 'settings',
+                icon = 'gear-fill',
                 onSelect = function()
                     Menu.openDensityGeneralEditor(settings)
                 end,
@@ -78,7 +78,7 @@ function Menu.openDensityMenu()
                     vehicle = densityText(settings, 'vehicle'),
                     peds = densityText(settings, 'peds'),
                 }),
-                icon = 'sliders-horizontal',
+                icon = 'sliders',
                 onSelect = function()
                     Menu.openDensityValuesEditor(settings)
                 end,
@@ -89,7 +89,7 @@ function Menu.openDensityMenu()
                     peds = tostring(settings.pedPopulationBudget or 0),
                     vehicles = tostring(settings.vehiclePopulationBudget or 0),
                 }),
-                icon = 'gauge',
+                icon = 'speedometer2',
                 onSelect = function()
                     Menu.openDensityPopulationEditor(settings)
                 end,

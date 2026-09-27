@@ -147,7 +147,7 @@ local function openPointCaptureMethod(title, description, onCapture, onCancel, p
             {
                 title = t('menu.whitelist.capture_current'),
                 description = t('menu.whitelist.capture_current_description'),
-                icon = 'map-pin',
+                icon = 'geo-alt-fill',
                 onSelect = function()
                     if onCapture then onCapture(currentPoint()) end
                 end,
@@ -249,7 +249,7 @@ function Menu.openWhitelistMenu()
                     status = config.enabled and t('common.active') or t('common.inactive'),
                     percent = tostring(config.percent or 70),
                 }),
-                icon = 'settings',
+                icon = 'gear-fill',
                 onSelect = function()
                     Menu.openWhitelistSettingsEditor(config)
                 end,
@@ -257,7 +257,7 @@ function Menu.openWhitelistMenu()
             {
                 title = t('menu.whitelist.questions'),
                 description = t('menu.whitelist.questions_summary', { count = tostring(#(config.questions or {})) }),
-                icon = 'clipboard-question',
+                icon = 'clipboard2-check-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistQuestions(config)
@@ -266,7 +266,7 @@ function Menu.openWhitelistMenu()
             {
                 title = t('menu.whitelist.locations'),
                 description = t('menu.whitelist.locations_description'),
-                icon = 'map-pinned',
+                icon = 'pin-map-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistLocations(config)
@@ -275,7 +275,7 @@ function Menu.openWhitelistMenu()
             {
                 title = t('menu.whitelist.players'),
                 description = t('menu.whitelist.players_description'),
-                icon = 'users',
+                icon = 'people-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistPlayers()
@@ -284,7 +284,7 @@ function Menu.openWhitelistMenu()
             {
                 title = t('menu.whitelist.add_player'),
                 description = t('menu.whitelist.add_player_description'),
-                icon = 'user-plus',
+                icon = 'person-plus-fill',
                 onSelect = function()
                     Menu.openWhitelistPlayerAction('add')
                 end,
@@ -292,7 +292,7 @@ function Menu.openWhitelistMenu()
             {
                 title = t('menu.whitelist.remove_player'),
                 description = t('menu.whitelist.remove_player_description'),
-                icon = 'user-minus',
+                icon = 'person-dash-fill',
                 iconColor = 'red',
                 onSelect = function()
                     Menu.openWhitelistPlayerAction('remove')
@@ -326,7 +326,7 @@ function Menu.openWhitelistPlayers()
                 source = source,
                 citizenid = tostring(player.citizenid or ''),
             }),
-            icon = player.whitelisted and 'user-check' or 'user-x',
+            icon = player.whitelisted and 'person-check-fill' or 'person-x-fill',
             iconColor = player.whitelisted and 'green' or 'red',
             arrow = true,
             onSelect = function()
@@ -338,7 +338,7 @@ function Menu.openWhitelistPlayers()
     if #options == 0 then
         options[#options + 1] = {
             title = t('menu.whitelist.no_players'),
-            icon = 'circle-info',
+            icon = 'info-circle-fill',
             disabled = true,
         }
     end
@@ -363,7 +363,7 @@ function Menu.openWhitelistPlayerDetails(player)
         options[#options + 1] = {
             title = t('menu.whitelist.remove_player'),
             description = t('menu.whitelist.remove_player_description'),
-            icon = 'user-minus',
+            icon = 'person-dash-fill',
             iconColor = 'red',
             onSelect = function()
                 local ok = runWhitelistAction(PR.Whitelist.Callbacks.remove, 'notify.whitelist.remove_failed', identifier)
@@ -376,7 +376,7 @@ function Menu.openWhitelistPlayerDetails(player)
         options[#options + 1] = {
             title = t('menu.whitelist.add_player'),
             description = t('menu.whitelist.add_player_description'),
-            icon = 'user-plus',
+            icon = 'person-plus-fill',
             iconColor = 'green',
             onSelect = function()
                 local ok = runWhitelistAction(PR.Whitelist.Callbacks.add, 'notify.whitelist.add_failed', identifier)
@@ -479,7 +479,7 @@ function Menu.openWhitelistLocationPoint(config, pointType)
             markTitle = t('menu.whitelist.mark_spawn'),
             markDescription = t('menu.whitelist.mark_spawn_description'),
             teleportTitle = t('menu.whitelist.teleport_spawn'),
-            icon = 'map-pin',
+            icon = 'geo-alt-fill',
             apply = function(point) config.spawnCoords = point end,
         },
         exam = {
@@ -489,7 +489,7 @@ function Menu.openWhitelistLocationPoint(config, pointType)
             markTitle = t('menu.whitelist.mark_exam'),
             markDescription = t('menu.whitelist.mark_exam_description'),
             teleportTitle = t('menu.whitelist.teleport_exam'),
-            icon = 'clipboard-question',
+            icon = 'clipboard2-check-fill',
             apply = function(point) config.examCoords = point end,
         },
         completion = {
@@ -499,7 +499,7 @@ function Menu.openWhitelistLocationPoint(config, pointType)
             markTitle = t('menu.whitelist.mark_completion'),
             markDescription = t('menu.whitelist.mark_completion_description'),
             teleportTitle = t('menu.whitelist.teleport_completion'),
-            icon = 'flag-checkered',
+            icon = 'flag-fill',
             apply = function(point) config.completionCoords = point end,
         },
     }
@@ -527,7 +527,7 @@ function Menu.openWhitelistLocationPoint(config, pointType)
             {
                 title = point.teleportTitle,
                 description = t('menu.whitelist.teleport_description', { coords = formatCoords(point.coords) }),
-                icon = 'plane-arrival',
+                icon = 'airplane-engines-fill',
                 onSelect = function()
                     teleportToPoint(point.coords)
                     reopen()
@@ -555,7 +555,7 @@ function Menu.openWhitelistZoneMenu(config)
             {
                 title = t('menu.whitelist.mark_zone_center'),
                 description = t('menu.whitelist.mark_zone_center_description'),
-                icon = 'box-select',
+                icon = 'bounding-box',
                 onSelect = function()
                     markConfigPoint(config, t('menu.whitelist.mark_zone_center'), t('menu.whitelist.mark_zone_center_description'), function(point)
                         config.citizenZone = type(config.citizenZone) == 'table' and config.citizenZone or clone(PR.Whitelist.Defaults.citizenZone or {})
@@ -574,7 +574,7 @@ function Menu.openWhitelistZoneMenu(config)
             {
                 title = t('menu.whitelist.teleport_zone'),
                 description = t('menu.whitelist.teleport_description', { coords = formatCoords(zone.coords) }),
-                icon = 'plane-arrival',
+                icon = 'airplane-engines-fill',
                 onSelect = function()
                     teleportToPoint(zone.coords)
                     reopen()
@@ -596,7 +596,7 @@ function Menu.openWhitelistLocations(config)
             {
                 title = t('menu.whitelist.location_spawn'),
                 description = t('menu.whitelist.location_description', { coords = formatCoords(config.spawnCoords) }),
-                icon = 'map-pin',
+                icon = 'geo-alt-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistLocationPoint(config, 'spawn')
@@ -605,7 +605,7 @@ function Menu.openWhitelistLocations(config)
             {
                 title = t('menu.whitelist.location_exam'),
                 description = t('menu.whitelist.location_description', { coords = formatCoords(config.examCoords) }),
-                icon = 'clipboard-question',
+                icon = 'clipboard2-check-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistLocationPoint(config, 'exam')
@@ -614,7 +614,7 @@ function Menu.openWhitelistLocations(config)
             {
                 title = t('menu.whitelist.location_completion'),
                 description = t('menu.whitelist.location_description', { coords = formatCoords(config.completionCoords) }),
-                icon = 'flag-checkered',
+                icon = 'flag-fill',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistLocationPoint(config, 'completion')
@@ -623,7 +623,7 @@ function Menu.openWhitelistLocations(config)
             {
                 title = t('menu.whitelist.location_zone'),
                 description = t('menu.whitelist.location_description', { coords = formatCoords(type(config.citizenZone) == 'table' and config.citizenZone.coords or nil) }),
-                icon = 'box-select',
+                icon = 'bounding-box',
                 arrow = true,
                 onSelect = function()
                     Menu.openWhitelistZoneMenu(config)
@@ -740,7 +740,7 @@ function Menu.openWhitelistQuestions(config)
                 index = tostring(index),
                 options = tostring(#(question.options or {})),
             }),
-            icon = 'clipboard-question',
+            icon = 'clipboard2-check-fill',
             arrow = true,
             onSelect = function()
                 Menu.openWhitelistQuestionDetails(config, index)
@@ -851,7 +851,7 @@ function Menu.openWhitelistOptions(config, questionIndex)
         options[#options + 1] = {
             title = option.label,
             description = t('menu.whitelist.option_summary', { correct = boolLabel(option.value == true) }),
-            icon = option.value == true and 'circle-check' or 'circle-x',
+            icon = option.value == true and 'check-circle-fill' or 'x-circle-fill',
             iconColor = option.value == true and 'green' or 'red',
             onSelect = function()
                 Menu.openWhitelistOptionEditor(config, questionIndex, index)

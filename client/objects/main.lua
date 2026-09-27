@@ -14,8 +14,8 @@ local function t(key, params)
 end
 
 local function notify(description, notifyType)
-    if pr_lib and pr_lib.notify and pr_lib.notify.Notify then
-        pr_lib.notify.Notify({
+    if pr_lib and pr_lib.Notify then
+        pr_lib.Notify({
             title = t('objects.title'),
             description = description,
             type = notifyType or 'inform',
@@ -200,64 +200,14 @@ local function drawDebugLabel(entry, coords, distance)
     ClearDrawOrigin()
 end
 
-local function disableEditorControls()
-    DisableControlAction(0, 24, true)
-    DisableControlAction(0, 25, true)
-    DisableControlAction(0, 140, true)
-    DisableControlAction(0, 141, true)
-    DisableControlAction(0, 142, true)
-    DisableControlAction(0, 257, true)
-    DisablePlayerFiring(PlayerId(), true)
-end
-
-local function applyPrecisionControls(entity, editPos, editRot)
-    EnableControlAction(0, 1, true)
-    EnableControlAction(0, 2, true)
-    SetPauseMenuActive(false)
-
-    for _, control in ipairs({ 32, 31, 34, 35, 44, 38, 174, 175, 172, 173, 83, 84, 314, 315, 241, 242 }) do
-        DisableControlAction(0, control, true)
-    end
-
-    local precisionSpeed = pr_lib.fivem.gizmo.getPrecisionSpeed and pr_lib.fivem.gizmo.getPrecisionSpeed() or 1.0
-    local speed = (IsControlPressed(0, 21) and 0.04 or 0.015) * precisionSpeed
-    local rotSpeed = (IsControlPressed(0, 21) and 3.0 or 1.0) * precisionSpeed
-    local right, forward = GetEntityMatrix(entity)
-    local moved = false
-    local rotated = false
-
-    if IsDisabledControlPressed(0, 32) then editPos = editPos + forward * speed; moved = true end
-    if IsDisabledControlPressed(0, 31) then editPos = editPos - forward * speed; moved = true end
-    if IsDisabledControlPressed(0, 34) then editPos = editPos - right * speed; moved = true end
-    if IsDisabledControlPressed(0, 35) then editPos = editPos + right * speed; moved = true end
-    if IsDisabledControlPressed(0, 241) then editPos = editPos + vector3(0.0, 0.0, speed); moved = true end
-    if IsDisabledControlPressed(0, 242) then editPos = editPos - vector3(0.0, 0.0, speed); moved = true end
-
-    if IsDisabledControlPressed(0, 44) then editRot = vector3(editRot.x, editRot.y, editRot.z + rotSpeed); rotated = true end
-    if IsDisabledControlPressed(0, 38) then editRot = vector3(editRot.x, editRot.y, editRot.z - rotSpeed); rotated = true end
-    if IsDisabledControlPressed(0, 174) then editRot = vector3(editRot.x, editRot.y - rotSpeed, editRot.z); rotated = true end
-    if IsDisabledControlPressed(0, 175) then editRot = vector3(editRot.x, editRot.y + rotSpeed, editRot.z); rotated = true end
-    if IsDisabledControlPressed(0, 172) then editRot = vector3(editRot.x - rotSpeed, editRot.y, editRot.z); rotated = true end
-    if IsDisabledControlPressed(0, 173) then editRot = vector3(editRot.x + rotSpeed, editRot.y, editRot.z); rotated = true end
-
-    if moved then SetEntityCoordsNoOffset(entity, editPos.x, editPos.y, editPos.z, false, false, false) end
-    if rotated then SetEntityRotation(entity, editRot.x, editRot.y, editRot.z, 2, true) end
-
-    return editPos, editRot
-end
-
 local function cleanupEditor(entity, deleteEntity)
     if pr_lib and pr_lib.fivem then
         if pr_lib.fivem.gizmo and pr_lib.fivem.gizmo.stop then pr_lib.fivem.gizmo.stop() end
-        if pr_lib.fivem.editorCamera and pr_lib.fivem.editorCamera.stop then pr_lib.fivem.editorCamera.stop() end
     end
 
     if pr_lib and pr_lib.target and pr_lib.target.disableTargeting then
         pr_lib.target.disableTargeting(false)
     end
-
-    SetNuiFocus(false, false)
-    SetNuiFocusKeepInput(false)
 
     if deleteEntity and entity and DoesEntityExist(entity) then
         DeleteEntity(entity)
@@ -272,88 +222,47 @@ local function startGizmoEditor(entity, title, onDone, deleteOnCancel)
         return false
     end
 
-    if not pr_lib or not pr_lib.fivem or not pr_lib.fivem.gizmo or not pr_lib.fivem.editorCamera then
+    if not pr_lib or not pr_lib.fivem or not pr_lib.fivem.gizmo then
         notify(t('notify.objects.gizmo_unavailable'), 'error')
         return false
     end
 
     Objects.editorActive = true
-    local editPos = GetEntityCoords(entity)
-    local editRot = GetEntityRotation(entity, 2)
-
     if pr_lib.target and pr_lib.target.disableTargeting then
         pr_lib.target.disableTargeting(true)
     end
 
-    SetNuiFocus(true, true)
-    SetNuiFocusKeepInput(true)
-
-    pr_lib.fivem.editorCamera.start(entity)
-    if pr_lib.fivem.editorCamera.smoothTransitionToEntity then
-        pr_lib.fivem.editorCamera.smoothTransitionToEntity(entity, 2.0)
-    end
-
-    pr_lib.fivem.gizmo.start(entity, function(newPos)
-        editPos = newPos
-        editRot = GetEntityRotation(entity, 2)
+    local session = pr_lib.fivem.gizmo.start(entity, function()
         return true
     end, vector3(0.0, 0.0, 0.0), {
+        title = title,
         showPreview = true,
         previewTitle = title,
         handlePrecisionToggle = true,
-        allowFreeCameraToggle = false,
+        allowFreeCameraToggle = true,
         freeCameraMode = false,
         useEditorCamera = true,
         editorCameraRadius = 2.0,
-        onPrecisionModeChange = function(enabled)
-            editPos = GetEntityCoords(entity)
-            editRot = GetEntityRotation(entity, 2)
-            SetNuiFocus(not enabled, not enabled)
-            SetNuiFocusKeepInput(true)
+        restoreOnCancel = true,
+        onFinish = function(result)
+            local confirmed = result and result.confirmed == true
+            cleanupEditor(entity, not confirmed and deleteOnCancel == true)
+
+            if confirmed and type(onDone) == 'function' then
+                onDone(result.coords, result.rotation)
+            elseif not confirmed then
+                notify(t('notify.objects.gizmo_cancelled'), 'inform')
+            end
         end,
     })
 
+    if not session then
+        cleanupEditor(entity, deleteOnCancel == true)
+        notify(t('notify.objects.gizmo_unavailable'), 'error')
+        return false
+    end
+
     notify(t('notify.objects.gizmo_started'), 'inform')
-
-    CreateThread(function()
-        while Objects.editorActive and DoesEntityExist(entity) do
-            Wait(0)
-            disableEditorControls()
-
-            if pr_lib.fivem.gizmo.isPrecisionMode and pr_lib.fivem.gizmo.isPrecisionMode() then
-                editPos, editRot = applyPrecisionControls(entity, editPos, editRot)
-            else
-                editPos = GetEntityCoords(entity)
-                editRot = GetEntityRotation(entity, 2)
-            end
-
-            local confirm = IsDisabledControlJustPressed(0, 201) or IsControlJustPressed(0, 201)
-                or IsDisabledControlJustPressed(0, 191) or IsControlJustPressed(0, 191)
-            local rightMousePressed = IsDisabledControlPressed(0, 25) or IsControlPressed(0, 25)
-            local leftMousePressed = IsDisabledControlPressed(0, 24) or IsControlPressed(0, 24)
-            local cancel = not leftMousePressed and not rightMousePressed
-                and (IsDisabledControlJustPressed(0, 177) or IsControlJustPressed(0, 177))
-
-            if confirm or cancel then
-                local finalCoords = GetEntityCoords(entity)
-                local finalRot = GetEntityRotation(entity, 2)
-                cleanupEditor(entity, cancel and deleteOnCancel == true)
-
-                if confirm and type(onDone) == 'function' then
-                    onDone(finalCoords, finalRot)
-                elseif cancel then
-                    notify(t('notify.objects.gizmo_cancelled'), 'inform')
-                end
-
-                break
-            end
-        end
-
-        if Objects.editorActive then
-            cleanupEditor(entity, deleteOnCancel == true)
-        end
-    end)
-
     return true
 end
 

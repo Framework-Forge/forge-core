@@ -1,1 +1,1 @@
-{"notify":true,"enabled":true,"useSociety":true,"payOffDuty":false,"account":"bank","intervalMinutes":60}
+{"mei":{"openingCost":5000,"monthlyCost":1000,"governmentAccount":"government","enabled":true,"paymentAccount":"bank"},"payOffDuty":false,"intervalMinutes":60,"enabled":true,"account":"bank","useSociety":true,"societySalaryPercent":50,"notify":true}

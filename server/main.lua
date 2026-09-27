@@ -7,6 +7,10 @@ CreateThread(function()
         pr_lib.debug.setEnabled(PR.Debug == true)
     end
 
+    if ForgeCore.CharacterSlotService then
+        ForgeCore.CharacterSlotService.start()
+    end
+
     if ForgeCore.JobService then
         ForgeCore.JobService.start()
     end
@@ -77,6 +81,14 @@ CreateThread(function()
 
     if ForgeCore.StarterpackService then
         ForgeCore.StarterpackService.start()
+    end
+
+    if ForgeCore.DatabaseBackupService then
+        ForgeCore.DatabaseBackupService.start()
+    end
+
+    if ForgeCore.AutoMedicService then
+        ForgeCore.AutoMedicService.start()
     end
 end)
 

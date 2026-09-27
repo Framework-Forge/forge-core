@@ -31,21 +31,11 @@ local function boolDefault(value)
 end
 
 local function rgbString(color)
-    color = type(color) == 'table' and color or {}
-    return ('rgb(%d, %d, %d)'):format(
-        tonumber(color.r or color.x or color[1]) or 255,
-        tonumber(color.g or color.y or color[2]) or 255,
-        tonumber(color.b or color.z or color[3]) or 255
-    )
+    return PR.Spotlights.ColorToHex(color)
 end
 
 local function colorFromRgb(value)
-    local r, g, b = tostring(value or ''):match('rgb%((%d+),%s*(%d+),%s*(%d+)%)')
-    return {
-        r = tonumber(r) or 255,
-        g = tonumber(g) or 255,
-        b = tonumber(b) or 255,
-    }
+    return PR.Spotlights.NormalizeColor(value)
 end
 
 local function vectorPayload(coords)
@@ -201,7 +191,7 @@ local function editLightData(light)
     local result = inputDialog(t('menu.spotlights.edit_light'), {
         { type = 'input', label = t('inputs.spotlight_name'), default = light.name, required = true },
         { type = 'select', label = t('inputs.spotlight_enabled'), options = boolOptions(), default = boolDefault(boolValue(light.enabled, true)), required = true },
-        { type = 'color', label = t('inputs.spotlight_color'), format = 'rgb', default = rgbString(light.color), required = true },
+        { type = 'color', label = t('inputs.spotlight_color'), format = 'hex', default = rgbString(light.color), required = true },
         { type = 'number', label = t('inputs.spotlight_distance'), default = tonumber(light.distance) or 50.0, min = 0.1, required = true },
         { type = 'number', label = t('inputs.spotlight_brightness'), default = tonumber(light.brightness) or 1.0, min = 0.0, required = true },
         { type = 'number', label = t('inputs.spotlight_hardness'), default = tonumber(light.hardness) or 0.0, min = 0.0, required = true },
@@ -281,7 +271,7 @@ function Menu.openSpotlightsMenu()
         },
         {
             title = t('menu.spotlights.total_groups', { count = tostring(#payload.groups) }),
-            icon = 'spotlight',
+            icon = 'lamp-fill',
             disabled = true,
         },
     }
@@ -302,7 +292,7 @@ function Menu.openSpotlightsMenu()
         id = 'forge_core_spotlights',
         title = t('menu.spotlights.title'),
         menu = 'forge_core_server_settings',
-        icon = 'spotlight',
+        icon = 'lamp-fill',
         options = options,
     })
 end
@@ -343,7 +333,7 @@ function Menu.openSpotlightsGroup(groupId, groupName)
         },
         {
             title = t('menu.spotlights.total_lights', { count = tostring(group.count or 0) }),
-            icon = 'spotlight',
+            icon = 'lamp-fill',
             disabled = true,
         },
     }
@@ -399,14 +389,14 @@ function Menu.openSpotlightActions(lightId)
             {
                 title = t('menu.spotlights.fine_tune'),
                 description = t('menu.spotlights.fine_tune_description'),
-                icon = 'sliders-horizontal',
+                icon = 'sliders',
                 onSelect = function()
                     fineTuneLight(light)
                 end,
             },
             {
                 title = boolValue(light.enabled, true) and t('menu.spotlights.disable_light') or t('menu.spotlights.enable_light'),
-                icon = boolValue(light.enabled, true) and 'toggle-right' or 'toggle-left',
+                icon = boolValue(light.enabled, true) and 'toggle-on' or 'toggle-off',
                 iconColor = boolValue(light.enabled, true) and 'green' or 'red',
                 onSelect = function()
                     local payload = lightPayload(light, { enabled = not boolValue(light.enabled, true) })

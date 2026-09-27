@@ -111,12 +111,27 @@ local function normalizeAccessList(list)
     return output
 end
 
+local function normalizeVipAccess(values)
+    local result, seen = {}, {}
+    for _, value in ipairs(type(values) == 'table' and values or {}) do
+        if type(value) == 'string' then
+            local id = trim(value):lower():gsub('%s+', '_'):gsub('[^%w_%-]', '')
+            if id ~= '' and not seen[id] then
+                seen[id] = true
+                result[#result + 1] = id
+            end
+        end
+    end
+    return result
+end
+
 local function normalizeAccess(access)
     access = type(access) == 'table' and access or {}
 
     local normalized = {
         jobs = normalizeAccessList(access.jobs),
         gangs = normalizeAccessList(access.gangs),
+        vips = normalizeVipAccess(access.vips),
     }
 
     if type(access.job) == 'table' then
@@ -194,6 +209,14 @@ local function checkAccess(source, entry)
     if entry.active == false then return false, 'disabled' end
 
     local access = normalizeAccess(entry.access)
+    if #access.vips > 0 then
+        local vip = ForgeCore.VipService and ForgeCore.VipService.get(source)
+        local allowed = false
+        for _, id in ipairs(access.vips) do
+            if vip and vip.tier == id then allowed = true break end
+        end
+        if not allowed then return false, 'vip_required' end
+    end
     local hasRestriction = false
 
     for index = 1, #(access.jobs or {}) do
@@ -232,30 +255,15 @@ local function extensionFromUrl(url)
     return ext
 end
 
-local function downloadOxImage(url, fileName)
-    if not isUrl(url) then return end
-
-    fileName = normalizeFileName(fileName)
-    if fileName == '' then return end
-
-    PerformHttpRequest(url, function(status, body)
-        if status < 200 or status >= 300 or type(body) ~= 'string' or body == '' then
-            print(('[forge-core:inventory][warn] image download failed status=%s url=%s'):format(tostring(status), tostring(url)))
-            return
-        end
-
-        local ok = SaveResourceFile('ox_inventory', ('web/images/%s'):format(fileName), body, #body)
-        if ok == false or ok == nil then
-            print(('[forge-core:inventory][warn] image save failed file=%s'):format(fileName))
-        end
-    end, 'GET')
-end
-
 local function listMap(map)
     local list = {}
 
-    for _, value in pairs(map or {}) do
-        list[#list + 1] = clone(value)
+    for key, value in pairs(map or {}) do
+        local entry = clone(value)
+        if type(entry) == 'table' and trim(entry.name) == '' then
+            entry.name = tostring(key)
+        end
+        list[#list + 1] = entry
     end
 
     table.sort(list, function(left, right)
@@ -300,12 +308,13 @@ local function syncInventoryEntry(group, name, entry)
 
         local item = clone(entry)
         item.name = name
-        item.stack = true
 
         if group == 'ammo' then
+            item.stack = true
             item.ammo = true
             item.close = true
         elseif group == 'components' then
+            item.stack = false
             item.component = true
             item.close = false
         end
@@ -328,6 +337,249 @@ local function syncAllWeaponInventory()
     end
 end
 
+local function clamp(value, minimum, maximum)
+    value = tonumber(value) or 0
+    return math.max(minimum, math.min(maximum, value))
+end
+
+local function normalizeRange(value)
+    value = type(value) == 'table' and value or {}
+    local minimum = clamp(value.min or value[1], -100, 100)
+    local maximum = clamp(value.max or value[2] or minimum, -100, 100)
+    if minimum > maximum then minimum, maximum = maximum, minimum end
+    return { min = minimum, max = maximum }
+end
+
+local function normalizeVector(value)
+    value = type(value) == 'table' and value or {}
+    return {
+        x = tonumber(value.x or value[1]) or 0.0,
+        y = tonumber(value.y or value[2]) or 0.0,
+        z = tonumber(value.z or value[3]) or 0.0,
+    }
+end
+
+local function getGrantDefinition(kind, name)
+    kind = tostring(kind or ''):lower()
+
+    if kind == 'item' then
+        local entry = Service.items[normalizeItemName(name)]
+        return entry, entry and entry.name
+    elseif kind == 'ammo' or kind == 'component' then
+        local entries = kind == 'ammo' and Service.weaponInventory.ammo or Service.weaponInventory.components
+        local normalizedName = normalizeOxName(name)
+        local entry = entries[normalizedName]
+        local inventoryName = entry and normalizedName or nil
+
+        if not entry then
+            for key, candidate in pairs(entries or {}) do
+                if normalizeOxName(candidate.name or candidate.oxName) == normalizedName then
+                    entry = candidate
+                    inventoryName = tostring(key)
+                    break
+                end
+            end
+        end
+
+        return entry, inventoryName
+    elseif kind == 'weapon' and ForgeCore.WeaponRegistry then
+        local weapons = ForgeCore.WeaponRegistry.getWeapons()
+        local entry = weapons[normalizeItemName(name)]
+        return entry, entry and (entry.oxName or entry.name)
+    end
+
+    return nil, nil
+end
+
+function Service.getGiveCatalog(source)
+    if not canManage(source) then return false, 'no_permission' end
+
+    local catalog = {}
+    local labels = {
+        item = 'Item',
+        weapon = 'Arma',
+        ammo = 'Municao',
+        component = 'Componente',
+    }
+
+    local function append(kind, entries)
+        for index = 1, #(entries or {}) do
+            local entry = entries[index]
+            if entry.active ~= false then
+                catalog[#catalog + 1] = {
+                    token = ('%s:%s'):format(kind, tostring(entry.name)),
+                    kind = kind,
+                    name = entry.name,
+                    label = ('[%s] %s (%s)'):format(labels[kind], entry.label or entry.name, entry.name),
+                }
+            end
+        end
+    end
+
+    local payload = Service.getPayload()
+    append('item', payload.items)
+    append('ammo', payload.ammo)
+    append('component', payload.components)
+
+    if ForgeCore.WeaponService then
+        append('weapon', ForgeCore.WeaponService.getPayload().weapons)
+    end
+
+    table.sort(catalog, function(left, right)
+        return tostring(left.label):lower() < tostring(right.label):lower()
+    end)
+
+    return true, catalog
+end
+
+function Service.give(source, target, kind, name, count)
+    if not canManage(source) then return false, 'no_permission' end
+
+    target = tonumber(target)
+    if not target or target < 1 or not GetPlayerName(target) then return false, 'invalid_player' end
+
+    count = math.floor(tonumber(count) or 0)
+    if count < 1 or count > 100000 then return false, 'invalid_amount' end
+    if tostring(kind or ''):lower() == 'weapon' and count > 25 then return false, 'invalid_amount' end
+
+    local entry, inventoryName = getGrantDefinition(kind, name)
+    if not entry then return false, 'not_found' end
+    if entry.active == false then return false, 'entry_inactive' end
+
+    local inventory = pr_lib and pr_lib.inventory
+    if type(inventory) ~= 'table' or type(inventory.AddItem) ~= 'function' then
+        return false, 'inventory_unavailable'
+    end
+
+    if type(inventory.CanCarryItem) == 'function' then
+        local carryOk, canCarry = pcall(inventory.CanCarryItem, target, inventoryName, count)
+        if not carryOk then return false, 'inventory_check_failed' end
+        if canCarry == false then return false, 'inventory_full' end
+    end
+
+    local addOk, added, addReason = pcall(inventory.AddItem, target, inventoryName, count)
+    if not addOk then return false, 'inventory_add_failed' end
+    if added == false or added == nil then return false, addReason or 'inventory_add_failed' end
+
+    local label = entry.label or entry.name or inventoryName
+    notify(target, {
+        title = ForgeCore.t('menu.inventory.title'),
+        description = ForgeCore.t('notify.inventory.received', { count = tostring(count), item = label }),
+        type = 'success',
+    })
+
+    if source ~= target then
+        notify(source, {
+            title = ForgeCore.t('menu.inventory.title'),
+            description = ForgeCore.t('notify.inventory.given', {
+                count = tostring(count),
+                item = label,
+                player = GetPlayerName(target) or tostring(target),
+            }),
+            type = 'success',
+        })
+    end
+
+    return true, { kind = kind, name = inventoryName, count = count, target = target }
+end
+
+local function normalizeProps(props)
+    if type(props) ~= 'table' then return {} end
+    if props.model then props = { props } end
+    local output = {}
+    for index = 1, math.min(#props, 4) do
+        local prop = props[index]
+        if type(prop) == 'table' and trim(prop.model) ~= '' then
+            output[#output + 1] = {
+                model = trim(prop.model),
+                bone = math.floor(tonumber(prop.bone) or 57005),
+                pos = normalizeVector(prop.pos),
+                rot = normalizeVector(prop.rot),
+                rotationOrder = math.floor(tonumber(prop.rotationOrder or prop.rotOrder) or 2),
+            }
+        end
+    end
+    return output
+end
+
+local function normalizeInteraction(value)
+    if type(value) ~= 'table' then return nil end
+    local interaction = clone(value)
+    interaction.enabled = interaction.enabled == true
+    interaction.kind = interaction.kind == 'interact' and 'interact' or 'consumable'
+    local categories = { food = true, drink = true, alcohol = true, narco = true }
+    interaction.category = categories[interaction.category] and interaction.category or 'food'
+    local duration = tonumber(interaction.duration)
+    if duration == nil then duration = 5000 end
+    interaction.duration = duration <= 0 and 0 or math.floor(clamp(duration, 250, 120000))
+    interaction.canCancel = interaction.canCancel ~= false
+    interaction.remove = math.floor(clamp(interaction.remove or 1, 0, 100))
+    interaction.label = trim(interaction.label)
+    local effectAliases = {
+        maconha = 'weed', marijuana = 'weed',
+        cocaina = 'coke', cocaine = 'coke',
+        metanfetamina = 'meth', methamphetamine = 'meth',
+        oxicodona = 'oxy', oxycodone = 'oxy',
+        adrenalina = 'adrenaline',
+    }
+    interaction.effect = trim(interaction.effect):lower()
+    interaction.effect = effectAliases[interaction.effect] or interaction.effect
+    interaction.effectDuration = math.floor(clamp(interaction.effectDuration or 12000, 1000, 300000))
+    interaction.effectStrength = clamp(interaction.effectStrength or 1.15, 1.0, 1.49)
+    interaction.alcohol = clamp(interaction.alcohol, 0, 10)
+
+    local animation = type(interaction.animation) == 'table' and interaction.animation or {}
+    animation.mode = animation.mode == 'full' and 'full' or animation.mode == 'custom' and 'custom' or 'partial'
+    animation.dict = trim(animation.dict)
+    animation.anim = trim(animation.anim or animation.clip)
+    animation.flags = math.floor(tonumber(animation.flags or animation.flag) or (animation.mode == 'full' and 1 or 49))
+    animation.props = normalizeProps(animation.props or interaction.props)
+    interaction.animation = animation
+    interaction.props = nil
+
+    local effects = type(interaction.effects) == 'table' and interaction.effects or {}
+    interaction.effects = {
+        health = normalizeRange(effects.health or interaction.health),
+        armor = normalizeRange(effects.armor or interaction.armor),
+        hunger = normalizeRange(effects.hunger or interaction.hunger),
+        thirst = normalizeRange(effects.thirst or interaction.thirst),
+        stress = normalizeRange(effects.stress or interaction.stress),
+        oxygen = normalizeRange(effects.oxygen or interaction.oxygen),
+    }
+    interaction.health, interaction.armor, interaction.hunger = nil, nil, nil
+    interaction.thirst, interaction.stress, interaction.oxygen = nil, nil, nil
+    return interaction
+end
+
+local function legacyInteraction(data)
+    if type(data) ~= 'table' then return nil end
+    local category = data.category or 'food'
+    local defaults = {
+        food = { dict = 'mp_player_inteat@burger', anim = 'mp_player_int_eat_burger', model = 'prop_cs_burger_01', bone = 18905, pos = { x = 0.13, y = 0.05, z = 0.02 }, rot = { x = -50.0, y = 16.0, z = 60.0 } },
+        drink = { dict = 'mp_player_intdrink', anim = 'loop_bottle', model = 'prop_ld_flow_bottle', bone = 18905, pos = { x = 0.12, y = 0.008, z = 0.03 }, rot = { x = 240.0, y = -60.0, z = 0.0 } },
+        alcohol = { dict = 'mp_player_intdrink', anim = 'loop_bottle', model = 'prop_amb_beer_bottle', bone = 18905, pos = { x = 0.12, y = 0.008, z = 0.03 }, rot = { x = 240.0, y = -60.0, z = 0.0 } },
+        narco = { dict = 'mp_suicide', anim = 'pill', model = nil, bone = 57005, pos = {}, rot = {} },
+    }
+    local fallback = defaults[category] or defaults.food
+    local animation = data.animation or {}
+    local props = data.props
+    if not props and fallback.model then props = { { model = fallback.model, bone = fallback.bone, pos = fallback.pos, rot = fallback.rot, rotationOrder = 2 } } end
+    return normalizeInteraction({
+        enabled = true, kind = 'consumable', category = category,
+        duration = data.duration or 5000, canCancel = true, remove = 1,
+        effect = data.effect, alcohol = data.alcohol,
+        animation = {
+            mode = 'partial', dict = animation.dict or fallback.dict,
+            anim = animation.anim or fallback.anim, flags = animation.flags or 49,
+            props = props,
+        },
+        effects = {
+            health = data.health, armor = data.armor, hunger = data.hunger,
+            thirst = data.thirst, stress = data.stress, oxygen = data.oxygen,
+        },
+    })
+end
+
 local function normalizeItem(data, fallbackName)
     if type(data) ~= 'table' then return nil, 'invalid_item' end
 
@@ -346,10 +598,11 @@ local function normalizeItem(data, fallbackName)
         item.close = item.shouldClose ~= false
     end
 
-    item.stack = item.stack ~= false
+    item.stack = item.stack == true
     item.close = item.close ~= false
     item.active = item.active ~= false
     item.access = normalizeAccess(item.access)
+    item.interaction = normalizeInteraction(item.interaction)
 
     if type(item.client) ~= 'table' then item.client = nil end
 
@@ -362,7 +615,7 @@ local function normalizeItem(data, fallbackName)
             imageName = normalizeFileName(('%s.%s'):format(item.name, ext))
             item.imageUrl = rawImage
             item.localImage = imageName
-            downloadOxImage(rawImage, imageName)
+            -- A interface usa a URL diretamente; nao gravar copias nao utilizadas em outro resource.
 
             item.client = item.client or {}
             item.client.image = rawImage
@@ -420,12 +673,34 @@ function Service.canManage(source)
     return canManage(source)
 end
 
+function Service.getItem(name)
+    return Service.items[normalizeItemName(name)]
+end
+
+local function migrateLegacyInteractions()
+    local changed = false
+    for name, data in pairs(PR.Inventory.LegacyInteractions or {}) do
+        local item = Service.items[name]
+        if item and item.interaction == nil then
+            item.interaction = legacyInteraction(data)
+            changed = true
+        end
+    end
+    return changed
+end
+
 function Service.reload()
     Service.items = decodeJson(PR.Inventory.Storage.items, {})
+    for name, itemData in pairs(Service.items) do
+        local normalized = normalizeItem(itemData, name)
+        if normalized then Service.items[name] = normalized end
+    end
+    if migrateLegacyInteractions() then Service.saveItems() end
     loadInventoryFile()
     bumpRevision()
     syncAllItems()
     syncAllWeaponInventory()
+    TriggerEvent('forge-core:server:inventory:reloaded')
     return true
 end
 
@@ -478,6 +753,9 @@ function Service.upsertItem(source, itemData)
     Service.saveItems()
     bumpRevision()
     syncItem(item.name, item)
+    if ForgeCore.ConsumableService then
+        ForgeCore.ConsumableService.refreshItem(item.name)
+    end
 
     notify(source, { description = ForgeCore.t('notify.inventory.saved', { item = item.label or item.name }), type = 'success' })
 
@@ -601,7 +879,14 @@ local function parseSnippet(snippet)
         return string.format('%q', model)
     end)
 
-    local source = snippet:find('^%s*return') and snippet or ('return { %s }'):format(snippet)
+    local source
+    if snippet:find('^%s*return') then
+        source = snippet
+    elseif snippet:find('^%s*{') then
+        source = 'return ' .. snippet
+    else
+        source = ('return { %s }'):format(snippet)
+    end
 
     local env = {
         T = function(key) return key end,
@@ -623,6 +908,21 @@ function Service.parseDefinition(source, kind, snippet)
 
     local parsed, err = parseSnippet(snippet)
     if not parsed then return false, err end
+
+    if kind == 'animation' then
+        local animation = {
+            dict = trim(parsed.dict),
+            anim = trim(parsed.anim or parsed.clip),
+            flags = math.floor(tonumber(parsed.flags or parsed.flag) or 49),
+            props = normalizeProps(parsed.props),
+        }
+
+        if animation.dict == '' or animation.anim == '' then
+            return false, 'invalid_animation'
+        end
+
+        return true, animation
+    end
 
     local entries = {}
     local hasNamedEntries = false

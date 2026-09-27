@@ -44,6 +44,9 @@ end
 function Service.reload()
     local weapons = ForgeCore.WeaponStorage.load()
     ForgeCore.WeaponRegistry.setAll(weapons)
+    -- Persiste a forma normalizada para também migrar registros antigos que
+    -- ainda não possuem o booleano `throwable` explícito.
+    Service.save()
     ForgeCore.WeaponQbxSync.syncAll()
     ForgeCore.WeaponOxSync.syncAll()
 

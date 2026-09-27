@@ -185,23 +185,17 @@ function Billboards.setBillboardEnabled(id, enabled)
 end
 
 local function setText(text)
-    if lib and lib.showTextUI then
-        lib.showTextUI(text, { position = 'right-center' })
-    elseif pr_lib and pr_lib.framework and pr_lib.framework.ShowTextUI then
-        pr_lib.framework.ShowTextUI(text)
+    if pr_lib and pr_lib.ShowTextUI then
+        pr_lib.ShowTextUI(text, { position = 'right-center' })
     end
 end
 
 local function hideText()
-    if lib and lib.hideTextUI then
-        lib.hideTextUI()
-    elseif pr_lib and pr_lib.framework and pr_lib.framework.HideTextUI then
-        pr_lib.framework.HideTextUI()
-    end
+    if pr_lib and pr_lib.HideTextUI then pr_lib.HideTextUI() end
 end
 
 local function raycastPoint(label, previous)
-    if not lib or not lib.raycast or not lib.raycast.cam then
+    if not pr_lib or not pr_lib.raycast or not pr_lib.raycast.FromCamera then
         return nil, 'raycast_unavailable'
     end
 
@@ -218,7 +212,7 @@ local function raycastPoint(label, previous)
         DisableControlAction(0, 202, true)
         DisablePlayerFiring(PlayerId(), true)
 
-        local hit, _, coords = lib.raycast.cam(1, 4, 1000.0)
+        local hit, _, coords = pr_lib.raycast.FromCamera(1000.0, 1, 4)
         if hit and coords then
             local point = vec3(coords)
             DrawSphere(point.x, point.y, point.z, 0.06, 0, 220, 255, 0.75)

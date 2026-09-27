@@ -47,6 +47,16 @@ local function clampInterval(value)
     return value
 end
 
+local function clampPercent(value, fallback)
+    value = tonumber(value)
+    if value == nil then value = tonumber(fallback) or 100 end
+
+    if value < 0 then return 0 end
+    if value > 100 then return 100 end
+
+    return value
+end
+
 local function normalizeAccount(value)
     value = tostring(value or PR.Job.Payments.account or 'bank'):lower()
 
@@ -73,6 +83,7 @@ local function defaultSettings()
         account = normalizeAccount(PR.Job.Payments.account),
         payOffDuty = PR.Job.Payments.payOffDuty == true,
         useSociety = PR.Job.Payments.useSociety == true,
+        societySalaryPercent = clampPercent(PR.Job.Payments.societySalaryPercent, 100),
         notify = PR.Job.Payments.notify ~= false,
         mei = {
             enabled = PR.Job.Mei.enabled == true,
@@ -98,6 +109,7 @@ local function normalizeSettings(raw)
         account = normalizeAccount(raw.account),
         payOffDuty = boolValue(raw.payOffDuty, defaults.payOffDuty),
         useSociety = boolValue(useSociety, defaults.useSociety),
+        societySalaryPercent = clampPercent(raw.societySalaryPercent or raw.societyPercent, defaults.societySalaryPercent),
         notify = boolValue(raw.notify, defaults.notify),
         mei = {
             enabled = boolValue(rawMei.meiEnabled or rawMei.enabledMei or rawMei.enabled, defaults.mei.enabled),
@@ -151,39 +163,28 @@ local function isMeiJob(jobData)
     return jobData.jobtype == 'mei' or jobData.type == 'mei'
 end
 
-local function isResourceStarted(resource)
-    local state = GetResourceState(resource)
-    return state == 'started' or state == 'starting'
-end
-
 local function getSocietyBalance(accountName)
-    if not isResourceStarted('ps-banking') then return nil end
+    if not pr_lib.banking or type(pr_lib.banking.JobAccountExists) ~= 'function' then return nil end
 
-    local ok, account = pcall(function()
-        return exports['ps-banking']:GetAccount(accountName)
-    end)
+    local existsOk, exists = pcall(pr_lib.banking.JobAccountExists, accountName)
+    if not existsOk or exists ~= true then return nil end
 
-    if not ok or not account then return nil end
+    local ok, balance = pcall(pr_lib.banking.GetJobAccountBalance, accountName)
+    if not ok then return nil end
 
-    return tonumber(account.balance)
+    return tonumber(balance)
 end
 
 local function removeSocietyMoney(accountName, payment)
-    if not isResourceStarted('ps-banking') then return false end
-
-    local ok, result = pcall(function()
-        return exports['ps-banking']:RemoveMoney(accountName, payment, ForgeCore.t('payments.reason'))
-    end)
+    if not pr_lib.banking or type(pr_lib.banking.RemoveJobAccountBalance) ~= 'function' then return false end
+    local ok, result = pcall(pr_lib.banking.RemoveJobAccountBalance, accountName, payment, ForgeCore.t('payments.reason'))
 
     return ok and result ~= false
 end
 
 local function addSocietyMoney(accountName, amount, reason)
-    if not isResourceStarted('ps-banking') then return false end
-
-    local ok, result = pcall(function()
-        return exports['ps-banking']:AddMoney(accountName, amount, reason)
-    end)
+    if not pr_lib.banking or type(pr_lib.banking.AddJobAccountBalance) ~= 'function' then return false end
+    local ok, result = pcall(pr_lib.banking.AddJobAccountBalance, accountName, amount, reason)
 
     return ok and result ~= false
 end
@@ -206,9 +207,12 @@ local function payPlayer(player, settings)
     if payment <= 0 then return false, 'no_payment' end
     if not settings.payOffDuty and not jobData.offDutyPay and not job.onduty then return false, 'off_duty' end
 
-    local useSociety = settings.useSociety == true or isMeiJob(jobData)
+    local isMei = isMeiJob(jobData)
+    local useSociety = settings.useSociety == true or isMei
+    local societyPercent = isMei and 100 or clampPercent(settings.societySalaryPercent, 100)
+    local societyDebit = useSociety and math.floor((payment * societyPercent / 100) + 0.5) or 0
 
-    if useSociety then
+    if societyDebit > 0 then
         local balance = getSocietyBalance(job.name)
 
         if balance == nil then
@@ -220,7 +224,7 @@ local function payPlayer(player, settings)
             return false, 'society_missing'
         end
 
-        if balance < payment then
+        if balance < societyDebit then
             notify(data.source, {
                 title = ForgeCore.t('payments.title'),
                 description = ForgeCore.t('notify.payments.society_no_money'),
@@ -229,7 +233,7 @@ local function payPlayer(player, settings)
             return false, 'society_no_money'
         end
 
-        if not removeSocietyMoney(job.name, payment) then
+        if not removeSocietyMoney(job.name, societyDebit) then
             notify(data.source, {
                 title = ForgeCore.t('payments.title'),
                 description = ForgeCore.t('notify.payments.society_remove_failed'),
@@ -240,7 +244,12 @@ local function payPlayer(player, settings)
     end
 
     local ok = player.Functions.AddMoney(settings.account, payment, ForgeCore.t('payments.reason'))
-    if not ok then return false, 'add_money_failed' end
+    if not ok then
+        if societyDebit > 0 then
+            addSocietyMoney(job.name, societyDebit, ForgeCore.t('payments.refund_reason'))
+        end
+        return false, 'add_money_failed'
+    end
 
     if settings.notify then
         notify(data.source, {
@@ -253,6 +262,27 @@ local function payPlayer(player, settings)
     return true, payment
 end
 
+local function payVipSalary(player, settings)
+    if not player or not player.PlayerData or not ForgeCore.VipService then return false, 'invalid_player' end
+    local source = player.PlayerData.source
+    local active = ForgeCore.VipService.get(source)
+    local salary = active and active.config and active.config.salary
+    if not salary or salary.enabled ~= true or (tonumber(salary.amount) or 0) <= 0 then return false, 'no_vip_salary' end
+    local amount = math.floor(tonumber(salary.amount) or 0)
+    local account = tostring(salary.account or 'bank')
+    local reason = ('Salário VIP %s'):format(active.config.label or active.tier)
+    local accountOk, accountResult = pcall(player.Functions.AddMoney, account, amount, reason)
+    local success = accountOk and accountResult ~= false
+    if not success and GetResourceState('ox_inventory') == 'started' then
+        local itemOk, itemResult = pcall(function() return exports.ox_inventory:AddItem(source, account, amount) end)
+        success = itemOk and itemResult ~= false
+    end
+    if not success then return false, 'vip_add_currency_failed' end
+    if settings.notify then
+        notify(source, { title = ForgeCore.t('payments.title'), description = ('Salário VIP %s recebido: %s %s.'):format(active.config.label or active.tier, amount, account), type = 'success' })
+    end
+    return true, amount
+end
 function Payments.getSettings()
     local settings = next(Payments.settings) and Payments.settings or defaultSettings()
 
@@ -262,6 +292,7 @@ function Payments.getSettings()
         account = settings.account,
         payOffDuty = settings.payOffDuty,
         useSociety = settings.useSociety,
+        societySalaryPercent = settings.societySalaryPercent,
         notify = settings.notify,
         mei = settings.mei or defaultSettings().mei,
         nextPaymentAt = Payments.nextPaymentAt,
@@ -302,8 +333,9 @@ function Payments.processAll(reason)
     local players = getPlayers()
 
     for _, player in pairs(players) do
-        local ok = payPlayer(player, settings)
-        if ok then
+        local jobPaid = payPlayer(player, settings)
+        local vipPaid = payVipSalary(player, settings)
+        if jobPaid or vipPaid then
             paid = paid + 1
         else
             skipped = skipped + 1
