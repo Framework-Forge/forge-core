@@ -141,7 +141,7 @@ local function normalizeState(state)
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Spotlights.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Spotlights.Storage.file, true)
     if type(loaded) ~= 'table' then
         local defaults = clone(PR.Spotlights.Defaults)
         defaults.nextGroupId = 1
@@ -155,7 +155,7 @@ local function readState()
 end
 
 local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Spotlights.Storage.file, state, { indent = true })
+    local saved = pr_lib.saveJsonRecovery(PR.Spotlights.Storage.file, state, { indent = true })
     return saved == true or type(saved) == 'table'
 end
 
@@ -178,12 +178,12 @@ local function countLights(groupId)
 end
 
 local function publish()
-    GlobalState.forgeSpotlights = {
+    ForgeCore.State.publish('spotlights',{
         enabled = Service.state.enabled == true,
         drawDistance = Service.state.drawDistance,
         lights = Service.state.lights or {},
         revision = Service.state.revision or GetGameTimer(),
-    }
+    })
 end
 
 function Service.canManage(source)
@@ -215,31 +215,34 @@ function Service.load()
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = math.max(
-        math.floor(numberValue(Service.state.revision, 0)) + 1,
+function Service.save(draft)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = math.max(
+        math.floor(numberValue(draft.revision, 0)) + 1,
         GetGameTimer()
     )
-    if not writeState(Service.state) then return false, 'save_failed' end
+    if not writeState(draft) then return false, 'save_failed' end
+    Service.state = draft
     publish()
     return true, Service.getAll()
 end
 
 function Service.createGroup(source, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     local group = {
-        id = Service.state.nextGroupId,
+        id = draft.nextGroupId,
         name = name,
     }
 
-    Service.state.nextGroupId = Service.state.nextGroupId + 1
-    Service.state.groups[#Service.state.groups + 1] = group
+    draft.nextGroupId = draft.nextGroupId + 1
+    draft.groups[#draft.groups + 1] = group
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.group_created'), type = 'success' })
@@ -248,15 +251,16 @@ end
 
 function Service.renameGroup(source, groupId, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local group = findById(Service.state.groups, groupId)
+    local group = findById(draft.groups, groupId)
     if not group then return false, 'group_not_found' end
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     group.name = name
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.group_renamed'), type = 'success' })
@@ -265,13 +269,14 @@ end
 
 function Service.deleteGroup(source, groupId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     if countLights(groupId) > 0 then return false, 'group_not_empty' end
 
-    local _, index = findById(Service.state.groups, groupId)
+    local _, index = findById(draft.groups, groupId)
     if not index then return false, 'group_not_found' end
 
-    table.remove(Service.state.groups, index)
-    local ok, payload = Service.save()
+    table.remove(draft.groups, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.group_deleted'), type = 'success' })
@@ -280,15 +285,16 @@ end
 
 function Service.createLight(source, light)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     light = normalizeLight(light)
-    if not findById(Service.state.groups, light.groupId) then return false, 'group_not_found' end
+    if not findById(draft.groups, light.groupId) then return false, 'group_not_found' end
 
-    light.id = Service.state.nextLightId
-    Service.state.nextLightId = Service.state.nextLightId + 1
-    Service.state.lights[#Service.state.lights + 1] = light
+    light.id = draft.nextLightId
+    draft.nextLightId = draft.nextLightId + 1
+    draft.lights[#draft.lights + 1] = light
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.light_created'), type = 'success' })
@@ -297,8 +303,9 @@ end
 
 function Service.updateLight(source, lightId, changes)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local light = findById(Service.state.lights, lightId)
+    local light = findById(draft.lights, lightId)
     if not light then return false, 'light_not_found' end
 
     changes = type(changes) == 'table' and changes or {}
@@ -319,7 +326,7 @@ function Service.updateLight(source, lightId, changes)
         radius = changes.radius ~= nil and changes.radius or light.radius,
     })
 
-    if not findById(Service.state.groups, normalized.groupId) then
+    if not findById(draft.groups, normalized.groupId) then
         return false, 'group_not_found'
     end
 
@@ -334,7 +341,7 @@ function Service.updateLight(source, lightId, changes)
     light.hardness = normalized.hardness
     light.radius = normalized.radius
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.light_updated'), type = 'success' })
@@ -342,12 +349,13 @@ function Service.updateLight(source, lightId, changes)
 end
 function Service.deleteLight(source, lightId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local _, index = findById(Service.state.lights, lightId)
+    local _, index = findById(draft.lights, lightId)
     if not index then return false, 'light_not_found' end
 
-    table.remove(Service.state.lights, index)
-    local ok, payload = Service.save()
+    table.remove(draft.lights, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.spotlights.light_deleted'), type = 'success' })
@@ -363,5 +371,9 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Spotlights.Storage.file, Service, {
+    'createGroup', 'renameGroup', 'deleteGroup', 'createLight', 'updateLight', 'deleteLight',
+})
 
 ForgeCore.SpotlightsService = Service

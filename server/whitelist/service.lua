@@ -160,16 +160,11 @@ local function configPath()
 end
 
 local function readJsonConfig()
-    local raw = LoadResourceFile(GetCurrentResourceName(), configPath())
-    if not raw or raw == '' then return nil end
-
-    return decodeConfig(raw)
+    return pr_lib.loadJsonRecovery(configPath())
 end
 
 local function writeJsonConfig(config)
-    local encoded = encodeConfig(config)
-    local saved = SaveResourceFile(GetCurrentResourceName(), configPath(), encoded, -1)
-    return saved ~= false
+    return pr_lib.saveJsonRecovery(configPath(), jsonSafe(mergeDefaults(PR.Whitelist.Defaults, config)))
 end
 
 local function getQbxPlayer(identifier)
@@ -486,8 +481,9 @@ end
 function Service.saveConfig(source, config)
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.config = mergeDefaults(PR.Whitelist.Defaults, config)
-    if not writeJsonConfig(Service.config) then return false, 'json_save_failed' end
+    local draft = mergeDefaults(PR.Whitelist.Defaults, config)
+    if not writeJsonConfig(draft) then return false, 'json_save_failed' end
+    Service.config = draft
 
     notify(source, {
         description = ForgeCore.t('notify.whitelist.config_saved'),
@@ -749,5 +745,7 @@ function Service.start()
     debug('success', ForgeCore.t('debug.whitelist.started'))
     return true
 end
+
+pr_lib.wrapJsonMutations(configPath(), Service, { 'saveConfig' })
 
 ForgeCore.WhitelistService = Service

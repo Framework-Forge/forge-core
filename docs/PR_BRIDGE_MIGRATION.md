@@ -14,6 +14,8 @@ O driver e selecionado no PR Bridge (`Config.Database`): `auto`, `oxmysql`, `ghm
 
 ## Escopo
 
+Revisão de consistência JSON e desempenho (03/10/2026): rascunhos, confirmação após salvar, compensações, testes de falha e limites para a meta de 2.000 jogadores estão em [JSON_PERSISTENCE_PERFORMANCE.md](JSON_PERSISTENCE_PERFORMANCE.md). Implementação verificada em testes isolados; aprovação no jogo e teste de carga permanecem pendentes.
+
 As integracoes existentes do Forge Core com qbx_core e ox_inventory foram preservadas. Esta migracao nao remove dependencias internas desses dois resources. Portanto, nao comprova que o ox_lib ja pode ser parado em toda a base.
 
 ## Validacao

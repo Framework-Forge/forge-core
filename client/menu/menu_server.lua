@@ -19,6 +19,15 @@ local afkActionLocked = false
 local passwordActionLocked = false
 local backupActionLocked = false
 
+local function openResourcePanel(resource, key)
+    if GetResourceState(resource)~='started' then
+        notify({title=t('panels.'..key..'.title'),description=t('panels.unavailable',{resource=resource}),type='error'})
+        return
+    end
+    local ok=pcall(function() exports[resource]:OpenAdminMenu('forge_core_server_settings',GetCurrentResourceName()) end)
+    if not ok then notify({title=t('panels.'..key..'.title'),description=t('panels.failed'),type='error'}) end
+end
+
 local function databaseBackupModeLabel(mode)
     if mode == 'schema' then return t('menu.database_backup.schema') end
     if mode == 'data' then return t('menu.database_backup.data') end
@@ -308,6 +317,16 @@ function Menu.openServerSettingsMenu()
                         })
                     end
                 end,
+            },
+            {
+                title=t('panels.radio.title'),description=t('panels.radio.description'),icon='broadcast-pin',
+                disabled=GetResourceState('mm_radio')~='started',
+                onSelect=function() openResourcePanel('mm_radio','radio') end,
+            },
+            {
+                title=t('panels.elevator.title'),description=t('panels.elevator.description'),icon='arrow-down-up',
+                disabled=GetResourceState('pr_elevator')~='started',
+                onSelect=function() openResourcePanel('pr_elevator','elevator') end,
             },
             {
                 title = 'Forge HUD',

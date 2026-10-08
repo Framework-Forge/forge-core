@@ -16,6 +16,8 @@ local state = {
     requesting = false,
     reviveGraceUntil = 0,
     patientPrepared = false,
+    transferring = false,
+    lifecycle = 0,
 }
 
 local firearmGroups = {
@@ -174,6 +176,28 @@ local function cancelTreatment(reason)
     if reason then notify(reason, 'error') end
 end
 
+local function hospitalFallback(reason)
+    if state.transferring or not state.token then return end
+    local token = state.token
+    local lifecycle = state.lifecycle
+    state.transferring = true
+    cleanupNpc()
+    local callbackOk, ok, payload = pcall(awaitServer, PR.AutoMedic.Callbacks.recoverHospital, token, reason)
+    if not callbackOk then ok, payload = false, tostring(ok) end
+    if lifecycle ~= state.lifecycle then return end
+    state.transferring = false
+    if not ok then
+        pcall(awaitServer, PR.AutoMedic.Callbacks.cancelTreatment, token)
+        local detail = tostring(payload)
+        if payload == 'no_hospital_beds' then detail = ForgeCore.t('automedic.no_beds') end
+        if payload == 'disabled' then detail = ForgeCore.t('automedic.fallback_disabled') end
+        notify(ForgeCore.t('automedic.recovery_failed', {error=detail}), 'error')
+        if not IsScreenFadedIn() then DoScreenFadeIn(500) end
+    else
+        notify(ForgeCore.t('automedic.recovered'), 'success')
+    end
+end
+
 local function getTreatmentPosition(medic, playerPed)
     local config = PR.AutoMedic.Npc.treatmentPosition or {}
     local sideOffset = math.abs(tonumber(config.sideOffset) or 0.72)
@@ -274,25 +298,26 @@ end
 
 local function performTreatment()
     local medic = state.ped
-    if not medic or not DoesEntityExist(medic) or not isDead() then
-        return cancelTreatment('O atendimento foi interrompido.')
+    if not medic or not DoesEntityExist(medic) or IsPedDeadOrDying(medic, true) or not isDead() then
+        if isDead() then return hospitalFallback('npc_lost') end
+        return cancelTreatment()
     end
 
     local playerPed = PlayerPedId()
     if not playCrowdControlGesture(medic, playerPed) then
-        return cancelTreatment('O atendimento foi interrompido.')
+        if isDead() then return hospitalFallback('npc_lost') end
+        return cancelTreatment()
     end
     preparePatientForTreatment(playerPed)
     playerPed = PlayerPedId()
     if not alignMedicForTreatment(medic, playerPed) then
-        return cancelTreatment('O paramedico nao conseguiu se posicionar para o atendimento.')
+        return hospitalFallback('alignment_failed')
     end
     Wait(100)
 
     local dict = 'mini@cpr@char_a@cpr_str'
-    if requestAnimation(dict) then
-        TaskPlayAnim(medic, dict, 'cpr_pumpchest', 8.0, -8.0, PR.AutoMedic.Npc.treatmentDuration, 1, 0.0, false, false, false)
-    end
+    if not requestAnimation(dict) then return hospitalFallback('animation_failed') end
+    TaskPlayAnim(medic, dict, 'cpr_pumpchest', 8.0, -8.0, PR.AutoMedic.Npc.treatmentDuration, 1, 0.0, false, false, false)
 
     local keepAligned = true
     local fadeStarted = false
@@ -347,9 +372,11 @@ local function performTreatment()
 end
 
 local function dispatchMedic()
-    if state.active or state.requesting then return end
+    if state.active or state.requesting or state.transferring or ForgeCore.Hospital.isRecovering() then return end
     state.requesting = true
+    local lifecycle = state.lifecycle
     local ok, payload, remaining = awaitServer(PR.AutoMedic.Callbacks.requestTreatment, state.category)
+    if lifecycle ~= state.lifecycle then return end
     state.requesting = false
     if not ok then
         if payload == 'cooldown' then
@@ -362,14 +389,19 @@ local function dispatchMedic()
 
     state.active = true
     state.token = payload.token
+    local token = state.token
     local model = requestModel(PR.AutoMedic.Npc.model)
-    if not model then return cancelTreatment('Nao foi possivel carregar o paramedico.') end
+    if lifecycle ~= state.lifecycle or state.token ~= token then
+        if model then SetModelAsNoLongerNeeded(model) end
+        return
+    end
+    if not model then return hospitalFallback('model_failed') end
 
     local playerPed = PlayerPedId()
     local spawn = findSpawn(GetEntityCoords(playerPed))
     local medic = CreatePed(4, model, spawn.x, spawn.y, spawn.z, 0.0, true, true)
     SetModelAsNoLongerNeeded(model)
-    if not DoesEntityExist(medic) then return cancelTreatment('Nao foi possivel enviar o paramedico.') end
+    if not DoesEntityExist(medic) then return hospitalFallback('spawn_failed') end
 
     state.ped = medic
     SetEntityAsMissionEntity(medic, true, true)
@@ -390,13 +422,14 @@ local function dispatchMedic()
         local lastCoords = GetEntityCoords(medic)
         local stuck = 0
 
-        while state.active and DoesEntityExist(medic) and isDead() do
+        while lifecycle == state.lifecycle and state.token == token and state.active and DoesEntityExist(medic) and isDead() do
+            if IsPedDeadOrDying(medic, true) then return hospitalFallback('npc_lost') end
             local playerCoords = GetEntityCoords(PlayerPedId())
             local medicCoords = GetEntityCoords(medic)
             if #(playerCoords - medicCoords) <= PR.AutoMedic.Npc.treatmentDistance + 0.5 then
                 return performTreatment()
             end
-            if GetGameTimer() >= expires then return cancelTreatment('O paramedico nao conseguiu chegar ate voce.') end
+            if GetGameTimer() >= expires then return hospitalFallback('unreachable') end
 
             if #(medicCoords - lastCoords) < 0.35 then
                 stuck = stuck + 1
@@ -413,7 +446,9 @@ local function dispatchMedic()
             Wait(3000)
         end
 
-        if state.active then cancelTreatment() end
+        if lifecycle == state.lifecycle and state.token == token and state.active then
+            if isDead() then hospitalFallback('npc_lost') else cancelTreatment() end
+        end
     end)
 end
 
@@ -488,6 +523,7 @@ local function reportDeath()
 
     state.deathDetected = true
     state.deathReported = true
+    if ForgeCore.Hospital.isRecovering() then ForgeCore.Hospital.clear(true) end
     state.category = classify(nil)
     state.deathAt = state.deathAt or currentTime()
 
@@ -554,16 +590,7 @@ local function playWakeupAnimation(ped)
     RemoveAnimDict(dict)
 end
 
-RegisterNetEvent(PR.AutoMedic.Events.revive, function()
-    markRevived()
-
-    local oldPed = PlayerPedId()
-    local coords = GetEntityCoords(oldPed)
-    local heading = GetEntityHeading(oldPed)
-
-    NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, true, false)
-
-    local ped = PlayerPedId()
+local function applyReviveHealth(ped)
     local baseHealth = 100
     local maxHealth = math.max(baseHealth + 1, GetEntityMaxHealth(ped))
     local revivePercent = math.max(1, math.min(tonumber(state.settings.reviveHealthPercent) or 10, 100))
@@ -578,6 +605,22 @@ RegisterNetEvent(PR.AutoMedic.Events.revive, function()
     ClearPedTasksImmediately(ped)
     ClearPedBloodDamage(ped)
     ResetPedVisibleDamage(ped)
+    TriggerEvent('qbx_core:client:setDeathPoseOverride', false)
+end
+
+RegisterNetEvent(PR.AutoMedic.Events.revive, function(hospital)
+    if source ~= 65535 then return end
+    markRevived()
+    if hospital then
+        state.reviveGraceUntil = GetGameTimer() + 15000
+        if ForgeCore.Hospital.recover(hospital, applyReviveHealth) then return end
+    end
+    ForgeCore.Hospital.clear(true)
+    local oldPed = PlayerPedId()
+    local coords, heading = GetEntityCoords(oldPed), GetEntityHeading(oldPed)
+    NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, true, false)
+    local ped = PlayerPedId()
+    applyReviveHealth(ped)
     markRevived()
 
     CreateThread(function()
@@ -608,6 +651,7 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(playerData)
 end)
 
 AddEventHandler('hospital:client:Revive', function()
+    ForgeCore.Hospital.clear(true)
     state.reviveGraceUntil = GetGameTimer() + 5000
     SetTimeout(750, function()
         if not isNativeDead() then markRevived() end
@@ -645,7 +689,9 @@ CreateThread(function()
             if not state.deathAt then state.deathAt = currentTime() end
 
             local remaining = math.max(0, (state.settings.cooldown or 0) - (currentTime() - state.deathAt))
-            if state.active then
+            if state.transferring then
+                showStatus(ForgeCore.t('automedic.transferring'), 'hospital')
+            elseif state.active then
                 showStatus('AutoMedic: paramedico a caminho', 'ambulance')
             elseif remaining > 0 then
                 showStatus(('AutoMedic disponivel em %s'):format(formatTime(remaining)))
@@ -674,4 +720,11 @@ AddEventHandler('onResourceStop', function(resource)
         hideStatus()
         cleanupNpc()
     end
+end)
+
+AddEventHandler('forge-core:session:changed', function()
+    state.lifecycle = state.lifecycle + 1
+    state.transferring = false
+    cleanupNpc()
+    resetDeathState()
 end)

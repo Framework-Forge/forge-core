@@ -31,29 +31,11 @@ local function notify(source, data)
 end
 
 local function readJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return fallback end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    debug('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return fallback
+    return pr_lib.loadJsonRecovery(path) or fallback
 end
 
 local function writeJson(path, data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if not ok or not encoded then
-        debug('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-        return false
-    end
-
-    local saved = SaveResourceFile(resourceName, path, encoded, -1)
-    if not saved then
-        debug('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 local function boolValue(value, fallback)
@@ -181,9 +163,9 @@ function Service.save(source, settings)
         return false, 'empty_password'
     end
 
-    Service.settings = normalized
-    local saved = writeJson(PR.Password.Storage.file, Service.settings)
+    local saved = writeJson(PR.Password.Storage.file, normalized)
     if not saved then return false, 'save_failed' end
+    Service.settings = normalized
 
     notify(source, {
         description = ForgeCore.t('notify.password.saved'),
@@ -222,5 +204,7 @@ AddEventHandler('playerConnecting', function(_, _, deferrals)
         }))
     end)
 end)
+
+pr_lib.wrapJsonMutations(PR.Password.Storage.file, Service, { 'save' })
 
 ForgeCore.PasswordService = Service

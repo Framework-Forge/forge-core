@@ -1,3 +1,5 @@
 ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.list,function(source)return ForgeCore.PlayerManagementService.list(source)end)
 ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.details,function(source,target)return ForgeCore.PlayerManagementService.details(source,target)end)
 ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.whitelist,function(source,target,enabled)return ForgeCore.PlayerManagementService.whitelist(source,target,enabled)end)
+ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.prisonSentence,function(source,target,sentence)return ForgeCore.PrisonService.setSentence(source,target,sentence)end)
+ForgeCore.Callbacks.register(PR.PlayerManagement.Callbacks.prisonRelease,function(source,target)return ForgeCore.PrisonService.release(source,target)end)

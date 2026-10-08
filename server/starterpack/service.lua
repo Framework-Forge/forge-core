@@ -3,6 +3,7 @@ ForgeCore = ForgeCore or {}
 local Service = {
     started = false,
     state = {},
+    incidents = {},
 }
 
 local resourceName = GetCurrentResourceName()
@@ -64,29 +65,11 @@ local function normalizeId(value)
 end
 
 local function readJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return clone(fallback) end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    logStarter('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return clone(fallback)
+    return pr_lib.loadJsonRecovery(path) or clone(fallback)
 end
 
-local function writeJson(path, data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if not ok or not encoded then
-        logStarter('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-        return false
-    end
-
-    local saved = SaveResourceFile(resourceName, path, encoded, -1)
-    if not saved then
-        logStarter('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+local function writeJson(path, data, frequent)
+    return pr_lib.saveJsonRecovery(path, data, { backup = frequent and 'on_failure' or 'always' })
 end
 
 local function canManage(source)
@@ -363,25 +346,54 @@ local function publicPayload()
     }
 end
 
-local function saveState()
-    Service.state = normalizeState(Service.state)
-    GlobalState.forgeStarterpack = publicPayload()
-
-    return writeJson(PR.Starterpack.Storage.file, Service.state)
+local function saveState(draft, frequent)
+    draft = normalizeState(draft)
+    local saved = writeJson(PR.Starterpack.Storage.file, draft, frequent)
+    if saved then
+        Service.state = draft
+        ForgeCore.State.publish('starterpack', publicPayload())
+    end
+    return saved
 end
 
-local function itemById(itemId)
+local function recordIncident(source, operation, details)
+    local cid = citizenId(source)
+    Service.incidents[cid] = { at = os.time(), operation = operation, details = details }
+    pr_lib.recordJsonIncident(PR.Starterpack.Storage.file, cid, Service.incidents[cid])
+    return false, 'reconciliation_required'
+end
+
+local function undoGrants(source, granted)
+    local failed = {}
+    for index = #granted, 1, -1 do
+        local item = granted[index]
+        local ok, removed = pcall(pr_lib.inventory.RemoveItem, source, item.name, item.count, item.metadata)
+        if not ok or removed ~= true then failed[#failed + 1] = item end
+    end
+    if #failed > 0 then return recordIncident(source, 'starterpack-rollback', failed) end
+    return true
+end
+
+local function grant(source, item, granted)
+    local ok, added = pcall(addItem, source, item.name, item.count, item.metadata)
+    if not ok then return recordIncident(source, 'starterpack-grant-error', item) end
+    if added ~= true then return false, 'add_failed' end
+    granted[#granted + 1] = item
+    return true
+end
+
+local function itemById(itemId, state)
     itemId = trim(itemId)
-    for index, item in ipairs(Service.state.items or {}) do
+    for index, item in ipairs((state or Service.state).items or {}) do
         if item.id == itemId then return item, index end
     end
 
     return nil, nil
 end
 
-local function stopById(stopId)
+local function stopById(stopId, state)
     stopId = trim(stopId)
-    for index, stop in ipairs(Service.state.prologue.stops or {}) do
+    for index, stop in ipairs((state or Service.state).prologue.stops or {}) do
         if stop.id == stopId then return stop, index end
     end
 
@@ -407,104 +419,113 @@ end
 
 function Service.load()
     Service.state = normalizeState(readJson(PR.Starterpack.Storage.file, PR.Starterpack.Defaults))
-    GlobalState.forgeStarterpack = publicPayload()
+    Service.incidents = pr_lib.loadJsonRecovery(PR.Starterpack.Storage.file .. '.incidents.json') or {}
+    ForgeCore.State.publish('starterpack',publicPayload())
     return Service.state
 end
 
 function Service.saveSettings(source, settings)
+    local draft = pr_lib.jsonDraft(Service.state, {})
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.state.settings = normalizeSettings(settings)
-    if not saveState() then return false, 'save_failed' end
+    draft.settings = normalizeSettings(settings)
+    if not saveState(draft) then return false, 'save_failed' end
 
     notify(source, { description = ForgeCore.t('notify.starterpack.settings_saved'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.savePrologue(source, prologue)
+    local draft = pr_lib.jsonDraft(Service.state, {})
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.state.prologue = normalizePrologue(prologue)
-    if not saveState() then return false, 'save_failed' end
+    draft.prologue = normalizePrologue(prologue)
+    if not saveState(draft) then return false, 'save_failed' end
 
     notify(source, { description = ForgeCore.t('notify.starterpack.prologue_saved'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.setItem(source, item)
+    local draft = pr_lib.jsonDraft(Service.state, { items = 'shallow' })
     if not canManage(source) then return false, 'no_permission' end
 
     local normalized = normalizeItem(item)
     if normalized.name == '' or normalized.id == '' then return false, 'invalid_item' end
     if not itemExists(normalized.name) then return false, 'invalid_item' end
 
-    local _, index = itemById(normalized.id)
+    local _, index = itemById(normalized.id, draft)
     if index then
-        Service.state.items[index] = normalized
+        draft.items[index] = normalized
     else
-        Service.state.items[#Service.state.items + 1] = normalized
+        draft.items[#draft.items + 1] = normalized
     end
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft) then return false, 'save_failed' end
     notify(source, { description = ForgeCore.t('notify.starterpack.item_saved'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.removeItem(source, itemId)
+    local draft = pr_lib.jsonDraft(Service.state, { items = 'shallow' })
     if not canManage(source) then return false, 'no_permission' end
 
-    local _, index = itemById(itemId)
+    local _, index = itemById(itemId, draft)
     if not index then return false, 'item_not_found' end
 
-    table.remove(Service.state.items, index)
-    if not saveState() then return false, 'save_failed' end
+    table.remove(draft.items, index)
+    if not saveState(draft) then return false, 'save_failed' end
 
     notify(source, { description = ForgeCore.t('notify.starterpack.item_removed'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.setStop(source, stop)
+    local draft = pr_lib.jsonDraft(Service.state, { prologue = { stops = 'shallow' } })
     if not canManage(source) then return false, 'no_permission' end
 
     local normalized = normalizeStop(stop)
     if normalized.id == '' then return false, 'invalid_stop' end
 
-    local _, index = stopById(normalized.id)
+    local _, index = stopById(normalized.id, draft)
     if index then
-        Service.state.prologue.stops[index] = normalized
+        draft.prologue.stops[index] = normalized
     else
-        Service.state.prologue.stops[#Service.state.prologue.stops + 1] = normalized
+        draft.prologue.stops[#draft.prologue.stops + 1] = normalized
     end
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft) then return false, 'save_failed' end
     notify(source, { description = ForgeCore.t('notify.starterpack.stop_saved'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.removeStop(source, stopId)
+    local draft = pr_lib.jsonDraft(Service.state, { prologue = { stops = 'shallow' } })
     if not canManage(source) then return false, 'no_permission' end
 
-    local _, index = stopById(stopId)
+    local _, index = stopById(stopId, draft)
     if not index then return false, 'stop_not_found' end
 
-    table.remove(Service.state.prologue.stops, index)
-    if not saveState() then return false, 'save_failed' end
+    table.remove(draft.prologue.stops, index)
+    if not saveState(draft) then return false, 'save_failed' end
 
     notify(source, { description = ForgeCore.t('notify.starterpack.stop_removed'), type = 'success' })
     return true, publicPayload()
 end
 
 function Service.claim(source, forced)
-    local settings = Service.state.settings or {}
+    local draft = Service.state -- read-only until validation succeeds
+    if Service.incidents[citizenId(source)] then return false, 'reconciliation_required' end
+    local settings = draft.settings or {}
     if settings.enabled ~= true and forced ~= true then return false, 'disabled' end
 
     local cid = citizenId(source)
     if cid == '' then return false, 'player_not_ready' end
-    if settings.oncePerCharacter == true and Service.state.claimed[cid] and forced ~= true then return false, 'already_claimed' end
-    if #(Service.state.items or {}) <= 0 then return false, 'no_items' end
+    if settings.oncePerCharacter == true and draft.claimed[cid] and forced ~= true then return false, 'already_claimed' end
+    if #(draft.items or {}) <= 0 then return false, 'no_items' end
 
     local giveList = {}
-    for _, item in ipairs(Service.state.items or {}) do
+    for _, item in ipairs(draft.items or {}) do
         if item.enabled == true then
             if not itemExists(item.name) then return false, ('invalid_item:%s'):format(item.name) end
             if not canCarry(source, item.name, item.count, item.metadata) then return false, ('cannot_carry:%s'):format(item.name) end
@@ -514,19 +535,26 @@ function Service.claim(source, forced)
 
     if #giveList <= 0 then return false, 'no_items' end
 
+    draft = pr_lib.jsonDraft(Service.state, { claimed = 'shallow' })
+    local granted = {}
     for _, item in ipairs(giveList) do
-        if not addItem(source, item.name, item.count, item.metadata) then
-            return false, ('add_failed:%s'):format(item.name)
+        local ok, err = grant(source, item, granted)
+        if not ok then
+            local restored = undoGrants(source, granted)
+            return false, restored and err or 'reconciliation_required'
         end
     end
 
-    Service.state.claimed[cid] = {
+    draft.claimed[cid] = {
         at = os.time(),
         name = playerName(source),
         source = source,
     }
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft, true) then
+        local restored = undoGrants(source, granted)
+        return false, restored and 'save_failed' or 'reconciliation_required'
+    end
 
     notify(source, { description = ForgeCore.t('notify.starterpack.claimed'), type = 'success' })
     return true, publicPayload()
@@ -552,72 +580,83 @@ function Service.startPrologueTest(source, targetSource)
 end
 
 function Service.grantReward(source, stopId, rewardId)
+    local draft = Service.state -- read-only until validation succeeds
     local cid = citizenId(source)
+    if Service.incidents[cid] then return false, 'reconciliation_required' end
     if cid == '' then return false, 'player_not_ready' end
 
-    local stop = stopById(stopId)
+    local stop = stopById(stopId, draft)
     local reward = rewardById(stop, rewardId)
     if not stop or not reward then return false, 'reward_not_found' end
     if reward.enabled ~= true then return false, 'reward_disabled' end
     if not itemExists(reward.item) then return false, ('invalid_item:%s'):format(reward.item) end
 
     local claimKey = ('%s:%s:%s'):format(cid, stop.id, reward.id)
-    if Service.state.settings.oncePerCharacter == true and Service.state.rewardClaims[claimKey] then
+    if draft.settings.oncePerCharacter == true and draft.rewardClaims[claimKey] then
         return true, 'already_granted'
     end
     if not canCarry(source, reward.item, reward.count, reward.metadata) then
         return false, ('cannot_carry:%s'):format(reward.item)
     end
 
-    if not addItem(source, reward.item, reward.count, reward.metadata) then
-        return false, ('add_failed:%s'):format(reward.item)
-    end
+    draft = pr_lib.jsonDraft(Service.state, { rewardClaims = 'shallow' })
+    local granted = {}
+    local ok, err = grant(source, { name = reward.item, count = reward.count, metadata = reward.metadata }, granted)
+    if not ok then return false, err end
 
-    Service.state.rewardClaims[claimKey] = {
+    draft.rewardClaims[claimKey] = {
         at = os.time(),
         citizenid = cid,
         item = reward.item,
         count = reward.count,
     }
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft, true) then
+        local restored = undoGrants(source, granted)
+        return false, restored and 'save_failed' or 'reconciliation_required'
+    end
 
     return true, reward
 end
 
 function Service.completePrologue(source)
-    local settings = Service.state.settings or {}
+    local draft = Service.state -- read-only until validation succeeds
+    local settings = draft.settings or {}
     if settings.enabled ~= true then return false, 'disabled' end
 
     local cid = citizenId(source)
     if cid == '' then return false, 'player_not_ready' end
-    if settings.oncePerCharacter == true and Service.state.claimed[cid] then return true, 'already_claimed' end
+    if Service.incidents[cid] then return false, 'reconciliation_required' end
+    if settings.oncePerCharacter == true and draft.claimed[cid] then return true, 'already_claimed' end
 
-    Service.state.claimed[cid] = {
+    draft = pr_lib.jsonDraft(Service.state, { claimed = 'shallow' })
+    draft.claimed[cid] = {
         at = os.time(),
         name = playerName(source),
         source = source,
         prologue = true,
     }
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft, true) then return false, 'save_failed' end
 
     return true, publicPayload()
 end
 
 function Service.resetClaim(source, cid)
+    local draft = pr_lib.jsonDraft(Service.state, { claimed = 'shallow', rewardClaims = 'shallow' })
     if not canManage(source) then return false, 'no_permission' end
 
     cid = trim(cid)
     if cid == '' then return false, 'invalid_citizenid' end
-    Service.state.claimed[cid] = nil
-    for key in pairs(Service.state.rewardClaims or {}) do
+    if Service.incidents[cid] then return false, 'reconciliation_required' end
+    draft.claimed[cid] = nil
+    for key in pairs(draft.rewardClaims or {}) do
         if key:sub(1, #cid + 1) == cid .. ':' then
-            Service.state.rewardClaims[key] = nil
+            draft.rewardClaims[key] = nil
         end
     end
 
-    if not saveState() then return false, 'save_failed' end
+    if not saveState(draft) then return false, 'save_failed' end
     notify(source, { description = ForgeCore.t('notify.starterpack.claim_reset'), type = 'success' })
     return true, publicPayload()
 end
@@ -626,8 +665,9 @@ function Service.handlePlayerLoaded(source)
     if not Service.started then return end
     if not Service.state.settings or Service.state.settings.autoGiveOnFirstJoin ~= true then return end
 
+    local loadedCharacter = citizenId(source)
     SetTimeout(3500, function()
-        if GetPlayerName(source) then
+        if loadedCharacter ~= '' and GetPlayerName(source) and citizenId(source) == loadedCharacter then
             Service.claim(source, false)
         end
     end)
@@ -641,5 +681,9 @@ function Service.start()
     logStarter('success', ForgeCore.t('debug.starterpack.started'))
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Starterpack.Storage.file, Service, {
+    'saveSettings', 'savePrologue', 'setItem', 'removeItem', 'setStop', 'removeStop', 'claim', 'grantReward', 'completePrologue', 'resetClaim',
+})
 
 ForgeCore.StarterpackService = Service

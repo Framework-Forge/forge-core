@@ -119,9 +119,9 @@ local function groupHasDutyPoint(group)
     return false
 end
 
-local function applyDutyDefaultRules()
+local function applyDutyDefaultRules(state)
     local changed = false
-    local jobs = ForgeCore.JobRegistry.getJobs()
+    local jobs = state and state.jobs or ForgeCore.JobRegistry.getJobs()
 
     for _, job in pairs(jobs or {}) do
         if groupHasDutyPoint(job) and job.defaultDuty ~= false then
@@ -197,13 +197,16 @@ function Service.sendTo(source)
     Service.broadcast(source)
 end
 
-function Service.save()
-    local saved = ForgeCore.JobStorage.save(
-        ForgeCore.JobRegistry.getJobs(),
-        ForgeCore.JobRegistry.getGangs()
-    )
+function Service.save(draft)
+    if Service.persistenceBlocked then return false, 'reconciliation_required' end
+    draft = draft or ForgeCore.JobRegistry
+    local saved, err = ForgeCore.JobStorage.save(draft.jobs, draft.gangs)
+    if err == 'reconciliation_required' then Service.persistenceBlocked = true end
 
     if saved then
+        ForgeCore.JobRegistry.jobs = draft.jobs
+        ForgeCore.JobRegistry.gangs = draft.gangs
+        ForgeCore.JobRegistry.revision = draft.revision
         debug('success', ForgeCore.t('debug.jobs.saved'))
     end
 
@@ -211,6 +214,8 @@ function Service.save()
 end
 
 function Service.reload()
+    Service.incidents = pr_lib.loadJsonRecovery(PR.Job.Storage.jobsFile .. '.incidents.json') or {}
+    if Service.incidents.batch then error('job catalogs require persistence reconciliation') end
     local jobs, gangs = ForgeCore.JobStorage.load()
     ForgeCore.JobRegistry.setAll(jobs, gangs)
     if applyDutyDefaultRules() then
@@ -229,9 +234,11 @@ function Service.reload()
     return true
 end
 
-function Service.saveAndSync()
-    applyDutyDefaultRules()
-    local saved = Service.save()
+function Service.saveAndSync(draft)
+    draft = draft or pr_lib.jsonDraft(ForgeCore.JobRegistry, {jobs=true,gangs=true})
+    applyDutyDefaultRules(draft)
+    local saved = Service.save(draft)
+    if not saved then return false end
     ForgeCore.JobQbxSync.syncAll()
     reconcilePersistedGroups()
     if ForgeCore.JobPoints then
@@ -262,10 +269,11 @@ function Service.upsert(source, groupData, forcedType)
         if not societyOk and societyErr ~= 'banking_unavailable' then return false, societyErr end
     end
 
-    local ok, result = ForgeCore.JobRegistry.upsert(normalized, forcedType)
+    local draft = pr_lib.jsonDraft(ForgeCore.JobRegistry, {jobs=true,gangs=true})
+    local ok, result = ForgeCore.JobRegistry.upsert(normalized, forcedType, draft)
     if not ok then return false, result end
 
-    Service.saveAndSync()
+    if not Service.saveAndSync(draft) then return false, 'save_failed' end
 
     if groupHasDutyPoint(normalized) then
         forceOnlineJobOffDuty(normalized.name)
@@ -291,10 +299,11 @@ function Service.delete(source, groupType, name)
         return false, 'protected'
     end
 
-    local ok, err = ForgeCore.JobRegistry.remove(groupType, name)
+    local draft = pr_lib.jsonDraft(ForgeCore.JobRegistry, {jobs=true,gangs=true})
+    local ok, err = ForgeCore.JobRegistry.remove(groupType, name, draft)
     if not ok then return false, err end
 
-    Service.saveAndSync()
+    if not Service.saveAndSync(draft) then return false, 'save_failed' end
 
     notify(source, {
         title = ForgeCore.t('core.title'),
@@ -405,6 +414,15 @@ function Service.createMei(source, data)
 
     local player = getQbxPlayer(source)
     if not player then return false, 'invalid_player' end
+    local incidentKey = 'mei:' .. tostring(player.PlayerData and player.PlayerData.citizenid or '')
+    Service.incidents = Service.incidents or {}
+    if Service.incidents[incidentKey] then return false, 'reconciliation_required' end
+    local function recordMeiIncident(reason)
+        local details = { at=os.time(), reason=reason, settings=settings.mei, company=code }
+        Service.incidents[incidentKey] = details
+        pr_lib.recordJsonIncident(PR.Job.Storage.jobsFile, incidentKey, details)
+        return false, 'reconciliation_required'
+    end
 
     local group = {
         label = label,
@@ -426,19 +444,20 @@ function Service.createMei(source, data)
     if not societyOk then return false, societyErr end
 
     local charged, chargeErr = ForgeCore.JobPayments.chargeMeiOpening(player, settings)
-    if not charged then return false, chargeErr end
+    if not charged then
+        if chargeErr == 'government_charge_unknown' or chargeErr == 'refund_failed' then return recordMeiIncident(chargeErr) end
+        return false, chargeErr
+    end
 
-    local ok, result = ForgeCore.JobRegistry.upsert(normalized, 'job')
+    local draft = pr_lib.jsonDraft(ForgeCore.JobRegistry, {jobs=true,gangs=true})
+    local ok, result = ForgeCore.JobRegistry.upsert(normalized, 'job', draft)
     if not ok then
-        ForgeCore.JobPayments.refundMeiOpening(player, settings)
+        if not ForgeCore.JobPayments.refundMeiOpening(player, settings) then return recordMeiIncident('refund_failed') end
         return false, result
     end
 
-    if not Service.saveAndSync() then
-        ForgeCore.JobRegistry.remove('job', normalized.name)
-        ForgeCore.JobQbxSync.syncAll()
-        Service.broadcast(-1)
-        ForgeCore.JobPayments.refundMeiOpening(player, settings)
+    if not Service.saveAndSync(draft) then
+        if not ForgeCore.JobPayments.refundMeiOpening(player, settings) then return recordMeiIncident('refund_failed') end
         return false, 'save_failed'
     end
 
@@ -462,6 +481,8 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Job.Storage.jobsFile, Service, { 'upsert', 'delete', 'createMei' })
 
 ForgeCore.JobService = Service
 

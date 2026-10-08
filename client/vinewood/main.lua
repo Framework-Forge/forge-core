@@ -84,13 +84,13 @@ local function applySettings(settings)
 end
 
 local function currentSettings()
-    local settings = GlobalState.forgeVinewood or GlobalState.pinelVinewood
+    local settings = ForgeCore.State.peek('vinewood')
     if type(settings) ~= 'table' then return PR.Vinewood.Defaults end
     return settings
 end
 
 CreateThread(function()
-    while not LocalPlayer.state.isLoggedIn do
+    while not ForgeCore.Session.isLoaded() do
         Wait(1000)
         if GetGameTimer() > 10000 then break end
     end
@@ -98,14 +98,8 @@ CreateThread(function()
     applySettings(currentSettings())
 end)
 
-AddStateBagChangeHandler('forgeVinewood', 'global', function(_, _, value)
+ForgeCore.State.onChange('vinewood', function(value)
     applySettings(value)
-end)
-
-AddStateBagChangeHandler('pinelVinewood', 'global', function(_, _, value)
-    if not GlobalState.forgeVinewood then
-        applySettings(value)
-    end
 end)
 
 AddEventHandler('onResourceStop', function(resource)

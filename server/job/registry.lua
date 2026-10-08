@@ -145,25 +145,27 @@ function Registry.normalizeGroup(group, forcedType)
     return normalizeGroup(group, forcedType)
 end
 
-function Registry.upsert(group, forcedType)
+function Registry.upsert(group, forcedType, state)
+    state = state or Registry
     local normalized, err = normalizeGroup(group, forcedType)
     if not normalized then return false, err end
 
-    local target = normalized.type == 'gang' and Registry.gangs or Registry.jobs
+    local target = normalized.type == 'gang' and state.gangs or state.jobs
     target[normalized.name] = normalized
-    Registry.revision = Registry.revision + 1
+    state.revision = state.revision + 1
 
     return true, normalized
 end
 
-function Registry.remove(groupType, name)
+function Registry.remove(groupType, name, state)
+    state = state or Registry
     local normalizedName = normalizeName(name)
-    local target = groupType == 'gang' and Registry.gangs or Registry.jobs
+    local target = groupType == 'gang' and state.gangs or state.jobs
 
     if not target[normalizedName] then return false, 'not_found' end
 
     target[normalizedName] = nil
-    Registry.revision = Registry.revision + 1
+    state.revision = state.revision + 1
 
     return true
 end

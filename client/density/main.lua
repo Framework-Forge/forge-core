@@ -4,7 +4,7 @@ ForgeCore.Client = ForgeCore.Client or {}
 local lastRevision = nil
 
 local function currentSettings()
-    local settings = GlobalState.forgeDensity or GlobalState.pinelDensity
+    local settings = ForgeCore.State.peek('density')
     if type(settings) ~= 'table' then return PR.Density.Defaults end
     return settings
 end

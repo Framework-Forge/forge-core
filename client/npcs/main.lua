@@ -64,42 +64,18 @@ local function placementCoords(value)
 end
 
 local function getCurrentJob()
-    local ok, data = pcall(function()
-        return exports.qbx_core:GetPlayerData()
-    end)
-
-    if ok and type(data) == 'table' then
-        local job = data and data.job
-        if type(job) == 'table' then
-            return tostring(job.name or ''), tonumber(job.grade and (job.grade.level or job.grade) or 0) or 0
-        end
-    end
-
-    local state = LocalPlayer and LocalPlayer.state
-    local job = state and (state.job or state.PlayerData and state.PlayerData.job)
+    local job = ForgeCore.Session.group('job')
     if type(job) == 'table' then
-        return tostring(job.name or ''), tonumber(job.grade and (job.grade.level or job.grade) or 0) or 0
+        return tostring(job.name or ''), tonumber(type(job.grade)=='table' and job.grade.level or job.grade) or 0
     end
 
     return '', 0
 end
 
 local function getCurrentGang()
-    local ok, data = pcall(function()
-        return exports.qbx_core:GetPlayerData()
-    end)
-
-    if ok and type(data) == 'table' then
-        local gang = data and data.gang
-        if type(gang) == 'table' then
-            return tostring(gang.name or ''), tonumber(gang.grade and (gang.grade.level or gang.grade) or 0) or 0
-        end
-    end
-
-    local state = LocalPlayer and LocalPlayer.state
-    local gang = state and (state.gang or state.PlayerData and state.PlayerData.gang)
+    local gang = ForgeCore.Session.group('gang')
     if type(gang) == 'table' then
-        return tostring(gang.name or ''), tonumber(gang.grade and (gang.grade.level or gang.grade) or 0) or 0
+        return tostring(gang.name or ''), tonumber(type(gang.grade)=='table' and gang.grade.level or gang.grade) or 0
     end
 
     return '', 0
@@ -441,7 +417,7 @@ local function applyPayload(payload)
 end
 
 local function currentPayload()
-    local payload = GlobalState.forgeNpcs
+    local payload = ForgeCore.State.peek('npcs')
     return type(payload) == 'table' and payload or { enabled = false, npcs = {}, spawnDistance = PR.Npcs.Defaults.spawnDistance }
 end
 
@@ -631,13 +607,12 @@ function Npcs.setOutline(npcId, enabled)
     return true
 end
 
-AddStateBagChangeHandler('forgeNpcs', 'global', function(_, _, value)
+ForgeCore.State.onChange('npcs', function(value)
     applyPayload(value)
 end)
 
 CreateThread(function()
-    local ok, payload = pr_lib.callback.await(PR.Npcs.Callbacks.getAll, 10000)
-    if ok and payload then applyPayload(payload) else applyPayload(currentPayload()) end
+    applyPayload(currentPayload())
 
     while true do
         local payload = currentPayload()

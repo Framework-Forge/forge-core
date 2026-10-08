@@ -39,7 +39,7 @@ function Menu.openPlayersManagement()
 end
 function Menu.openManagedPlayer(target)
     local data=details(target);if not data then return Menu.openPlayersManagement()end
-    Shared.showContext({id='forge_core_managed_player',title=('[%s] %s'):format(data.source,data.name),menu='forge_core_players_management',options={
+    local options={
         {title='Dados principais',description=('CitizenID: %s\nNascimento: %s | Nacionalidade: %s\nDinheiro: %s'):format(data.citizenid,data.birthdate or '-',data.nationality or '-',money(data.money)),icon='person-vcard',metadata={{label='License',value=data.license or '-'},{label='Fome',value=tostring(data.metadata.hunger or '-')},{label='Sede',value=tostring(data.metadata.thirst or '-')},{label='Morto',value=data.metadata.isdead and 'Sim' or 'Não'}},disabled=true},
         {title='Slots de personagem',description='Ver quantidade liberada e liberar ou bloquear slots específicos.',icon='person-circle-check',arrow=true,onSelect=function()Menu.openPlayerCharacterSlots(target)end},
         {title='Whitelist',description=data.whitelist.whitelisted and 'Aprovada — visualizar respostas e remover.' or 'Pendente — visualizar respostas e aprovar.',icon='person-check-fill',iconColor=data.whitelist.whitelisted and '#22c55e' or '#ef4444',arrow=true,onSelect=function()Menu.openPlayerWhitelistAdmin(target)end},
@@ -52,7 +52,13 @@ function Menu.openManagedPlayer(target)
             if answer=='confirm'then local ok,err=Shared.awaitServer(PR.Vehicles.Callbacks.adminCarCurrent,target);if not ok then Shared.notifyFailure('notify.vehicles.admin_car_failed',err)end end
             SetTimeout(400,function()Menu.openManagedPlayer(target)end)
         end},
-    }})
+    }
+    if data.prison and data.prison.enabled then
+        options[1].description = options[1].description .. '\n' .. Shared.t('prison.title') .. ': ' .. Shared.prisonDescription(data.prison)
+        table.insert(options, 2, { title = Shared.t('prison.set'), description = Shared.prisonDescription(data.prison), icon = 'lock-fill', onSelect = function() Menu.setPlayerPrison(target) end })
+        table.insert(options, 3, { title = Shared.t('prison.release'), icon = 'unlock-fill', disabled = not data.prison.jailed, onSelect = function() Menu.releasePlayerPrison(target) end })
+    end
+    Shared.showContext({id='forge_core_managed_player',title=('[%s] %s'):format(data.source,data.name),menu='forge_core_players_management',options=options})
 end
 function Menu.openPlayerWhitelistAdmin(target)
     local data=details(target);if not data then return end;local wl=data.whitelist;local options={}

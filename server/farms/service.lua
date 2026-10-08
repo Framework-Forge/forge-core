@@ -334,33 +334,33 @@ local function checkUsageLimit(source, farmId, item)
     return true
 end
 
-local function registerUsage(source, farmId, item)
+local function registerUsage(source, farmId, item, draft)
     local limits = type(item.limits) == 'table' and item.limits or {}
     if limits.enabled ~= true then return end
 
-    Service.state.usage = type(Service.state.usage) == 'table' and Service.state.usage or {}
-    Service.state.usage[usageKey(source, farmId, item)] = {
+    draft.usage = type(draft.usage) == 'table' and draft.usage or {}
+    draft.usage[usageKey(source, farmId, item)] = {
         lastAt = os.time(),
         day = currentDay(),
     }
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Farms.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Farms.Storage.file, true)
     if type(loaded) ~= 'table' then
         return { settings = { enabled = true }, nextFarmId = 1, farms = {} }
     end
     return loaded
 end
 
-local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Farms.Storage.file, state, { indent = true })
+local function writeState(state, frequent)
+    local saved = pr_lib.saveJsonRecovery(PR.Farms.Storage.file, state, { backup = frequent and 'on_failure' or 'always' })
     return saved == true or type(saved) == 'table'
 end
 
-local function findFarm(farmId)
+local function findFarm(farmId, state)
     farmId = tonumber(farmId)
-    for index, farm in ipairs(Service.state.farms or {}) do
+    for index, farm in ipairs((state or Service.state).farms or {}) do
         if tonumber(farm.id) == farmId then return farm, index end
     end
 end
@@ -373,7 +373,7 @@ local function findItem(farm, itemId)
 end
 
 local function publish()
-    GlobalState.forgeFarms = Service.getAll()
+    ForgeCore.State.publish('farms',Service.getAll())
 end
 
 function Service.getAll()
@@ -469,49 +469,55 @@ function Service.load()
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = GetGameTimer()
-    if not writeState(Service.state) then return false, 'save_failed' end
+function Service.save(draft)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = GetGameTimer()
+    if not writeState(draft) then return false, 'save_failed' end
+    Service.state = draft
     publish()
     return true, Service.getAll()
 end
 
 function Service.saveSettings(source, settings)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     settings = type(settings) == 'table' and settings or {}
-    Service.state.settings.enabled = boolValue(settings.enabled, true)
-    return Service.save()
+    draft.settings.enabled = boolValue(settings.enabled, true)
+    return Service.save(draft)
 end
 
 function Service.createFarm(source, farm)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     farm = normalizeFarm(farm)
-    farm.id = Service.state.nextFarmId
-    Service.state.nextFarmId = Service.state.nextFarmId + 1
-    Service.state.farms[#Service.state.farms + 1] = farm
-    local ok, payload = Service.save()
+    farm.id = draft.nextFarmId
+    draft.nextFarmId = draft.nextFarmId + 1
+    draft.farms[#draft.farms + 1] = farm
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.farms.farm_created'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.updateFarm(source, farmId, farm)
     if not canManage(source) then return false, 'no_permission' end
-    local _, index = findFarm(farmId)
+    local draft = pr_lib.jsonDraft(Service.state)
+    local _, index = findFarm(farmId, draft)
     if not index then return false, 'farm_not_found' end
     farm = normalizeFarm(farm)
     farm.id = tonumber(farmId)
-    Service.state.farms[index] = farm
-    local ok, payload = Service.save()
+    draft.farms[index] = farm
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.farms.farm_updated'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.deleteFarm(source, farmId)
     if not canManage(source) then return false, 'no_permission' end
-    local _, index = findFarm(farmId)
+    local draft = pr_lib.jsonDraft(Service.state)
+    local _, index = findFarm(farmId, draft)
     if not index then return false, 'farm_not_found' end
-    table.remove(Service.state.farms, index)
-    local ok, payload = Service.save()
+    table.remove(draft.farms, index)
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.farms.farm_deleted'), type = 'success' }) end
     return ok, payload
 end
@@ -531,12 +537,15 @@ function Service.startRoute(source, farmId, itemId)
     local limitOk, limitErr = checkUsageLimit(source, farmId, item)
     if not limitOk then return false, limitErr end
 
-    Service.activeRoutes[key] = true
-    registerUsage(source, farmId, item)
-    if not writeState(Service.state) then
-        Service.activeRoutes[key] = nil
-        return false, 'save_failed'
+    local limits = type(item.limits) == 'table' and item.limits or {}
+    if limits.enabled == true then
+        local draft = pr_lib.jsonDraft(Service.state, { usage = 'shallow' })
+        registerUsage(source, farmId, item, draft)
+        if not writeState(draft, true) then return false, 'save_failed' end
+        Service.state = draft
     end
+    -- Routes without persistent limits need no JSON write.
+    Service.activeRoutes[key] = true
 
     return true, { active = true }
 end
@@ -580,6 +589,10 @@ function Service.start()
     debug('success', ForgeCore.t('debug.farms.started'))
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Farms.Storage.file, Service, {
+    'saveSettings', 'createFarm', 'updateFarm', 'deleteFarm', 'startRoute',
+})
 
 ForgeCore.FarmsService = Service
 

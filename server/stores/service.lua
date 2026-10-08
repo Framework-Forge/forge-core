@@ -3,10 +3,13 @@ ForgeCore = ForgeCore or {}
 local Service = {
     state = {},
     locks = {},
+    incidents = {},
     shops = {},
     dailyStock = {},
     notificationHistory = {},
     purchaseHookId = nil,
+    purchaseEventHandle = nil,
+    initialized = false,
 }
 
 local function logStore(level, message)
@@ -162,13 +165,13 @@ local function addItem(source, name, count, metadata)
     return false
 end
 
-local function removeItem(source, name, count)
+local function removeItem(source, name, count, metadata, slot)
     if pr_lib and pr_lib.inventory and pr_lib.inventory.RemoveItem then
-        return pr_lib.inventory.RemoveItem(source, name, count)
+        return pr_lib.inventory.RemoveItem(source, name, count, metadata, slot)
     end
 
     if GetResourceState('ox_inventory'):find('start') ~= nil then
-        return exports.ox_inventory:RemoveItem(source, name, count)
+        return exports.ox_inventory:RemoveItem(source, name, count, metadata, slot)
     end
 
     return false
@@ -222,7 +225,7 @@ local function chargePlayer(source, amount, reason, currency)
     for _, account in ipairs(accounts) do
         if (tonumber(framework.getPlayerMoney and framework.getPlayerMoney(source, account)) or 0) >= amount then
             local removed = framework.removePlayerMoney(source, account, amount, reason)
-            if removed ~= false then return true, account end
+            if removed == true then return true, account end
         end
     end
 
@@ -231,18 +234,18 @@ end
 
 local function refundPlayer(source, account, amount, reason)
     amount = math.floor(numberValue(amount))
-    if amount <= 0 or account == 'free' then return end
+    if amount <= 0 or account == 'free' then return true end
 
     account = tostring(account or '')
     if account:sub(1, 5) == 'item:' then
-        addItem(source, account:sub(6), amount)
-        return
+        return addItem(source, account:sub(6), amount) == true
     end
 
     local framework = pr_lib and pr_lib.framework
     if framework and framework.addPlayerMoney then
-        framework.addPlayerMoney(source, account, amount, reason)
+        return framework.addPlayerMoney(source, account, amount, reason) == true
     end
+    return false
 end
 
 local function normalizeItem(item)
@@ -365,21 +368,23 @@ local function usesOwnerStock(store)
     return trim(store and store.owner) ~= ''
 end
 
-local function availableStock(store, item)
+local function availableStock(store, item, daily)
+    daily = daily or Service.dailyStock
     if usesOwnerStock(store) then
         return math.max(0, math.floor(numberValue(store.stock and store.stock[item.name])))
     end
 
-    Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
-    local remaining = Service.dailyStock[store.id][item.name]
+    daily[store.id] = daily[store.id] or {}
+    local remaining = daily[store.id][item.name]
     if remaining == nil then
         remaining = math.max(0, math.floor(numberValue(item.dailyStock)))
-        Service.dailyStock[store.id][item.name] = remaining
+        daily[store.id][item.name] = remaining
     end
     return remaining
 end
 
-local function setAvailableStock(store, item, amount)
+local function setAvailableStock(store, item, amount, daily)
+    daily = daily or Service.dailyStock
     amount = math.max(0, math.floor(numberValue(amount)))
     if usesOwnerStock(store) then
         store.stock = type(store.stock) == 'table' and store.stock or {}
@@ -387,13 +392,13 @@ local function setAvailableStock(store, item, amount)
         return
     end
 
-    Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
-    Service.dailyStock[store.id][item.name] = amount
+    daily[store.id] = daily[store.id] or {}
+    daily[store.id][item.name] = amount
 end
 
 local function initializeDailyStock()
     Service.dailyStock = {}
-    for _, store in ipairs(Service.state.stores or {}) do
+    for _, store in ipairs((state or Service.state).stores or {}) do
         if not usesOwnerStock(store) then
             Service.dailyStock[store.id] = {}
             for _, item in ipairs(store.items or {}) do
@@ -444,13 +449,41 @@ local function registerShop(store)
     return true, id
 end
 
-local function handleShopPurchase(success, payload)
+-- Copy just the edited store and its temporary stock, not every store/player.
+local function storeDraft(storeId)
+    storeId = normalizeId(storeId)
+    local _, index = storeById(storeId)
+    local draft = pr_lib.jsonDraft(Service.state, { stores = index and { [index] = true } or 'shallow' })
+    local daily = pr_lib.jsonDraft(Service.dailyStock, { [tostring(storeId)] = true })
+    return draft, daily
+end
+
+local function incident(storeId, source, operation, details)
+    local key = tostring(storeId)
+    Service.incidents[key] = { at = os.time(), citizenid = citizenId(source), operation = operation, details = details }
+    if pr_lib.inventory.RemoveShop then pr_lib.inventory.RemoveShop(shopId(storeId)) end
+    pr_lib.recordJsonIncident(PR.Stores.Storage.file, key, Service.incidents[key])
+    return false, 'reconciliation_required'
+end
+
+local function compensate(storeId, source, operation, actions, details)
+    local failures = {}
+    for index = #actions, 1, -1 do
+        local ok, result = pcall(actions[index])
+        if not ok or result ~= true then failures[#failures + 1] = index end
+    end
+    if #failures > 0 then return incident(storeId, source, operation, { failedSteps = failures, transaction = details }) end
+    return true
+end
+
+local function applyShopPurchase(success, payload)
     if success ~= true or type(payload) ~= 'table' then return end
 
     local storeId = Service.shops[tostring(payload.shopType or '')]
     if not storeId then return end
 
-    local store = storeById(storeId)
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return end
 
     local name = trim(payload.itemName or itemName(payload.fromSlot))
@@ -462,8 +495,8 @@ local function handleShopPurchase(success, payload)
     for _, candidate in ipairs(store.items or {}) do
         if candidate.name == name then purchasedItem = candidate break end
     end
-    local previousStock = purchasedItem and availableStock(store, purchasedItem) or 0
-    if purchasedItem then setAvailableStock(store, purchasedItem, previousStock - count) end
+    local previousStock = purchasedItem and availableStock(store, purchasedItem, daily) or 0
+    if purchasedItem then setAvailableStock(store, purchasedItem, previousStock - count, daily) end
 
     if isMoneyCurrency(payload.currency or 'money') then
         store.balance = math.max(0, math.floor(numberValue(store.balance) + total))
@@ -483,8 +516,8 @@ local function handleShopPurchase(success, payload)
     }
 
     while #store.sales > 50 do table.remove(store.sales, 1) end
-    local saved = Service.save()
-    registerShop(store)
+    local saved = Service.save(draft, storeId, daily, true, true)
+    if not saved then incident(storeId, payload.source, 'inventory-post-purchase', { item = name, count = count, total = total }) end
     logStore(saved and 'info' or 'error', ('ox purchase store=%s item=%s count=%s stock=%s->%s total=%s'):format(
         tostring(store.id),
         name,
@@ -495,15 +528,24 @@ local function handleShopPurchase(success, payload)
     ))
 end
 
+local function handleShopPurchase(success, payload)
+    local ok, err = pr_lib.withJsonLock(PR.Stores.Storage.file, applyShopPurchase, success, payload)
+    if ok == false and err == 'busy' and type(payload) == 'table' then
+        incident(Service.shops[tostring(payload.shopType or '')] or 'unknown', payload.source, 'inventory-post-purchase-busy', payload)
+    end
+end
+
 local function registerPurchaseHook()
     if Service.purchaseHookId or not pr_lib.inventory or not pr_lib.inventory.RegisterHook then return end
 
-    Service.purchaseHookId = pr_lib.inventory.RegisterHook('buyItem', function()
+    Service.purchaseHookId = pr_lib.inventory.RegisterHook('buyItem', function(payload)
+        local storeId = type(payload) == 'table' and Service.shops[tostring(payload.shopType or '')]
+        if storeId and Service.incidents[tostring(storeId)] then return false end
         return nil
     end)
 
     if Service.purchaseHookId then
-        AddEventHandler(Service.purchaseHookId, handleShopPurchase)
+        Service.purchaseEventHandle = AddEventHandler(Service.purchaseHookId, handleShopPurchase)
     end
 end
 
@@ -554,19 +596,19 @@ local function normalizeState(state)
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Stores.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Stores.Storage.file, true)
     if type(loaded) == 'table' then return loaded end
     return nil
 end
 
-local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Stores.Storage.file, state, { indent = true })
-    return saved == true or type(saved) == 'table'
+local function writeState(state, frequent)
+    local saved, reason = pr_lib.saveJsonRecovery(PR.Stores.Storage.file, state, { backup = frequent and 'on_failure' or 'always' })
+    return saved == true, reason
 end
 
-function storeById(storeId)
+function storeById(storeId, state)
     storeId = normalizeId(storeId)
-    for index, store in ipairs(Service.state.stores or {}) do
+    for index, store in ipairs((state or Service.state).stores or {}) do
         if store.id == storeId then return store, index end
     end
 end
@@ -637,8 +679,8 @@ local function importOxStores()
     return imported
 end
 
-local function restockDaily()
-    local settings = Service.state.settings
+local function restockDaily(state)
+    local settings = state.settings
     if settings.dailyStockEnabled ~= true then return false end
 
     local today = todayKey()
@@ -649,13 +691,13 @@ local function restockDaily()
     return true
 end
 
-local function migrateStockModel()
-    local settings = Service.state.settings
+local function migrateStockModel(state)
+    local settings = state.settings
     local currentVersion = math.max(1, math.floor(numberValue(settings.stockModelVersion, 1)))
     local targetVersion = math.max(4, math.floor(numberValue(PR.Stores.Defaults.stockModelVersion, 4)))
     if currentVersion >= targetVersion then return false end
 
-    for _, store in ipairs(Service.state.stores or {}) do
+    for _, store in ipairs(state.stores or {}) do
         if not usesOwnerStock(store) then store.stock = {} end
     end
 
@@ -664,11 +706,11 @@ local function migrateStockModel()
 end
 
 local function publish()
-    GlobalState.forgeStores = {
+    ForgeCore.State.publish('stores',{
         settings = Service.state.settings,
         stores = Service.state.stores or {},
         revision = Service.state.revision or GetGameTimer(),
-    }
+    })
 end
 
 function Service.getAll()
@@ -683,7 +725,7 @@ local function registerAllShops()
     registerPurchaseHook()
     Service.shops = {}
     for _, store in ipairs(Service.state.stores or {}) do
-        if store.enabled ~= false then
+        if store.enabled ~= false and not Service.incidents[tostring(store.id)] then
             registerShop(store)
         end
     end
@@ -700,19 +742,58 @@ function Service.load()
 
     Service.state = normalizeState(state)
     initializeDailyStock()
-    local migrated = migrateStockModel()
-    local restocked = restockDaily()
-    if migrated or restocked then writeState(Service.state) end
+    Service.incidents = pr_lib.loadJsonRecovery(PR.Stores.Storage.file .. '.incidents.json') or {}
+    local draft = pr_lib.jsonDraft(Service.state)
+    local migrated = migrateStockModel(draft)
+    local restocked = restockDaily(draft)
+    if migrated or restocked then
+        local saved, reason = writeState(draft)
+        if not saved then error(('stores initialization %s [%s]'):format(tostring(reason), PR.Stores.Storage.file)) end
+        Service.state = draft
+    end
     registerAllShops()
     publish()
+    Service.initialized = true
+    print(('[forge-core:stores] JSON carregado: %s lojas; habilitado=%s'):format(
+        #Service.state.stores, tostring(Service.state.settings.enabled)))
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = GetGameTimer()
-    if not writeState(Service.state) then return false, 'save_failed' end
-    registerAllShops()
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= 'ox_inventory' then return end
+    if Service.purchaseEventHandle then RemoveEventHandler(Service.purchaseEventHandle) end
+    Service.purchaseEventHandle, Service.purchaseHookId = nil, nil
+    Service.shops = {}
+end)
+AddEventHandler('onResourceStart', function(resource)
+    if resource ~= 'ox_inventory' or not Service.initialized then return end
+    SetTimeout(0, function()
+        if GetResourceState('ox_inventory') == 'started' then registerAllShops() end
+    end)
+end)
+local inventoryRefreshScheduled = false
+AddEventHandler('forge-core:server:inventory:reloaded', function()
+    if not Service.initialized or inventoryRefreshScheduled then return end
+    inventoryRefreshScheduled = true
+    SetTimeout(0, function()
+        inventoryRefreshScheduled = false
+        if GetResourceState('ox_inventory') == 'started' then registerAllShops() end
+    end)
+end)
+
+function Service.save(draft, changedStoreId, daily, noPayload, frequent)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = GetGameTimer()
+    if not writeState(draft, frequent) then return false, 'save_failed' end
+    Service.state = draft
+    if daily then Service.dailyStock = daily end
+    if changedStoreId then
+        local store = storeById(changedStoreId)
+        if store and store.enabled ~= false then registerShop(store)
+        elseif pr_lib.inventory.RemoveShop then pr_lib.inventory.RemoveShop(shopId(changedStoreId)) end
+    else registerAllShops() end
     publish()
+    if noPayload then return true end
     return true, Service.getAll()
 end
 
@@ -723,21 +804,23 @@ end
 
 function Service.saveSettings(source, settings)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state, { settings = true })
 
     settings = normalizeSettings(settings)
-    Service.state.settings.enabled = settings.enabled
-    Service.state.settings.salesEnabled = settings.salesEnabled
-    Service.state.settings.dailyStockEnabled = settings.dailyStockEnabled
-    Service.state.settings.defaultDailyStock = settings.defaultDailyStock
-    Service.state.settings.blacklist = settings.blacklist
+    draft.settings.enabled = settings.enabled
+    draft.settings.salesEnabled = settings.salesEnabled
+    draft.settings.dailyStockEnabled = settings.dailyStockEnabled
+    draft.settings.defaultDailyStock = settings.defaultDailyStock
+    draft.settings.blacklist = settings.blacklist
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.settings_saved'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.createStore(source, data)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state, { stores = 'shallow' })
 
     data = type(data) == 'table' and data or {}
     local label = trim(data.label)
@@ -748,17 +831,20 @@ function Service.createStore(source, data)
     if storeById(data.id) then return false, 'duplicate_store' end
 
     local store = normalizeStore(data)
-    Service.state.stores[#Service.state.stores + 1] = store
+    draft.stores[#draft.stores + 1] = store
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_saved'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.updateStore(source, storeId, changes)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
     if not canManage(source) then return false, 'no_permission' end
 
-    local store = storeById(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
 
     changes = type(changes) == 'table' and changes or {}
@@ -794,13 +880,16 @@ function Service.updateStore(source, storeId, changes)
     end
     if changes.blip ~= nil then store.blip = type(changes.blip) == 'table' and changes.blip or nil end
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_saved'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.updateOwnerStore(source, storeId, changes)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
@@ -833,19 +922,20 @@ function Service.updateOwnerStore(source, storeId, changes)
         store.rotation = candidate[1].rotation
     end
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_saved'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.deleteStore(source, storeId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state, { stores = 'shallow' })
 
-    local _, index = storeById(storeId)
+    local _, index = storeById(storeId, draft)
     if not index then return false, 'store_not_found' end
 
-    table.remove(Service.state.stores, index)
-    local ok, payload = Service.save()
+    table.remove(draft.stores, index)
+    local ok, payload = Service.save(draft)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.store_deleted'), type = 'success' }) end
     return ok, payload
 end
@@ -880,7 +970,10 @@ function Service.getItems(source)
 end
 
 function Service.setItem(source, storeId, itemData)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if not canManage(source) and not hasStoreAccess(source, store) then return false, 'no_permission' end
 
@@ -900,19 +993,22 @@ function Service.setItem(source, storeId, itemData)
     if not replaced then store.items[#store.items + 1] = item end
     if trim(store.owner) == '' then
         store.stock[item.name] = nil
-        Service.dailyStock[store.id] = Service.dailyStock[store.id] or {}
-        Service.dailyStock[store.id][item.name] = math.max(0, math.floor(numberValue(item.dailyStock)))
+        daily[store.id] = daily[store.id] or {}
+        daily[store.id][item.name] = math.max(0, math.floor(numberValue(item.dailyStock)))
     elseif store.stock[item.name] == nil then
         store.stock[item.name] = 0
     end
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
     if ok then notify(source, { description = ForgeCore.t('notify.stores.item_saved'), type = 'success' }) end
     return ok, payload
 end
 
 function Service.removeItem(source, storeId, itemName)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if not canManage(source) and not hasStoreAccess(source, store) then return false, 'no_permission' end
 
@@ -921,8 +1017,8 @@ function Service.removeItem(source, storeId, itemName)
         if item.name == itemName then
             table.remove(store.items, index)
             store.stock[itemName] = nil
-            if Service.dailyStock[store.id] then Service.dailyStock[store.id][itemName] = nil end
-            local ok, payload = Service.save()
+            if daily[store.id] then daily[store.id][itemName] = nil end
+            local ok, payload = Service.save(draft, storeId, daily)
             if ok then notify(source, { description = ForgeCore.t('notify.stores.item_removed'), type = 'success' }) end
             return ok, payload
         end
@@ -973,9 +1069,12 @@ local function hasGroupAccess(source, store)
 end
 
 function Service.buyItem(source, storeId, itemName, count)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store or store.enabled == false then return false, 'store_not_found' end
-    if Service.state.settings.enabled ~= true then return false, 'stores_disabled' end
+    if draft.settings.enabled ~= true then return false, 'stores_disabled' end
     if not hasGroupAccess(source, store) then return false, 'no_permission' end
 
     itemName = trim(itemName)
@@ -988,7 +1087,7 @@ function Service.buyItem(source, storeId, itemName, count)
     if Service.locks[lockKey] then return false, 'busy' end
     Service.locks[lockKey] = true
 
-    local stock = availableStock(store, item)
+    local stock = availableStock(store, item, daily)
     if stock < count then
         Service.locks[lockKey] = nil
         return false, 'no_stock'
@@ -1000,19 +1099,31 @@ function Service.buyItem(source, storeId, itemName, count)
     end
 
     local total = math.max(0, math.floor(numberValue(item.price) * count))
-    local charged, account = chargePlayer(source, total, 'forge-core:store-purchase', item.currency)
+    local called, charged, account = pcall(chargePlayer, source, total, 'forge-core:store-purchase', item.currency)
+    if not called then
+        Service.locks[lockKey] = nil
+        return incident(storeId, source, 'charge-unknown', { amount = total, currency = item.currency, item = itemName, count = count })
+    end
     if not charged then
         Service.locks[lockKey] = nil
         return false, account
     end
 
-    if not addItem(source, itemName, count, item.metadata) then
-        refundPlayer(source, account, total, 'forge-core:store-refund')
+    local addedCall, added = pcall(addItem, source, itemName, count, item.metadata)
+    if not addedCall then
+        Service.locks[lockKey] = nil
+        return incident(storeId, source, 'delivery-unknown', { amount = total, account = account, item = itemName, count = count, metadata = item.metadata })
+    end
+    if added ~= true then
+        local restored = compensate(storeId, source, 'purchase', {
+            function() return refundPlayer(source, account, total, 'forge-core:store-refund') end,
+        }, { amount = total, account = account, item = itemName, count = count, metadata = item.metadata })
+        if not restored then Service.locks[lockKey] = nil; return false, 'reconciliation_required' end
         Service.locks[lockKey] = nil
         return false, 'add_item_failed'
     end
 
-    setAvailableStock(store, item, stock - count)
+    setAvailableStock(store, item, stock - count, daily)
     if isMoneyCurrency(item.currency) then
         store.balance = math.max(0, math.floor(numberValue(store.balance) + total))
     else
@@ -1031,23 +1142,32 @@ function Service.buyItem(source, storeId, itemName, count)
 
     while #store.sales > 50 do table.remove(store.sales, 1) end
 
-    local ok, err = Service.save()
+    local ok, err = Service.save(draft, storeId, daily, true, true)
     Service.locks[lockKey] = nil
 
-    if not ok then return false, err end
+    if not ok then
+        local restored = compensate(storeId, source, 'purchase', {
+            function() return refundPlayer(source, account, total, 'forge-core:store-refund') end,
+            function() return removeItem(source, itemName, count, item.metadata) == true end,
+        }, { amount = total, account = account, item = itemName, count = count, metadata = item.metadata })
+        return false, restored and err or 'reconciliation_required'
+    end
     return true, {
         item = itemName,
         label = item.label or itemLabel(itemName),
         count = count,
         total = total,
-        stock = availableStock(store, item),
+        stock = availableStock(store, item, daily),
     }
 end
 
 function Service.buyStore(source, storeId, account)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store or store.enabled == false then return false, 'store_not_found' end
-    if Service.state.settings.salesEnabled ~= true then return false, 'sales_disabled' end
+    if draft.settings.salesEnabled ~= true then return false, 'sales_disabled' end
     if store.owner ~= '' and store.saleListed ~= true then return false, 'already_owned' end
 
     local cid = citizenId(source)
@@ -1058,7 +1178,8 @@ function Service.buyStore(source, storeId, account)
     if account ~= 'cash' and account ~= 'bank' and account ~= 'money' then account = 'cash' end
     if account == 'money' then account = 'cash' end
 
-    local charged, paidAccount = chargePlayer(source, store.purchasePrice, 'forge-core:store-buy', account)
+    local called, charged, paidAccount = pcall(chargePlayer, source, store.purchasePrice, 'forge-core:store-buy', account)
+    if not called then return incident(storeId, source, 'ownership-charge-unknown', { amount = store.purchasePrice, account = account }) end
     if not charged then return false, paidAccount end
 
     store.owner = cid
@@ -1067,15 +1188,18 @@ function Service.buyStore(source, storeId, account)
     store.salesPaused = false
     store.saleListed = false
     store.managers = {}
-    Service.dailyStock[store.id] = nil
+    daily[store.id] = nil
     store.stock = type(store.stock) == 'table' and store.stock or {}
     for _, item in ipairs(store.items or {}) do
         store.stock[item.name] = 0
     end
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily, false, true)
     if not ok then
-        refundPlayer(source, paidAccount, store.purchasePrice, 'forge-core:store-buy-refund')
+        local restored = compensate(storeId, source, 'ownership', {
+            function() return refundPlayer(source, paidAccount, store.purchasePrice, 'forge-core:store-buy-refund') end,
+        }, { amount = store.purchasePrice, account = paidAccount })
+        if not restored then return false, 'reconciliation_required' end
         return false, payload
     end
 
@@ -1084,7 +1208,10 @@ function Service.buyStore(source, storeId, account)
 end
 
 function Service.transferStore(source, storeId, targetSource)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
@@ -1100,12 +1227,15 @@ function Service.transferStore(source, storeId, targetSource)
     store.saleListed = false
     store.managers = {}
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
     return ok, payload
 end
 
 function Service.addManager(source, storeId, targetSource)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
@@ -1127,12 +1257,15 @@ function Service.addManager(source, storeId, targetSource)
         phone = playerContact(targetSource),
     }
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
     return ok, payload
 end
 
 function Service.removeManager(source, storeId, citizenid)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
@@ -1142,7 +1275,7 @@ function Service.removeManager(source, storeId, citizenid)
         local managerId = type(manager) == 'table' and manager.citizenid or manager
         if managerId == citizenid then
             table.remove(store.managers, index)
-            local ok, payload = Service.save()
+            local ok, payload = Service.save(draft, storeId, daily)
             return ok, payload
         end
     end
@@ -1151,19 +1284,28 @@ function Service.removeManager(source, storeId, citizenid)
 end
 
 function Service.withdraw(source, storeId)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if store.owner ~= citizenId(source) then return false, 'no_permission' end
 
     local amount = math.max(0, math.floor(numberValue(store.balance)))
     if amount <= 0 then return false, 'no_balance' end
 
+    local framework = pr_lib and pr_lib.framework
+    if not framework or not framework.addPlayerMoney or not framework.removePlayerMoney then return false, 'money_unavailable' end
+    local called, credited = pcall(framework.addPlayerMoney, source, 'cash', amount, 'forge-core:store-withdraw')
+    if not called then return incident(storeId, source, 'withdraw-credit-unknown', { amount = amount, account = 'cash' }) end
+    if credited ~= true then return false, 'credit_failed' end
     store.balance = 0
-    local ok, payload = Service.save()
-    if not ok then return false, payload end
-
-    if pr_lib and pr_lib.framework and pr_lib.framework.addPlayerMoney then
-        pr_lib.framework.addPlayerMoney(source, 'cash', amount, 'forge-core:store-withdraw')
+    local ok, payload = Service.save(draft, storeId, daily, false, true)
+    if not ok then
+        local restored = compensate(storeId, source, 'withdraw', {
+            function() return framework.removePlayerMoney(source, 'cash', amount, 'forge-core:store-withdraw-rollback') == true end,
+        }, { amount = amount, account = 'cash' })
+        return false, restored and payload or 'reconciliation_required'
     end
 
     return true, amount
@@ -1193,7 +1335,10 @@ function Service.getPlayerItems(source)
 end
 
 function Service.addStockFromPlayer(source, storeId, itemName, count, price)
-    local store = storeById(storeId)
+    storeId = normalizeId(storeId)
+    if Service.incidents[tostring(storeId)] then return false, 'reconciliation_required' end
+    local draft, daily = storeDraft(storeId)
+    local store = storeById(storeId, draft)
     if not store then return false, 'store_not_found' end
     if not canManage(source) and not hasStoreAccess(source, store) then return false, 'no_permission' end
 
@@ -1203,7 +1348,35 @@ function Service.addStockFromPlayer(source, storeId, itemName, count, price)
     if itemName == '' or not itemExists(itemName) then return false, 'invalid_item' end
     if isBlacklisted(itemName) then return false, 'blacklisted_item' end
     if itemCount(source, itemName) < count then return false, 'not_enough_items' end
-    if not removeItem(source, itemName, count) then return false, 'remove_item_failed' end
+    -- Preserve slot metadata when restoring a rejected stock deposit.
+    local removed, remaining = {}, count
+    local inventory = pr_lib.inventory
+    for _, slot in pairs(inventory.GetPlayerInventory(source) or {}) do
+        if slot.name == itemName and remaining > 0 then
+            local amount = math.min(remaining, tonumber(slot.count or slot.amount) or 0)
+            if amount > 0 then
+                local called, removedItem = pcall(removeItem, source, itemName, amount, slot.metadata or slot.info, slot.slot)
+                if not called then
+                    return incident(storeId, source, 'stock-removal-unknown', { item = itemName, count = amount,
+                        metadata = slot.metadata or slot.info, slot = slot.slot, previousRemoved = removed })
+                end
+                if removedItem ~= true then break end
+                removed[#removed + 1] = { count = amount, metadata = slot.metadata or slot.info }
+                remaining = remaining - amount
+            end
+        end
+    end
+    local function restoreItems()
+        local actions = {}
+        for _, slot in ipairs(removed) do
+            actions[#actions + 1] = function() return addItem(source, itemName, slot.count, slot.metadata) == true end
+        end
+        return compensate(storeId, source, 'stock-deposit', actions, { item = itemName, removed = removed })
+    end
+    if remaining > 0 then
+        local restored = restoreItems()
+        return false, restored and 'remove_item_failed' or 'reconciliation_required'
+    end
 
     local item = storeItem(store, itemName)
     if item then
@@ -1220,9 +1393,14 @@ function Service.addStockFromPlayer(source, storeId, itemName, count, price)
 
     store.stock[itemName] = math.max(0, math.floor(numberValue(store.stock[itemName]) + count))
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft, storeId, daily)
+    if not ok and not restoreItems() then return false, 'reconciliation_required' end
     if ok then notify(source, { description = ForgeCore.t('notify.stores.stock_added'), type = 'success' }) end
     return ok, payload
 end
+
+pr_lib.wrapJsonMutations(PR.Stores.Storage.file, Service, {
+    'saveSettings', 'createStore', 'updateStore', 'updateOwnerStore', 'deleteStore', 'setItem', 'removeItem', 'buyItem', 'buyStore', 'transferStore', 'addManager', 'removeManager', 'withdraw', 'addStockFromPlayer',
+})
 
 ForgeCore.StoresService = Service

@@ -277,9 +277,14 @@ function Service.getPayload()
     return ForgeCore.SkillRegistry.payload()
 end
 
-function Service.save()
-    local saved = ForgeCore.SkillStorage.save(ForgeCore.SkillRegistry.export())
+function Service.save(draft)
+    draft = draft or ForgeCore.SkillRegistry
+    local saved = ForgeCore.SkillStorage.save({settings=draft.settings,skills=draft.skills,reputations=draft.reputations})
     if saved then
+        ForgeCore.SkillRegistry.settings = draft.settings
+        ForgeCore.SkillRegistry.skills = draft.skills
+        ForgeCore.SkillRegistry.reputations = draft.reputations
+        ForgeCore.SkillRegistry.revision = draft.revision
         debug('success', ForgeCore.t('debug.skills.saved'))
     end
 
@@ -297,9 +302,10 @@ end
 function Service.upsertSkill(source, skill)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, result = ForgeCore.SkillRegistry.upsertSkill(skill)
+    local draft = pr_lib.jsonDraft(ForgeCore.SkillRegistry, {settings=true,skills=true,reputations=true})
+    local ok, result = ForgeCore.SkillRegistry.upsertSkill(skill, draft)
     if not ok then return false, result end
-    if not Service.save() then return false, 'save_failed' end
+    if not Service.save(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.skills.saved', { item = result.label }),
@@ -312,9 +318,10 @@ end
 function Service.deleteSkill(source, name)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, result = ForgeCore.SkillRegistry.removeSkill(name)
+    local draft = pr_lib.jsonDraft(ForgeCore.SkillRegistry, {settings=true,skills=true,reputations=true})
+    local ok, result = ForgeCore.SkillRegistry.removeSkill(name, draft)
     if not ok then return false, result end
-    if not Service.save() then return false, 'save_failed' end
+    if not Service.save(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.skills.removed'),
@@ -327,9 +334,10 @@ end
 function Service.upsertReputation(source, reputation)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, result = ForgeCore.SkillRegistry.upsertReputation(reputation)
+    local draft = pr_lib.jsonDraft(ForgeCore.SkillRegistry, {settings=true,skills=true,reputations=true})
+    local ok, result = ForgeCore.SkillRegistry.upsertReputation(reputation, draft)
     if not ok then return false, result end
-    if not Service.save() then return false, 'save_failed' end
+    if not Service.save(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.skills.saved', { item = result.label }),
@@ -342,9 +350,10 @@ end
 function Service.deleteReputation(source, name)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, result = ForgeCore.SkillRegistry.removeReputation(name)
+    local draft = pr_lib.jsonDraft(ForgeCore.SkillRegistry, {settings=true,skills=true,reputations=true})
+    local ok, result = ForgeCore.SkillRegistry.removeReputation(name, draft)
     if not ok then return false, result end
-    if not Service.save() then return false, 'save_failed' end
+    if not Service.save(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.skills.removed'),
@@ -434,6 +443,8 @@ function Service.start()
     debug('success', ForgeCore.t('debug.skills.started'))
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Skills.Storage.file, Service, { 'upsertSkill', 'deleteSkill', 'upsertReputation', 'deleteReputation' })
 
 ForgeCore.SkillService = Service
 

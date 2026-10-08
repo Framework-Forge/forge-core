@@ -194,56 +194,60 @@ function Registry.payload()
     }
 end
 
-function Registry.upsertSkill(skill)
+function Registry.upsertSkill(skill, state)
+    state = state or Registry
     if type(skill) ~= 'table' then return false, 'invalid_definition' end
     if skill.integration and not PR.Skills.normalizeIntegration(skill.integration) then
         return false, 'invalid_integration'
     end
-    if Registry.reputations[normalizeName(skill.name or skill.code)] then return false, 'code_used_by_reputation' end
+    if state.reputations[normalizeName(skill.name or skill.code)] then return false, 'code_used_by_reputation' end
     local normalized, err = normalizeSkill(skill)
     if not normalized then return false, err end
 
-    Registry.skills[normalized.name] = normalized
-    Registry.revision = Registry.revision + 1
+    state.skills[normalized.name] = normalized
+    state.revision = state.revision + 1
 
     return true, normalized
 end
 
-function Registry.upsertReputation(reputation)
+function Registry.upsertReputation(reputation, state)
+    state = state or Registry
     if type(reputation) ~= 'table' then return false, 'invalid_definition' end
     if reputation.integration and not PR.Skills.normalizeIntegration(reputation.integration) then
         return false, 'invalid_integration'
     end
-    if Registry.skills[normalizeName(reputation.name or reputation.code)] then return false, 'code_used_by_skill' end
+    if state.skills[normalizeName(reputation.name or reputation.code)] then return false, 'code_used_by_skill' end
     local normalized, err = normalizeReputation(reputation)
     if not normalized then return false, err end
 
-    Registry.reputations[normalized.name] = normalized
-    Registry.revision = Registry.revision + 1
+    state.reputations[normalized.name] = normalized
+    state.revision = state.revision + 1
 
     return true, normalized
 end
 
-function Registry.removeSkill(name)
+function Registry.removeSkill(name, state)
+    state = state or Registry
     local normalizedName = normalizeName(name)
-    if not Registry.skills[normalizedName] then return false, 'not_found' end
+    if not state.skills[normalizedName] then return false, 'not_found' end
 
-    for _, reputation in pairs(Registry.reputations) do
+    for _, reputation in pairs(state.reputations) do
         if reputation.skill == normalizedName then return false, 'skill_has_reputations' end
     end
 
-    Registry.skills[normalizedName] = nil
-    Registry.revision = Registry.revision + 1
+    state.skills[normalizedName] = nil
+    state.revision = state.revision + 1
 
     return true
 end
 
-function Registry.removeReputation(name)
+function Registry.removeReputation(name, state)
+    state = state or Registry
     local normalizedName = normalizeName(name)
-    if not Registry.reputations[normalizedName] then return false, 'not_found' end
+    if not state.reputations[normalizedName] then return false, 'not_found' end
 
-    Registry.reputations[normalizedName] = nil
-    Registry.revision = Registry.revision + 1
+    state.reputations[normalizedName] = nil
+    state.revision = state.revision + 1
 
     return true
 end

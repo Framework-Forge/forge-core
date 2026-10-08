@@ -47,29 +47,11 @@ local function clone(value, seen)
 end
 
 local function readJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return clone(fallback) end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    debug('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return clone(fallback)
+    return pr_lib.loadJsonRecovery(path) or fallback
 end
 
 local function writeJson(path, data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if not ok or not encoded then
-        debug('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-        return false
-    end
-
-    local saved = SaveResourceFile(resourceName, path, encoded, -1)
-    if not saved then
-        debug('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 local function boolValue(value, fallback)
@@ -292,8 +274,9 @@ end
 function Service.saveSettings(source, settings)
     if not Service.canManage(source) then return false, 'no_permission' end
 
-    Service.settings = normalizeSettings(settings)
-    if not writeJson(PR.MultiJob.Storage.file, Service.settings) then return false, 'save_failed' end
+    local draft = normalizeSettings(settings)
+    if not writeJson(PR.MultiJob.Storage.file, draft) then return false, 'save_failed' end
+    Service.settings = draft
 
     notify(source, {
         description = ForgeCore.t('notify.multijob.settings_saved'),
@@ -434,6 +417,9 @@ function Service.setActiveJob(source, jobName)
 
     if not player(source) then return false, 'invalid_player' end
 
+    if not ForgeCore.PrisonService.canChangeJobs(source) then
+        return false, ForgeCore.t('prison.jobs_locked')
+    end
     local ok, result = pr_lib.framework.SetPlayerJob(source, jobName, tonumber(entry.grade) or 0)
     if not ok then
         local reason = type(result) == 'table' and (result.code or result.message) or result
@@ -459,5 +445,7 @@ function Service.start()
     debug('success', ForgeCore.t('debug.multijob.started'))
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.MultiJob.Storage.file, Service, { 'saveSettings' })
 
 ForgeCore.MultiJobService = Service

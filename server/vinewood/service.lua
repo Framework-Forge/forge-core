@@ -92,20 +92,19 @@ local function normalizeSettings(settings)
 end
 
 local function readSettings()
-    local loaded = pr_lib.loadJson(PR.Vinewood.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Vinewood.Storage.file, true)
     if type(loaded) ~= 'table' then return clone(PR.Vinewood.Defaults) end
     return loaded
 end
 
 local function writeSettings(settings)
-    local saved = pr_lib.saveJson(PR.Vinewood.Storage.file, settings, { indent = true })
+    local saved = pr_lib.saveJsonRecovery(PR.Vinewood.Storage.file, settings, { indent = true })
     return saved == true or type(saved) == 'table'
 end
 
 local function publish()
     local settings = Service.getSettings()
-    GlobalState.forgeVinewood = settings
-    GlobalState.pinelVinewood = settings
+    ForgeCore.State.publish('vinewood',settings)
 end
 
 function Service.canManage(source)
@@ -125,9 +124,10 @@ end
 function Service.save(source, settings)
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.settings = normalizeSettings(settings)
-    if not writeSettings(Service.settings) then return false, 'save_failed' end
+    local draft = normalizeSettings(settings)
+    if not writeSettings(draft) then return false, 'save_failed' end
 
+    Service.settings = draft
     publish()
     notify(source, {
         description = ForgeCore.t('notify.vinewood.saved'),
@@ -146,5 +146,9 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Vinewood.Storage.file, Service, {
+    'save',
+})
 
 ForgeCore.VinewoodService = Service

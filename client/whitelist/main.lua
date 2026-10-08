@@ -6,6 +6,7 @@ local Whitelist = {
     config = {},
     examRunning = false,
     checking = false,
+    session = 0,
     targetZone = nil,
     blip = nil,
     lastReturnAt = 0,
@@ -42,7 +43,7 @@ end
 local beginExam
 
 local function isPlayerLoggedIn()
-    return LocalPlayer and LocalPlayer.state and LocalPlayer.state.isLoggedIn == true
+    return ForgeCore.Session.isLoaded()
 end
 
 local function isCharacterCreationActive()
@@ -381,8 +382,10 @@ local function checkWhitelist()
     end
 
     Whitelist.checking = true
+    local session = Whitelist.session
 
     Wait(2500)
+    if session ~= Whitelist.session then return end
 
     if isCharacterCreationActive() then
         Whitelist.checking = false
@@ -397,6 +400,7 @@ local function checkWhitelist()
     end
 
     local allowed, configOrError = awaitServer(PR.Whitelist.Callbacks.check)
+    if session ~= Whitelist.session then return end
     Whitelist.checking = false
 
     if allowed == true then
@@ -405,6 +409,7 @@ local function checkWhitelist()
     end
 
     local config = type(configOrError) == 'table' and configOrError or fetchWhitelistConfig()
+    if session ~= Whitelist.session then return end
     if type(config) ~= 'table' then
         SetTimeout(3000, checkWhitelist)
         return
@@ -472,8 +477,10 @@ RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
     stopWhitelist()
 end)
 
-AddStateBagChangeHandler('isLoggedIn', ('player:%s'):format(GetPlayerServerId(PlayerId())), function(_, _, value)
-    if value == true then
+AddEventHandler('forge-core:session:changed', function(character)
+    Whitelist.session = Whitelist.session + 1
+    Whitelist.checking = false
+    if character then
         SetTimeout(1500, checkWhitelist)
     else
         stopWhitelist()

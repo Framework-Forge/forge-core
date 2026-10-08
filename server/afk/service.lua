@@ -55,29 +55,11 @@ local function notify(source, data)
 end
 
 local function readJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return fallback end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    debug('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return fallback
+    return pr_lib.loadJsonRecovery(path) or fallback
 end
 
 local function writeJson(path, data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if not ok or not encoded then
-        debug('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-        return false
-    end
-
-    local saved = SaveResourceFile(resourceName, path, encoded, -1)
-    if not saved then
-        debug('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 local function boolValue(value, fallback)
@@ -117,10 +99,7 @@ local function resetPlayer(source)
 end
 
 local function isPlayerLoggedIn(source)
-    local state = Player(source) and Player(source).state
-    if state and state.isLoggedIn == false then return false end
-
-    return true
+    return ForgeCore.Session.isLoaded(source)
 end
 
 local function isSamePosition(left, right)
@@ -206,9 +185,10 @@ end
 function Service.save(source, settings)
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.settings = normalizeSettings(settings)
-    local saved = writeJson(PR.Afk.Storage.file, Service.settings)
+    local draft = normalizeSettings(settings)
+    local saved = writeJson(PR.Afk.Storage.file, draft)
     if not saved then return false, 'save_failed' end
+    Service.settings = draft
 
     Service.previousCoords = {}
     Service.remainingSeconds = {}
@@ -251,5 +231,9 @@ end
 AddEventHandler('playerDropped', function()
     resetPlayer(source)
 end)
+AddEventHandler('pr_bridge:server:OnPlayerUnloaded',resetPlayer)
+AddEventHandler('pr_bridge:server:OnPlayerLoaded',resetPlayer)
+
+pr_lib.wrapJsonMutations(PR.Afk.Storage.file, Service, { 'save' })
 
 ForgeCore.AfkService = Service

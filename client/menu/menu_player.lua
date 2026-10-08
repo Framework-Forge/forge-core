@@ -36,7 +36,7 @@ function Menu.openPlayerMenu()
     local info = fetchPlayerInfo()
     info = info or {}
 
-    showContext({
+    local context = {
         id = 'forge_core_player_menu',
         title = t('menu.player.title'),
         options = {
@@ -86,7 +86,8 @@ function Menu.openPlayerMenu()
             },
             {
                 title = t('menu.multijob.title'),
-                description = t('menu.multijob.player_description'),
+                description = info.prison and info.prison.jailed and t('prison.jobs_locked') or t('menu.multijob.player_description'),
+                disabled = info.prison and info.prison.jailed == true or false,
                 icon = 'briefcase-fill',
                 arrow = true,
                 onSelect = function()
@@ -103,7 +104,14 @@ function Menu.openPlayerMenu()
                 end,
             },
         },
-    })
+    }
+    if info.prison and info.prison.enabled and (info.prison.jailed or info.prison.fugitive or info.prison.status == 'fugitive') then
+        table.insert(context.options, 3, {
+            title = t('prison.title'), description = Shared.prisonDescription(info.prison),
+            icon = 'lock-fill', iconColor = '#f59e0b',
+        })
+    end
+    showContext(context)
 
     return true
 end

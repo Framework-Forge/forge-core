@@ -141,7 +141,7 @@ function Spotlights.applyPayload(payload)
 end
 
 local function currentPayload()
-    local payload = GlobalState.forgeSpotlights
+    local payload = ForgeCore.State.peek('spotlights')
     return type(payload) == 'table' and payload or { enabled = false, lights = {}, drawDistance = PR.Spotlights.Defaults.drawDistance }
 end
 
@@ -362,14 +362,13 @@ function Spotlights.editLight(light, onFinish)
     return true, tuned
 end
 
-AddStateBagChangeHandler('forgeSpotlights', 'global', function(_, _, value)
+ForgeCore.State.onChange('spotlights', function(value)
     applyPayload(value)
 end)
 
 CreateThread(function()
     Wait(1000)
-    local ok, payload = pr_lib.callback.await(PR.Spotlights.Callbacks.getAll, 10000)
-    if ok and payload then applyPayload(payload) else applyPayload(currentPayload()) end
+    applyPayload(currentPayload())
 
     while true do
         local wait = 1000

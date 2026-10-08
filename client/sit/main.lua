@@ -76,9 +76,14 @@ local function raycast(startPos, endPos, ignore)
 		ignore or PlayerPedId(),
 		0
 	)
-	local _, hit, hitCoords, normal, entity = GetShapeTestResult(ray)
+	local status, hit, hitCoords, normal, entity
+	local deadline = GetGameTimer() + 250
+	repeat
+		status, hit, hitCoords, normal, entity = GetShapeTestResult(ray)
+		if status == 1 then Wait(0) end
+	until status ~= 1 or GetGameTimer() >= deadline
 
-	if hit ~= 1 then
+	if status ~= 2 or (hit ~= 1 and hit ~= true) then
 		return nil
 	end
 
@@ -98,6 +103,13 @@ local function detectSurface()
 	local highestHitZOff = 0.0
 	local shortestDist = 999.0
 	local heights = { -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5 }
+	-- Two on-demand probes recognize a vertical wall before the seat/ledge
+	-- sweep. A wall has no reachable seat top; do not classify it as a ledge.
+	local chest = raycast(coords + vector3(0, 0, 0.4), coords + forward * (PR.Sit.RayDistance or 0.8) + vector3(0, 0, 0.4), ped)
+	local upper = chest and raycast(coords + vector3(0, 0, 1.0), coords + forward * (PR.Sit.RayDistance or 0.8) + vector3(0, 0, 1.0), ped)
+	if chest and upper and chest.entity == upper.entity and math.abs(chest.normal.z) < 0.45 and math.abs(upper.normal.z) < 0.45 then
+		return {hitCoords=chest.coords, normal=chest.normal, entity=chest.entity, isWall=true}
+	end
 
 	for _, zOff in ipairs(heights) do
 		for _, sideOffset in ipairs({ 0.0, -0.15, 0.15 }) do
@@ -123,6 +135,7 @@ local function detectSurface()
 			end
 		end
 	end
+	if bestHit then bestHit.highestHitZOff = highestHitZOff end
 
 	if not bestHit then
 		local edgeStart = vector3(coords.x, coords.y, coords.z + 0.5)
@@ -266,6 +279,7 @@ end
 
 function Sit.stand()
 	if not Sit.active then
+		if Lean.current and Lean.current.wall then return Lean.stop() end
 		return false
 	end
 
@@ -285,12 +299,14 @@ function Sit.stand()
 
 	Sit.active = false
 	Sit.current = nil
-	LocalPlayer.state:set("forgeCoreSitData", nil, true)
+	ForgeCore.Posture.set('sit', nil)
 	startCooldown()
 	return true
 end
 
 function Sit.sit()
+	if not ForgeCore.Session.isLoaded() then return false end
+	if ForgeCore.Hospital and ForgeCore.Hospital.isRecovering() then return false end
 	if not PR.Sit or PR.Sit.Enabled == false or Sit.cooldown or Sit.active or Lean.active or Lean.exiting then
 		return false
 	end
@@ -305,6 +321,9 @@ function Sit.sit()
 	if not data then
 		notify(t("sit.no_surface"), "error")
 		return false
+	end
+	if data.isWall or (not data.isGround and (data.isLeanFallback or data.highestHitZOff >= 1.0)) then
+		return Lean.start(data)
 	end
 
 	local playerCoords = GetEntityCoords(ped)
@@ -379,18 +398,19 @@ function Sit.sit()
 		originalHeading = playerHeading,
 	}
 
-	LocalPlayer.state:set("forgeCoreSitData", {
+	ForgeCore.Posture.set('sit', {
 		coords = toStateCoords(spawnPos),
 		heading = heading,
 		scenario = scenario,
 		inPlace = style == "ledge" or style == "edge_fall",
-	}, true)
+	})
 
 	startCooldown()
 	return true
 end
 
 function Sit.toggle()
+	if Lean.current and Lean.current.wall then return Lean.stop() end
 	if Sit.active then
 		return Sit.stand()
 	end
@@ -445,42 +465,7 @@ local LEAN_DEFAULTS = {
 	IdleMaxMs = 10500,
 }
 
-local LEAN_ANIMS = {
-	female = {
-		{
-			name = "holding_elbow",
-			enter = { dict = "amb@world_human_leaning@female@wall@back@holding_elbow@enter", anim = "enter_front" },
-			base = { dict = "amb@world_human_leaning@female@wall@back@holding_elbow@base", anim = "base" },
-			idles = {
-				{ dict = "amb@world_human_leaning@female@wall@back@holding_elbow@idle_a", anim = "idle_a" },
-				{ dict = "amb@world_human_leaning@female@wall@back@holding_elbow@idle_a", anim = "idle_b" },
-			},
-			exit = { dict = "amb@world_human_leaning@female@wall@back@holding_elbow@exit", anim = "exit_front" },
-		},
-	},
-	male = {
-		{
-			name = "foot_up",
-			enter = { dict = "amb@world_human_leaning@male@wall@back@foot_up@enter", anim = "enter_back" },
-			base = { dict = "amb@world_human_leaning@male@wall@back@foot_up@base", anim = "base" },
-			idles = {
-				{ dict = "amb@world_human_leaning@male@wall@back@foot_up@idle_a", anim = "idle_b" },
-				{ dict = "amb@world_human_leaning@male@wall@back@foot_up@idle_b", anim = "idle_e" },
-			},
-			exit = { dict = "amb@world_human_leaning@male@wall@back@foot_up@exit", anim = "exit_front" },
-		},
-		{
-			name = "legs_crossed",
-			enter = { dict = "amb@world_human_leaning@male@wall@back@legs_crossed@enter", anim = "enter_back" },
-			base = { dict = "amb@world_human_leaning@male@wall@back@legs_crossed@base", anim = "base" },
-			idles = {
-				{ dict = "amb@world_human_leaning@male@wall@back@legs_crossed@idle_a", anim = "idle_a" },
-				{ dict = "amb@world_human_leaning@male@wall@back@legs_crossed@idle_a", anim = "idle_c" },
-			},
-			exit = { dict = "amb@world_human_leaning@male@wall@back@legs_crossed@exit", anim = "exit_front" },
-		},
-	},
-}
+local LEAN_ANIMS = ForgeCore.PostureContract.anims
 
 local function leanCfg(key)
 	local cfg = PR.Lean or {}
@@ -675,11 +660,8 @@ local function getLeanTransform(vehicle, pedCoords)
 	return entryCoords, restCoords, heading
 end
 
-local function isCurrentLean(token)
-	return Lean.active and not Lean.exiting and Lean.current and Lean.current.token == token
-end
 local function setLeanState(animData)
-	LocalPlayer.state:set("forgeCoreLeanData", animData, true)
+	ForgeCore.Posture.set('lean', animData)
 end
 local function isCurrentLean(token)
 	return Lean.active and not Lean.exiting and Lean.current and Lean.current.token == token
@@ -716,10 +698,10 @@ local function playLeanEntry(ped, current)
 			clearTasks = false,
 		},
 		onBeforeMove = function()
-			return isCurrentLean(current.token) and DoesEntityExist(current.vehicle)
+			return isCurrentLean(current.token) and (current.wall or DoesEntityExist(current.vehicle))
 		end,
 		onBeforeStart = function()
-			return isCurrentLean(current.token) and DoesEntityExist(current.vehicle)
+			return isCurrentLean(current.token) and (current.wall or DoesEntityExist(current.vehicle))
 		end,
 		onStart = function(_, _, coords, heading)
 			setLeanState({
@@ -866,7 +848,9 @@ function Lean.stop(skipExit)
 	return true
 end
 
-function Lean.start()
+function Lean.start(surface)
+	if not ForgeCore.Session.isLoaded() then return false end
+	if ForgeCore.Hospital and ForgeCore.Hospital.isRecovering() then return false end
 	if leanCfg("Enabled") == false or Lean.cooldown or Lean.active or Lean.entering or Lean.exiting or Sit.active then
 		return false
 	end
@@ -881,8 +865,8 @@ function Lean.start()
 		return false
 	end
 
-	local vehicle = closestVehicle(tonumber(leanCfg("SearchRadius")) or 2.2)
-	if not vehicle then
+	local vehicle = not surface and closestVehicle(tonumber(leanCfg("SearchRadius")) or 2.2) or nil
+	if not vehicle and not surface then
 		notify(t("sit.lean_no_vehicle"), "error")
 		return false
 	end
@@ -894,12 +878,26 @@ function Lean.start()
 	end
 
 	local profile = profiles[math.random(#profiles)]
-	local entryPos, restPos, targetHeading = getLeanTransform(vehicle, GetEntityCoords(ped))
+	local entryPos, restPos, targetHeading
+	if surface then
+		local pedCoords = GetEntityCoords(ped)
+		local outward = normaliseVector(vector3(surface.normal.x, surface.normal.y, 0))
+		local side = pedCoords - surface.hitCoords
+		if outward.x * side.x + outward.y * side.y < 0 then outward = outward * -1 end
+		if #outward < 0.5 then return false end
+		local rest = surface.hitCoords + outward * (tonumber(leanCfg('SurfaceOffset')) or 0.22)
+		restPos = vector3(rest.x, rest.y, pedCoords.z)
+		entryPos = restPos + outward * (tonumber(leanCfg('EntryOffset')) or 0.42)
+		targetHeading = GetHeadingFromVector_2d(outward.x, outward.y)
+	else
+		entryPos, restPos, targetHeading = getLeanTransform(vehicle, GetEntityCoords(ped))
+	end
 	local token = GetGameTimer()
 
 	Lean.current = {
 		token = token,
 		vehicle = vehicle,
+		wall = surface ~= nil,
 		profile = profile,
 		coords = entryPos,
 		restCoords = restPos,
@@ -981,19 +979,35 @@ CreateThread(function()
 	end
 end)
 
-AddEventHandler("onResourceStop", function(resourceName)
-	if resourceName ~= GetCurrentResourceName() then
-		return
-	end
-
+local function clearLocalPosture()
 	if Lean.active or Lean.entering or Lean.exiting then
 		resetLean(PlayerPedId(), false)
 	end
+    if Sit.active then
+        Sit.active = false
+        Sit.current = nil
+        FreezeEntityPosition(PlayerPedId(), false)
+        SetEntityCollision(PlayerPedId(), true, true)
+        ClearPedTasks(PlayerPedId())
+        ForgeCore.Posture.set('sit', nil)
+    end
+end
+AddEventHandler('forge-core:session:changed', clearLocalPosture)
+CreateThread(function()
+    while true do
+        Wait(200)
+        if (Sit.active or Lean.active or Lean.entering or Lean.exiting)
+            and IsPedDeadOrDying(PlayerPedId(), true) then clearLocalPosture() end
+    end
+end)
+AddEventHandler("onResourceStop", function(resourceName)
+    if resourceName == GetCurrentResourceName() then clearLocalPosture() end
 end)
 
-AddStateBagChangeHandler("forgeCoreLeanData", nil, function(bagName, _, value)
-	local player = GetPlayerFromStateBagName(bagName)
-	if player == 0 or player == PlayerId() then
+AddEventHandler('forge-core:posture:changed', function(serverId, kind, value, revision)
+    if kind ~= 'lean' then return end
+	local player = GetPlayerFromServerId(serverId)
+	if player == -1 or player == PlayerId() then
 		return
 	end
 
@@ -1015,10 +1029,12 @@ AddStateBagChangeHandler("forgeCoreLeanData", nil, function(bagName, _, value)
 	if dict == "" or anim == "" then
 		return
 	end
+    if not requestAnimDict(dict) or not ForgeCore.Posture.isCurrent(serverId, revision, ped) then return end
 
 	if value.advanced == true then
 		pr_lib.fivem.streaming.playInteraction({
 			pedEntity = ped,
+            onBeforeStart = function() return ForgeCore.Posture.isCurrent(serverId, revision, ped) end,
 			position = {
 				coords = coords,
 				heading = heading,
@@ -1058,9 +1074,10 @@ AddStateBagChangeHandler("forgeCoreLeanData", nil, function(bagName, _, value)
 	})
 end)
 
-AddStateBagChangeHandler("forgeCoreSitData", nil, function(bagName, _, value)
-	local player = GetPlayerFromStateBagName(bagName)
-	if player == 0 or player == PlayerId() then
+AddEventHandler('forge-core:posture:changed', function(serverId, kind, value, revision)
+    if kind ~= 'sit' then return end
+	local player = GetPlayerFromServerId(serverId)
+	if player == -1 or player == PlayerId() then
 		return
 	end
 
@@ -1070,6 +1087,7 @@ AddStateBagChangeHandler("forgeCoreSitData", nil, function(bagName, _, value)
 	end
 
 	if value then
+        if not ForgeCore.Posture.isCurrent(serverId, revision, ped) then return end
 		local coords = fromStateCoords(value.coords)
 		SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, false)
 		SetEntityHeading(ped, tonumber(value.heading) or GetEntityHeading(ped))
@@ -1092,5 +1110,6 @@ AddStateBagChangeHandler("forgeCoreSitData", nil, function(bagName, _, value)
 		return
 	end
 
+	FreezeEntityPosition(ped, false)
 	ClearPedTasks(ped)
 end)

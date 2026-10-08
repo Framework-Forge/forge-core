@@ -15,26 +15,8 @@ local function debug(level, message)
     end
 end
 
-local function encodeJson(data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if ok and encoded then return encoded end
-
-    debug('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-    return '{}'
-end
-
-local function decodeJson(content, fallback, path)
-    if type(content) ~= 'string' or content == '' then return fallback end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    debug('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return fallback
-end
-
 local function readJson(path, fallback)
-    return decodeJson(LoadResourceFile(resourceName, path), fallback or {}, path)
+    return pr_lib.loadJsonRecovery(path) or fallback or {}
 end
 
 local function countTable(data)
@@ -48,12 +30,7 @@ local function countTable(data)
 end
 
 local function writeJson(path, data)
-    local saved = SaveResourceFile(resourceName, path, encodeJson(data), -1)
-    if not saved then
-        debug('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 function Storage.load()
@@ -71,10 +48,7 @@ end
 
 function Storage.save(jobs, gangs)
     local cfg = PR.Job.Storage
-    local jobsSaved = writeJson(cfg.jobsFile, jobs or {})
-    local gangsSaved = writeJson(cfg.gangsFile, gangs or {})
-
-    return jobsSaved and gangsSaved
+    return pr_lib.saveJsonBatch({ [cfg.jobsFile] = jobs or {}, [cfg.gangsFile] = gangs or {} })
 end
 
 function Storage.loadPayments()

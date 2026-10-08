@@ -72,22 +72,18 @@ local function normalizeTier(data, fallback)
     }
 end
 
-local function save()
-    local encoded = json.encode(Vip.tiers)
-    return SaveResourceFile(resourceName, PR.Vip.storageFile, encoded, -1) ~= false
+local function save(draft)
+    draft = draft or Vip.tiers
+    if not pr_lib.saveJsonRecovery(PR.Vip.storageFile, draft) then return false end
+    Vip.tiers = draft
+    PR.Vip.tiers = draft
+    return true
 end
 
 function Vip.load()
     Vip.tiers = {}
 
-    local raw = LoadResourceFile(resourceName, PR.Vip.storageFile)
-    local decoded
-
-    if raw and raw ~= '' then
-        local ok
-        ok, decoded = pcall(json.decode, raw)
-        if not ok then decoded = nil end
-    end
+    local decoded = pr_lib.loadJsonRecovery(PR.Vip.storageFile)
 
     local source = type(decoded) == 'table' and decoded or PR.Vip.tiers or {}
     for id, data in pairs(source) do
@@ -282,9 +278,9 @@ function Vip.upsertTier(source, data)
     local normalized, errorCode = normalizeTier(data)
     if not normalized then return false, errorCode end
 
-    Vip.tiers[normalized.id] = normalized
-    PR.Vip.tiers = Vip.tiers
-    if not save() then return false, 'save_failed' end
+    local draft = pr_lib.jsonDraft(Vip.tiers, {})
+    draft[normalized.id] = normalized
+    if not save(draft) then return false, 'save_failed' end
 
     for playerSource, active in pairs(Vip.sessions) do
         if active.tier == normalized.id then Vip.apply(playerSource) end
@@ -303,9 +299,9 @@ function Vip.deleteTier(source, id)
         if active.tier == id then return false, 'tier_in_use' end
     end
 
-    Vip.tiers[id] = nil
-    PR.Vip.tiers = Vip.tiers
-    if not save() then return false, 'save_failed' end
+    local draft = pr_lib.jsonDraft(Vip.tiers, {})
+    draft[id] = nil
+    if not save(draft) then return false, 'save_failed' end
 
     return true
 end
@@ -372,6 +368,8 @@ CreateThread(function()
 end)
 
 Vip.load()
+pr_lib.wrapJsonMutations(PR.Vip.storageFile, Vip, { 'upsertTier', 'deleteTier' })
+
 ForgeCore.VipService = Vip
 
 exports('GetVip', function(source)

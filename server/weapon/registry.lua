@@ -109,33 +109,36 @@ function Registry.normalizeWeapon(weapon)
     return normalizeWeapon(weapon)
 end
 
-function Registry.upsert(weapon)
+function Registry.upsert(weapon, state)
+    state = state or Registry
     local normalized, err = normalizeWeapon(weapon)
     if not normalized then return false, err end
 
-    Registry.weapons[normalized.name] = normalized
-    Registry.revision = Registry.revision + 1
+    state.weapons[normalized.name] = normalized
+    state.revision = state.revision + 1
 
     return true, normalized
 end
 
-function Registry.remove(name)
+function Registry.remove(name, state)
+    state = state or Registry
     local normalizedName = normalizeName(name)
-    if not Registry.weapons[normalizedName] then return false, 'not_found' end
+    if not state.weapons[normalizedName] then return false, 'not_found' end
 
-    Registry.weapons[normalizedName] = nil
-    Registry.revision = Registry.revision + 1
+    state.weapons[normalizedName] = nil
+    state.revision = state.revision + 1
 
     return true
 end
 
-function Registry.setActive(name, active)
+function Registry.setActive(name, active, state)
+    state = state or Registry
     local normalizedName = normalizeName(name)
-    local weapon = Registry.weapons[normalizedName]
+    local weapon = state.weapons[normalizedName]
     if not weapon then return false, 'not_found' end
 
     weapon.active = active ~= false
-    Registry.revision = Registry.revision + 1
+    state.revision = state.revision + 1
 
     return true, clone(weapon)
 end

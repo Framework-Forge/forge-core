@@ -43,6 +43,7 @@ function Service.details(source, target)
     end
     table.sort(permissions)
     data.staffPermissions = permissions
+    data.prison = ForgeCore.PrisonService.status(target)
     data.staffRole = permissions[1]
     return ok, data
 end

@@ -35,21 +35,25 @@ local function canManage(source)
         and ForgeCore.JobService.canManage(source) == true
 end
 
-local function saveHistory()
-    return pr_lib.saveJson(PR.DatabaseBackup.Storage.historyFile, Service.history, { indent = true }) == true
+local function saveHistory(draft)
+    return pr_lib.saveJsonRecovery(PR.DatabaseBackup.Storage.historyFile, draft) == true
 end
 
 local function addHistory(entry)
-    table.insert(Service.history, 1, entry)
+    local draft = pr_lib.jsonDraft(Service.history, {})
+    table.insert(draft, 1, entry)
 
     local limit = math.max(1, tonumber(PR.DatabaseBackup.Storage.maxHistory) or 50)
-    while #Service.history > limit do
-        table.remove(Service.history)
+    while #draft > limit do
+        table.remove(draft)
     end
 
-    if not saveHistory() then
+    if not saveHistory(draft) then
         debug('warn', ForgeCore.t('debug.database_backup.history_save_failed'))
+        return false
     end
+    Service.history = draft
+    return true
 end
 
 local function normalizeHistory(value)
@@ -74,7 +78,7 @@ end
 function Service.start()
     if Service.started then return true end
 
-    local stored = pr_lib.loadJson(PR.DatabaseBackup.Storage.historyFile, true)
+    local stored = pr_lib.loadJsonRecovery(PR.DatabaseBackup.Storage.historyFile)
     Service.history = normalizeHistory(stored)
     Service.started = true
 

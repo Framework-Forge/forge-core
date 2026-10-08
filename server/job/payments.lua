@@ -186,7 +186,8 @@ local function addSocietyMoney(accountName, amount, reason)
     if not pr_lib.banking or type(pr_lib.banking.AddJobAccountBalance) ~= 'function' then return false end
     local ok, result = pcall(pr_lib.banking.AddJobAccountBalance, accountName, amount, reason)
 
-    return ok and result ~= false
+    if not ok or result == nil then return false, 'government_charge_unknown' end
+    return result == true
 end
 
 local function payPlayer(player, settings)
@@ -313,11 +314,11 @@ function Payments.load()
 end
 
 function Payments.save(settings)
-    Payments.settings = normalizeSettings(settings)
-    Payments.nextPaymentAt = os.time() + Payments.settings.intervalMinutes * 60
-
-    local saved = ForgeCore.JobStorage.savePayments(Payments.settings)
+    local draft = normalizeSettings(settings)
+    local saved = ForgeCore.JobStorage.savePayments(draft)
     if saved then
+        Payments.settings = draft
+        Payments.nextPaymentAt = os.time() + draft.intervalMinutes * 60
         debug('success', ForgeCore.t('debug.payments.saved'))
     end
 
@@ -418,11 +419,12 @@ function Payments.chargeMeiOpening(player, settings)
         return false, 'not_enough_money'
     end
 
-    if addSocietyMoney(governmentAccount, amount, ForgeCore.t('mei.opening_reason')) then
+    local transferred, transferErr = addSocietyMoney(governmentAccount, amount, ForgeCore.t('mei.opening_reason'))
+    if transferred then
         return true
     end
-
-    player.Functions.AddMoney(account, amount, ForgeCore.t('mei.refund_reason'))
+    if transferErr then return false, transferErr end
+    if player.Functions.AddMoney(account, amount, ForgeCore.t('mei.refund_reason')) ~= true then return false, 'refund_failed' end
     return false, 'government_account_failed'
 end
 
@@ -432,7 +434,15 @@ function Payments.refundMeiOpening(player, settings)
     if amount <= 0 then return true end
 
     local account = normalizeAccount(mei and mei.paymentAccount)
-    return player.Functions.AddMoney(account, amount, ForgeCore.t('mei.refund_reason'))
+    local governmentAccount = normalizeSocietyAccount(mei and mei.governmentAccount)
+    if not pr_lib.banking or type(pr_lib.banking.RemoveJobAccountBalance) ~= 'function' then return false end
+    local called, removed = pcall(pr_lib.banking.RemoveJobAccountBalance, governmentAccount, amount, ForgeCore.t('mei.refund_reason'))
+    if not called or removed ~= true then return false end
+    local credited, result = pcall(player.Functions.AddMoney, account, amount, ForgeCore.t('mei.refund_reason'))
+    if credited and result == true then return true end
+    -- Keep the government transfer balanced if the player's refund is rejected.
+    if credited then addSocietyMoney(governmentAccount, amount, ForgeCore.t('mei.opening_reason')) end
+    return false
 end
 
 function Payments.start()

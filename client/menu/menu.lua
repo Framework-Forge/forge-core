@@ -122,6 +122,21 @@ local function openRentalAdminMenu()
     return true
 end
 
+local function openDocumentsAdminMenu()
+    local resource = 'forge-dk'
+    if GetResourceState(resource) ~= 'started' then
+        notify({ title = t('panels.documents.title'), description = t('panels.unavailable', { resource = resource }), type = 'error' })
+        return false
+    end
+    -- The export calls DK's server-side admin permission check before opening NUI.
+    local called, result = pcall(function() return exports[resource]:OpenAdminPanel() end)
+    if not called or type(result) ~= 'table' or result.ok ~= true then
+        notify({ title = t('panels.documents.title'), description = t('panels.failed'), type = 'error' })
+        return false
+    end
+    return true
+end
+
 local function openInterfaceAdminMenu()
     if not pr_lib or type(pr_lib.openVisualAdminMenu) ~= 'function' then
         notify({
@@ -579,6 +594,13 @@ function Menu.openMain()
                 end,
             },
             {
+                title = t('panels.documents.title'),
+                description = t('panels.documents.description'),
+                icon = 'person-vcard-fill',
+                disabled = GetResourceState('forge-dk') ~= 'started',
+                onSelect = openDocumentsAdminMenu,
+            },
+            {
                 title = 'Gestão de Players',
                 description = 'Perfis, whitelist, empregos, VIP e metadata dos jogadores.',
                 icon = 'people-fill',
@@ -599,4 +621,3 @@ end
 AddEventHandler('forge-core:client:openAdminMenu', function()
     Menu.openMain()
 end)
-

@@ -142,7 +142,7 @@ local function normalizeState(state)
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Billboards.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Billboards.Storage.file, true)
     if type(loaded) ~= 'table' then
         local defaults = clone(PR.Billboards.Defaults)
         defaults.nextGroupId = 1
@@ -156,7 +156,7 @@ local function readState()
 end
 
 local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Billboards.Storage.file, state, { indent = true })
+    local saved = pr_lib.saveJsonRecovery(PR.Billboards.Storage.file, state, { indent = true })
     return saved == true or type(saved) == 'table'
 end
 
@@ -179,12 +179,12 @@ local function countBillboards(groupId)
 end
 
 local function publish()
-    GlobalState.forgeBillboards = {
+    ForgeCore.State.publish('billboards',{
         enabled = Service.state.enabled == true,
         renderDistance = Service.state.renderDistance,
         billboards = Service.state.billboards or {},
         revision = Service.state.revision or GetGameTimer(),
-    }
+    })
 end
 
 function Service.getAll()
@@ -213,28 +213,31 @@ function Service.load()
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = GetGameTimer()
-    if not writeState(Service.state) then return false, 'save_failed' end
+function Service.save(draft)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = GetGameTimer()
+    if not writeState(draft) then return false, 'save_failed' end
+    Service.state = draft
     publish()
     return true, Service.getAll()
 end
 
 function Service.createGroup(source, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     local group = {
-        id = Service.state.nextGroupId,
+        id = draft.nextGroupId,
         name = name,
     }
 
-    Service.state.nextGroupId = Service.state.nextGroupId + 1
-    Service.state.groups[#Service.state.groups + 1] = group
+    draft.nextGroupId = draft.nextGroupId + 1
+    draft.groups[#draft.groups + 1] = group
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.group_created'), type = 'success' })
@@ -243,15 +246,16 @@ end
 
 function Service.renameGroup(source, groupId, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local group = findById(Service.state.groups, groupId)
+    local group = findById(draft.groups, groupId)
     if not group then return false, 'group_not_found' end
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     group.name = name
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.group_renamed'), type = 'success' })
@@ -260,13 +264,14 @@ end
 
 function Service.deleteGroup(source, groupId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     if countBillboards(groupId) > 0 then return false, 'group_not_empty' end
 
-    local _, index = findById(Service.state.groups, groupId)
+    local _, index = findById(draft.groups, groupId)
     if not index then return false, 'group_not_found' end
 
-    table.remove(Service.state.groups, index)
-    local ok, payload = Service.save()
+    table.remove(draft.groups, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.group_deleted'), type = 'success' })
@@ -275,16 +280,17 @@ end
 
 function Service.createBillboard(source, billboard)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     billboard = normalizeBillboard(billboard)
-    if not findById(Service.state.groups, billboard.groupId) then return false, 'group_not_found' end
+    if not findById(draft.groups, billboard.groupId) then return false, 'group_not_found' end
     if billboard.url == '' then return false, 'invalid_url' end
 
-    billboard.id = Service.state.nextBillboardId
-    Service.state.nextBillboardId = Service.state.nextBillboardId + 1
-    Service.state.billboards[#Service.state.billboards + 1] = billboard
+    billboard.id = draft.nextBillboardId
+    draft.nextBillboardId = draft.nextBillboardId + 1
+    draft.billboards[#draft.billboards + 1] = billboard
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.billboard_created'), type = 'success' })
@@ -293,12 +299,13 @@ end
 
 function Service.updateBillboard(source, billboardId, changes)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local billboard = findById(Service.state.billboards, billboardId)
+    local billboard = findById(draft.billboards, billboardId)
     if not billboard then return false, 'billboard_not_found' end
 
     changes = normalizeBillboard(changes)
-    if changes.groupId > 0 and findById(Service.state.groups, changes.groupId) then
+    if changes.groupId > 0 and findById(draft.groups, changes.groupId) then
         billboard.groupId = changes.groupId
     end
 
@@ -310,7 +317,7 @@ function Service.updateBillboard(source, billboardId, changes)
     billboard.offset = changes.offset
     billboard.vertices = changes.vertices
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.billboard_updated'), type = 'success' })
@@ -319,12 +326,13 @@ end
 
 function Service.deleteBillboard(source, billboardId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local _, index = findById(Service.state.billboards, billboardId)
+    local _, index = findById(draft.billboards, billboardId)
     if not index then return false, 'billboard_not_found' end
 
-    table.remove(Service.state.billboards, index)
-    local ok, payload = Service.save()
+    table.remove(draft.billboards, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.billboards.billboard_deleted'), type = 'success' })
@@ -340,5 +348,9 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Billboards.Storage.file, Service, {
+    'createGroup', 'renameGroup', 'deleteGroup', 'createBillboard', 'updateBillboard', 'deleteBillboard',
+})
 
 ForgeCore.BillboardsService = Service

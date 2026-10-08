@@ -149,7 +149,7 @@ local function normalizeNpc(npc)
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Npcs.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Npcs.Storage.file, true)
     if type(loaded) ~= 'table' then
         local defaults = clone(PR.Npcs.Defaults)
         defaults.nextGroupId = 1
@@ -163,7 +163,7 @@ local function readState()
 end
 
 local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Npcs.Storage.file, state, { indent = true })
+    local saved = pr_lib.saveJsonRecovery(PR.Npcs.Storage.file, state, { indent = true })
     return saved == true or type(saved) == 'table'
 end
 
@@ -225,12 +225,12 @@ local function normalizeState(state)
 end
 
 local function publish()
-    GlobalState.forgeNpcs = {
+    ForgeCore.State.publish('npcs',{
         enabled = Service.state.enabled == true,
         spawnDistance = Service.state.spawnDistance,
         npcs = Service.state.npcs or {},
         revision = Service.state.revision or GetGameTimer(),
-    }
+    })
 end
 
 function Service.canManage(source)
@@ -263,30 +263,33 @@ function Service.load()
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = GetGameTimer()
-    if not writeState(Service.state) then return false, 'save_failed' end
+function Service.save(draft)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = GetGameTimer()
+    if not writeState(draft) then return false, 'save_failed' end
+    Service.state = draft
     publish()
     return true, Service.getAll()
 end
 
 function Service.createGroup(source, data)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     data = type(data) == 'table' and data or { name = data }
     local name = trim(data.name)
     if name == '' then return false, 'invalid_name' end
 
     local group = {
-        id = Service.state.nextGroupId,
+        id = draft.nextGroupId,
         name = name,
         description = trim(data.description),
     }
 
-    Service.state.nextGroupId = Service.state.nextGroupId + 1
-    Service.state.groups[#Service.state.groups + 1] = group
+    draft.nextGroupId = draft.nextGroupId + 1
+    draft.groups[#draft.groups + 1] = group
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.group_created'), type = 'success' })
@@ -295,8 +298,9 @@ end
 
 function Service.renameGroup(source, groupId, data)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local group = findById(Service.state.groups, groupId)
+    local group = findById(draft.groups, groupId)
     if not group then return false, 'group_not_found' end
 
     data = type(data) == 'table' and data or { name = data }
@@ -306,7 +310,7 @@ function Service.renameGroup(source, groupId, data)
     group.name = name
     group.description = trim(data.description)
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.group_renamed'), type = 'success' })
@@ -315,13 +319,14 @@ end
 
 function Service.deleteGroup(source, groupId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     if countNpcs(groupId) > 0 then return false, 'group_not_empty' end
 
-    local _, index = findById(Service.state.groups, groupId)
+    local _, index = findById(draft.groups, groupId)
     if not index then return false, 'group_not_found' end
 
-    table.remove(Service.state.groups, index)
-    local ok, payload = Service.save()
+    table.remove(draft.groups, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.group_deleted'), type = 'success' })
@@ -330,16 +335,17 @@ end
 
 function Service.createNpc(source, data)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     data = normalizeNpc(data)
-    if not findById(Service.state.groups, data.groupId) then return false, 'group_not_found' end
+    if not findById(draft.groups, data.groupId) then return false, 'group_not_found' end
     if data.model == '' then return false, 'invalid_model' end
 
-    data.id = Service.state.nextNpcId
-    Service.state.nextNpcId = Service.state.nextNpcId + 1
-    Service.state.npcs[#Service.state.npcs + 1] = data
+    data.id = draft.nextNpcId
+    draft.nextNpcId = draft.nextNpcId + 1
+    draft.npcs[#draft.npcs + 1] = data
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.npc_created'), type = 'success' })
@@ -348,8 +354,9 @@ end
 
 function Service.updateNpc(source, npcId, changes)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local npc = findById(Service.state.npcs, npcId)
+    local npc = findById(draft.npcs, npcId)
     if not npc then return false, 'npc_not_found' end
 
     changes = normalizeNpc(mergeTable(npc, changes))
@@ -360,7 +367,7 @@ function Service.updateNpc(source, npcId, changes)
         npc[key] = value
     end
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.npc_updated'), type = 'success' })
@@ -369,12 +376,13 @@ end
 
 function Service.deleteNpc(source, npcId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local _, index = findById(Service.state.npcs, npcId)
+    local _, index = findById(draft.npcs, npcId)
     if not index then return false, 'npc_not_found' end
 
-    table.remove(Service.state.npcs, index)
-    local ok, payload = Service.save()
+    table.remove(draft.npcs, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.npcs.npc_deleted'), type = 'success' })
@@ -390,5 +398,9 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Npcs.Storage.file, Service, {
+    'createGroup', 'renameGroup', 'deleteGroup', 'createNpc', 'updateNpc', 'deleteNpc',
+})
 
 ForgeCore.NpcsService = Service

@@ -12,12 +12,16 @@ PR.AutoMedic.Callbacks = {
     requestTreatment = 'forge-core:server:automedic:requestTreatment',
     completeTreatment = 'forge-core:server:automedic:completeTreatment',
     cancelTreatment = 'forge-core:server:automedic:cancelTreatment',
+    recoverHospital = 'forge-core:server:automedic:recoverHospital',
+    saveBed = 'forge-core:server:automedic:saveBed',
+    deleteBed = 'forge-core:server:automedic:deleteBed',
 }
 
 PR.AutoMedic.Events = {
     sync = 'forge-core:client:automedic:sync',
     reportDeath = 'forge-core:server:automedic:reportDeath',
     revive = 'forge-core:client:automedic:revive',
+    leaveHospital = 'forge-core:server:automedic:leaveHospital',
 }
 
 PR.AutoMedic.Defaults = {
@@ -26,11 +30,20 @@ PR.AutoMedic.Defaults = {
     bandageHealPercent = 10,
     treatmentPrice = 0,
     reviveHealthPercent = 10,
+    hospitalFallback = true,
+    beds = {},
     loseInventory = {
         gunshot = true,
         other = true,
         collapse = false,
     },
+}
+
+PR.AutoMedic.Hospital = {
+    models = { 'v_med_bed1', 'v_med_bed2', 'v_med_emptybed' },
+    animation = { id = 'hospital_bed', dict = 'anim@gangops@morgue@table@', clip = 'body_search', flags = 1 },
+    exitAnimation = { dict = 'switch@franklin@bed', clip = 'sleep_getup_rubeyes', duration = 5000 },
+    leaveKey = 'E',
 }
 
 PR.AutoMedic.Npc = {

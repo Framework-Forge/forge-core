@@ -119,7 +119,7 @@ local function applyPayload(payload)
 end
 
 local function currentPayload()
-    local payload = GlobalState.forgeObjects
+    local payload = ForgeCore.State.peek('objects')
     return type(payload) == 'table' and payload or { enabled = false, objects = {}, spawnDistance = PR.Objects.Defaults.spawnDistance }
 end
 
@@ -361,13 +361,12 @@ function Objects.setOutline(objectId, enabled, r, g, b)
     return true
 end
 
-AddStateBagChangeHandler('forgeObjects', 'global', function(_, _, value)
+ForgeCore.State.onChange('objects', function(value)
     applyPayload(value)
 end)
 
 CreateThread(function()
-    local ok, payload = pr_lib.callback.await(PR.Objects.Callbacks.getAll, 10000)
-    if ok and payload then applyPayload(payload) else applyPayload(currentPayload()) end
+    applyPayload(currentPayload())
 
     while true do
         local payload = currentPayload()

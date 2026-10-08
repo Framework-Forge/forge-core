@@ -90,5 +90,6 @@ ForgeCore.Callbacks.register(PR.Player.Callbacks.getInfo, function(source)
         vip = vip and vip.config.label or 'Standard',
         vipExpiresAt = vip and vip.expiresAt or 0,
         vipExpiresAtFormatted = vip and os.date('%d/%m/%Y %H:%M', vip.expiresAt) or 'Sem VIP',
+        prison = ForgeCore.PrisonService.status(source),
     }
 end)

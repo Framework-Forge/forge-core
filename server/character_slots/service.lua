@@ -40,18 +40,19 @@ local function publishPreviews()
             animFlag = animation.flag,
         }
     end
-    GlobalState.forgeCharacterPreviewSlots = public
+    ForgeCore.State.publish('characterPreviews',public)
 end
 
-local function savePreviews()
-    local ok, result = pr_lib.saveJson(PREVIEW_FILE, Service.previews, { indent = true })
+local function savePreviews(draft)
+    local ok, result = pr_lib.saveJsonRecovery(PREVIEW_FILE, draft, { indent = true })
     if not ok then return false, result or 'save_failed' end
+    Service.previews = draft
     publishPreviews()
     return true, Service.previews
 end
 
 local function loadPreviews()
-    local loaded = pr_lib.loadJson(PREVIEW_FILE, true)
+    local loaded = pr_lib.loadJsonRecovery(PREVIEW_FILE, true)
     Service.previews = {}
     if type(loaded) == 'table' then
         for _, data in ipairs(loaded) do
@@ -159,25 +160,27 @@ function Service.getPreviews()
 end
 
 function Service.savePreview(index, data)
+    local draft = pr_lib.jsonDraft(Service.previews, {})
     local preview = normalizePreview(data)
     if not preview then return false, 'invalid_preview' end
     index = tonumber(index)
     if index then
         index = math.floor(index)
-        if not Service.previews[index] then return false, 'preview_not_found' end
-        Service.previews[index] = preview
+        if not draft[index] then return false, 'preview_not_found' end
+        draft[index] = preview
     else
-        if #Service.previews >= 50 then return false, 'preview_limit_reached' end
-        Service.previews[#Service.previews + 1] = preview
+        if #draft >= 50 then return false, 'preview_limit_reached' end
+        draft[#draft + 1] = preview
     end
-    return savePreviews()
+    return savePreviews(draft)
 end
 
 function Service.deletePreview(index)
+    local draft = pr_lib.jsonDraft(Service.previews, {})
     index = math.floor(tonumber(index) or 0)
-    if index < 1 or not Service.previews[index] then return false, 'preview_not_found' end
-    table.remove(Service.previews, index)
-    return savePreviews()
+    if index < 1 or not draft[index] then return false, 'preview_not_found' end
+    table.remove(draft, index)
+    return savePreviews(draft)
 end
 
 function Service.saveSettings(settings)
@@ -265,5 +268,9 @@ AddEventHandler('forge-core:server:inventory:reloaded', function()
     end)
 end)
 AddEventHandler('playerDropped', function() Service.busy[source] = nil end)
+
+pr_lib.wrapJsonMutations(PREVIEW_FILE, Service, {
+    'savePreview', 'deletePreview',
+})
 
 ForgeCore.CharacterSlotService = Service

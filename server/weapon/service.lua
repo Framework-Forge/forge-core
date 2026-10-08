@@ -37,8 +37,13 @@ function Service.getPayload()
     return ForgeCore.WeaponRegistry.payload()
 end
 
-function Service.save()
-    return ForgeCore.WeaponStorage.save(ForgeCore.WeaponRegistry.getWeapons())
+function Service.save(draft)
+    draft = draft or ForgeCore.WeaponRegistry
+    local saved, err = ForgeCore.WeaponStorage.save(draft.weapons)
+    if not saved then return false, err end
+    ForgeCore.WeaponRegistry.weapons = draft.weapons
+    ForgeCore.WeaponRegistry.revision = draft.revision
+    return true
 end
 
 function Service.reload()
@@ -53,8 +58,9 @@ function Service.reload()
     return true
 end
 
-function Service.saveAndSync()
-    local saved = Service.save()
+function Service.saveAndSync(draft)
+    local saved = Service.save(draft)
+    if not saved then return false end
     ForgeCore.WeaponQbxSync.syncAll()
     ForgeCore.WeaponOxSync.syncAll()
     return saved
@@ -63,10 +69,11 @@ end
 function Service.upsert(source, weaponData)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, result = ForgeCore.WeaponRegistry.upsert(weaponData)
+    local draft = pr_lib.jsonDraft(ForgeCore.WeaponRegistry, {weapons=true})
+    local ok, result = ForgeCore.WeaponRegistry.upsert(weaponData, draft)
     if not ok then return false, result end
 
-    Service.saveAndSync()
+    if not Service.saveAndSync(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.weapons.saved', { weapon = result.label or result.name }),
@@ -79,10 +86,11 @@ end
 function Service.delete(source, name)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, err = ForgeCore.WeaponRegistry.remove(name)
+    local draft = pr_lib.jsonDraft(ForgeCore.WeaponRegistry, {weapons=true})
+    local ok, err = ForgeCore.WeaponRegistry.remove(name, draft)
     if not ok then return false, err end
 
-    Service.saveAndSync()
+    if not Service.saveAndSync(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t('notify.weapons.removed', { weapon = name }),
@@ -95,10 +103,11 @@ end
 function Service.setActive(source, name, active)
     if not canManage(source) then return false, 'no_permission' end
 
-    local ok, weapon = ForgeCore.WeaponRegistry.setActive(name, active)
+    local draft = pr_lib.jsonDraft(ForgeCore.WeaponRegistry, {weapons=true})
+    local ok, weapon = ForgeCore.WeaponRegistry.setActive(name, active, draft)
     if not ok then return false, weapon end
 
-    Service.saveAndSync()
+    if not Service.saveAndSync(draft) then return false, 'save_failed' end
 
     notify(source, {
         description = ForgeCore.t(active ~= false and 'notify.weapons.activated' or 'notify.weapons.deactivated', {
@@ -130,5 +139,7 @@ AddEventHandler('onResourceStart', function(resourceName)
         end)
     end
 end)
+
+pr_lib.wrapJsonMutations(PR.Weapons.Storage.file, Service, { 'upsert', 'delete', 'setActive' })
 
 ForgeCore.WeaponService = Service

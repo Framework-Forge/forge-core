@@ -5,6 +5,8 @@ local Service = {
     settings = {},
     deaths = {},
     treatments = {},
+    recoveries = {},
+    occupiedBeds = {},
 }
 
 local resourceName = GetCurrentResourceName()
@@ -23,6 +25,31 @@ local function boolValue(value, fallback)
     return lowered == 'true' or lowered == '1' or lowered == 'yes' or lowered == 'sim'
 end
 
+local function finite(value)
+    return type(value) == 'number' and value == value and math.abs(value) < 100000
+end
+
+local function position(value)
+    if type(value) ~= 'table' or not finite(value.x) or not finite(value.y) or not finite(value.z) then return nil end
+    return { x = value.x, y = value.y, z = value.z }
+end
+
+local function normalizeBed(bed)
+    if type(bed) ~= 'table' then return nil end
+    local coords, exit = position(bed.coords), position(bed.exit)
+    if not coords or not exit or not finite(bed.heading) or not finite(bed.exitHeading) then return nil end
+    local allowed = false
+    for _, model in ipairs(PR.AutoMedic.Hospital.models) do if model == bed.model then allowed = true end end
+    if not allowed or type(bed.id) ~= 'string' or not bed.id:match('^[%w_%-]+$') or #bed.id > 64 then return nil end
+    local distance = (coords.x-exit.x)^2 + (coords.y-exit.y)^2 + (coords.z-exit.z)^2
+    if distance > 100 then return nil end -- Safe standing exit must be near the bed.
+    return {
+        id = bed.id, label = tostring(bed.label or bed.id):sub(1, 80), model = bed.model,
+        coords = coords, heading = bed.heading % 360, exit = exit, exitHeading = bed.exitHeading % 360,
+        prison = bed.prison == true,
+    }
+end
+
 local function normalizeSettings(settings)
     settings = type(settings) == 'table' and settings or {}
     local loss = type(settings.loseInventory) == 'table' and settings.loseInventory or {}
@@ -30,6 +57,11 @@ local function normalizeSettings(settings)
     local cooldown = math.floor(tonumber(settings.cooldown) or defaults.cooldown)
     local treatmentPrice = math.floor(tonumber(settings.treatmentPrice) or defaults.treatmentPrice)
     local reviveHealthPercent = math.floor(tonumber(settings.reviveHealthPercent) or defaults.reviveHealthPercent)
+    local beds, seen = {}, {}
+    for _, value in ipairs(type(settings.beds) == 'table' and settings.beds or {}) do
+        local bed = normalizeBed(value)
+        if bed and not seen[bed.id] then beds[#beds+1] = bed; seen[bed.id] = true end
+    end
 
     return {
         enabled = boolValue(settings.enabled, defaults.enabled),
@@ -37,6 +69,8 @@ local function normalizeSettings(settings)
         bandageHealPercent = math.max(1, math.min(math.floor(tonumber(settings.bandageHealPercent) or defaults.bandageHealPercent), 100)),
         treatmentPrice = math.max(0, math.min(treatmentPrice, 1000000000)),
         reviveHealthPercent = math.max(1, math.min(reviveHealthPercent, 100)),
+        hospitalFallback = boolValue(settings.hospitalFallback, defaults.hospitalFallback),
+        beds = beds,
         loseInventory = {
             gunshot = boolValue(loss.gunshot, defaults.loseInventory.gunshot),
             other = boolValue(loss.other, defaults.loseInventory.other),
@@ -46,19 +80,13 @@ local function normalizeSettings(settings)
 end
 
 local function readSettings()
-    local content = LoadResourceFile(resourceName, PR.AutoMedic.Storage.file)
-    if type(content) == 'string' and content ~= '' then
-        local ok, decoded = pcall(json.decode, content)
-        if ok and type(decoded) == 'table' then return normalizeSettings(decoded) end
-    end
+    local decoded = pr_lib.loadJsonRecovery(PR.AutoMedic.Storage.file)
+    if type(decoded) == 'table' then return normalizeSettings(decoded) end
     return normalizeSettings(PR.AutoMedic.Defaults)
 end
 
 local function writeSettings(settings)
-    local ok, encoded = pcall(json.encode, settings)
-    if not ok then return false end
-    local saved = SaveResourceFile(resourceName, PR.AutoMedic.Storage.file, encoded, -1)
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(PR.AutoMedic.Storage.file, settings) == true
 end
 
 local function canManage(source)
@@ -163,13 +191,13 @@ local function chargeTreatment(source, amount)
     end
 
     local cash = tonumber(framework.getPlayerMoney(source, 'cash')) or 0
-    if cash >= amount and framework.removePlayerMoney(source, 'cash', amount, 'forge-core:automedic-treatment') ~= false then
+    if cash >= amount and framework.removePlayerMoney(source, 'cash', amount, 'forge-core:automedic-treatment') == true then
         return true, 'cash', amount
     end
 
     -- O QBX permite saldo bancario negativo; quando o dinheiro em maos nao
     -- cobre tudo, o valor integral e debitado da conta bancaria.
-    if framework.removePlayerMoney(source, 'bank', amount, 'forge-core:automedic-treatment') ~= false then
+    if framework.removePlayerMoney(source, 'bank', amount, 'forge-core:automedic-treatment') == true then
         return true, 'bank', amount
     end
 
@@ -195,12 +223,12 @@ local function ensureMinimumReviveNeeds(source)
     end
 end
 
-local function revive(source)
+local function revive(source, hospital)
     ensureMinimumReviveNeeds(source)
     exports.qbx_core:SetMetadata(source, 'isdead', false)
     exports.qbx_core:SetMetadata(source, 'inlaststand', false)
     exports.qbx_core:SetMetadata(source, 'deathTimeStamp', 0)
-    TriggerClientEvent(PR.AutoMedic.Events.revive, source)
+    TriggerClientEvent(PR.AutoMedic.Events.revive, source, hospital)
     return true
 end
 
@@ -220,6 +248,62 @@ function Service.save(source, settings)
     Service.settings = normalized
     TriggerClientEvent(PR.AutoMedic.Events.sync, -1, Service.getSettings())
     return true, Service.getSettings()
+end
+
+function Service.saveBed(source, bed)
+    if not canManage(source) then return false, 'no_permission' end
+    local normalized = normalizeBed(bed)
+    if not normalized then return false, 'invalid_bed' end
+    local draft, found = Service.getSettings(), false
+    for index, existing in ipairs(draft.beds) do
+        if existing.id == normalized.id then draft.beds[index] = normalized; found = true; break end
+    end
+    if not found then draft.beds[#draft.beds+1] = normalized end
+    return Service.save(source, draft)
+end
+
+function Service.deleteBed(source, id)
+    if not canManage(source) then return false, 'no_permission' end
+    local draft = Service.getSettings()
+    for index, bed in ipairs(draft.beds) do
+        if bed.id == id then table.remove(draft.beds, index); return Service.save(source, draft) end
+    end
+    return false, 'invalid_bed'
+end
+
+local function character(source)
+    if ForgeCore.Session and ForgeCore.Session.character then return ForgeCore.Session.character(source) end
+    local player = exports.qbx_core:GetPlayer(source)
+    return player and player.PlayerData and player.PlayerData.citizenid
+end
+
+function Service.releaseHospital(source, token)
+    local recovery = Service.recoveries[source]
+    if not recovery or (token and recovery.token ~= token) then return false end
+    if Service.occupiedBeds[recovery.key] == recovery then Service.occupiedBeds[recovery.key] = nil end
+    Service.recoveries[source] = nil
+    return true
+end
+
+local function nearestBed(source)
+    local ped = GetPlayerPed(source)
+    if ped == 0 or not DoesEntityExist(ped) then return nil end
+    local origin, bucket = GetEntityCoords(ped), GetPlayerRoutingBucket(source)
+    local prisoner = ForgeCore.PrisonService and not ForgeCore.PrisonService.canChangeJobs(source)
+    local best, bestDistance, bestKey
+    for _, bed in ipairs(Service.settings.beds) do
+        local key = tostring(bucket) .. ':' .. bed.id
+        local occupied = Service.occupiedBeds[key]
+        if occupied and character(occupied.source) ~= occupied.character then
+            Service.releaseHospital(occupied.source, occupied.token)
+            occupied = nil
+        end
+        if not occupied and bed.prison == (prisoner == true) then
+            local distance = (origin.x-bed.coords.x)^2 + (origin.y-bed.coords.y)^2 + (origin.z-bed.coords.z)^2
+            if not bestDistance or distance < bestDistance then best, bestDistance, bestKey = bed, distance, key end
+        end
+    end
+    return best, bestKey
 end
 
 function Service.getStatus(source)
@@ -242,6 +326,7 @@ function Service.reportDeath(source, info)
     local reportedAt = tonumber(info.timestamp)
     if not reportedAt or math.abs(now - reportedAt) > 30 then reportedAt = now end
 
+    Service.releaseHospital(source)
     Service.deaths[source] = {
         at = reportedAt,
         cause = tonumber(info.deathCause),
@@ -255,6 +340,8 @@ end
 
 function Service.requestTreatment(source, requestedCategory)
     if not Service.settings.enabled then return false, 'disabled' end
+    local citizenid = character(source)
+    if not citizenid then return false, 'player_unavailable' end
     if not isDead(source) then return false, 'not_dead' end
 
     local status = publicStatus(source)
@@ -269,6 +356,7 @@ function Service.requestTreatment(source, requestedCategory)
     local category = classify(source, requestedCategory)
     Service.treatments[source] = {
         token = token,
+        character = citizenid,
         category = category,
         approvedAt = os.time(),
     }
@@ -281,31 +369,35 @@ function Service.requestTreatment(source, requestedCategory)
     }
 end
 
-function Service.completeTreatment(source, token)
+function Service.completeTreatment(source, token, hospital)
     local treatment = Service.treatments[source]
-    if not treatment or treatment.token ~= token then return false, 'invalid_treatment' end
+    if not treatment or treatment.token ~= token or treatment.character ~= character(source) then return false, 'invalid_treatment' end
+    if treatment.processing then return false, 'already_active' end
     if not isDead(source) then
         Service.treatments[source] = nil
         return false, 'not_dead'
     end
 
     local minimum = math.max(1, math.floor((PR.AutoMedic.Npc.treatmentDuration or 10000) / 1000) - 2)
-    if os.time() - treatment.approvedAt < minimum then return false, 'treatment_too_fast' end
+    if not hospital and os.time() - treatment.approvedAt < minimum then return false, 'treatment_too_fast' end
+    treatment.processing = true
 
     local paid, paymentAccount, chargedAmount = chargeTreatment(source, Service.settings.treatmentPrice)
-    if not paid then return false, paymentAccount end
+    if not paid then treatment.processing = false; return false, paymentAccount end
 
     if Service.settings.loseInventory[treatment.category] == true then
         local cleared, reason = clearInventory(source)
         if not cleared then
             refundTreatment(source, paymentAccount, chargedAmount)
+            treatment.processing = false
             return false, reason
         end
     end
 
-    local revived, reason = revive(source)
+    local revived, reason = revive(source, hospital)
     if not revived then
         refundTreatment(source, paymentAccount, chargedAmount)
+        treatment.processing = false
         return false, reason
     end
 
@@ -316,11 +408,31 @@ function Service.completeTreatment(source, token)
         inventoryLost = Service.settings.loseInventory[treatment.category] == true,
         chargedAmount = chargedAmount,
         paymentAccount = paymentAccount,
+        hospital = hospital ~= nil,
     }
+end
+
+local fallbackReasons = { model_failed=true, spawn_failed=true, unreachable=true, alignment_failed=true, npc_lost=true, animation_failed=true }
+function Service.recoverHospital(source, token, reason)
+    if not Service.settings.enabled or not Service.settings.hospitalFallback then return false, 'disabled' end
+    local treatment = Service.treatments[source]
+    if not fallbackReasons[reason] or not treatment or treatment.token ~= token
+        or treatment.character ~= character(source) or treatment.processing or not isDead(source) then
+        return false, 'invalid_treatment'
+    end
+    local bed, key = nearestBed(source)
+    if not bed then return false, 'no_hospital_beds' end
+    local recovery = { source=source, character=treatment.character, token=token, key=key, bed=clone(bed) }
+    Service.releaseHospital(source)
+    Service.recoveries[source], Service.occupiedBeds[key] = recovery, recovery
+    local ok, payload = Service.completeTreatment(source, token, { bed=clone(bed), token=token })
+    if not ok then Service.releaseHospital(source, token) end
+    return ok, payload
 end
 
 function Service.cancelTreatment(source, token)
     local treatment = Service.treatments[source]
+    if treatment and treatment.processing then return false, 'already_active' end
     if treatment and treatment.token == token then
         Service.treatments[source] = nil
     end
@@ -340,6 +452,7 @@ AddEventHandler('qbx_core:server:onSetMetaData', function(metadata, _, value, pl
     if not playerSource or playerSource <= 0 then return end
 
     if value == true then
+        Service.releaseHospital(playerSource)
         local player = exports.qbx_core:GetPlayer(playerSource)
         local playerMetadata = player and player.PlayerData and player.PlayerData.metadata or {}
         local cachedTime = tonumber(playerMetadata.deathTimeStamp)
@@ -360,8 +473,22 @@ RegisterNetEvent(PR.AutoMedic.Events.reportDeath, function(info)
 end)
 
 AddEventHandler('playerDropped', function()
+    Service.releaseHospital(source)
     Service.deaths[source] = nil
     Service.treatments[source] = nil
+end)
+
+local function clearCharacter(playerSource)
+    playerSource = tonumber(playerSource) or source
+    if not playerSource then return end
+    Service.releaseHospital(playerSource)
+    Service.treatments[playerSource], Service.deaths[playerSource] = nil, nil
+end
+AddEventHandler('QBCore:Server:OnPlayerUnload', clearCharacter)
+AddEventHandler('pr_bridge:server:OnPlayerUnloaded', clearCharacter)
+RegisterNetEvent(PR.AutoMedic.Events.leaveHospital, function(token)
+    local playerSource = source
+    if type(token) == 'string' then Service.releaseHospital(playerSource, token) end
 end)
 
 ForgeCore.AutoMedicService = Service

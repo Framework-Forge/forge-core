@@ -337,18 +337,13 @@ function Billboards.fineTuneOffset(billboard)
     return false, 'cancelled'
 end
 
-AddStateBagChangeHandler('forgeBillboards', 'global', function(_, _, value)
+ForgeCore.State.onChange('billboards', function(value)
     applyPayload(value)
 end)
 
 CreateThread(function()
-    local ok, payload = pr_lib.callback.await(PR.Billboards.Callbacks.getAll, 10000)
-    if ok and payload then
-        applyPayload(payload)
-    else
-        local current = GlobalState.forgeBillboards
-        applyPayload(type(current) == 'table' and current or {})
-    end
+    local current = ForgeCore.State.peek('billboards')
+    applyPayload(type(current) == 'table' and current or {})
 
     while true do
         local wait = 1000

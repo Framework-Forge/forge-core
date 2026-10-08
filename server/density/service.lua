@@ -160,29 +160,11 @@ local function normalizeSettings(settings)
 end
 
 local function readJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return fallback end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    debug('warn', ForgeCore.t('debug.storage.invalid_json', { path = path }))
-    return fallback
+    return pr_lib.loadJsonRecovery(path) or fallback
 end
 
 local function writeJson(path, data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if not ok or not encoded then
-        debug('error', ForgeCore.t('debug.storage.encode_failed', { error = tostring(encoded) }))
-        return false
-    end
-
-    local saved = SaveResourceFile(resourceName, path, encoded, -1)
-    if not saved then
-        debug('error', ForgeCore.t('debug.storage.save_failed', { path = path }))
-    end
-
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 local function updateBlockedModels()
@@ -198,8 +180,7 @@ end
 
 local function publish()
     local settings = Service.getSettings()
-    GlobalState.forgeDensity = settings
-    GlobalState.pinelDensity = settings
+    ForgeCore.State.publish('density',settings)
 end
 
 function Service.canManage(source)
@@ -220,10 +201,11 @@ end
 function Service.save(source, settings)
     if not canManage(source) then return false, 'no_permission' end
 
-    Service.settings = normalizeSettings(settings)
-    local saved = writeJson(PR.Density.Storage.file, Service.settings)
+    local draft = normalizeSettings(settings)
+    local saved = writeJson(PR.Density.Storage.file, draft)
     if not saved then return false, 'save_failed' end
 
+    Service.settings = draft
     updateBlockedModels()
     publish()
 
@@ -256,5 +238,9 @@ AddEventHandler('entityCreating', function(handle)
         CancelEvent()
     end
 end)
+
+pr_lib.wrapJsonMutations(PR.Density.Storage.file, Service, {
+    'save',
+})
 
 ForgeCore.DensityService = Service

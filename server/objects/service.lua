@@ -134,7 +134,7 @@ local function normalizeState(state)
 end
 
 local function readState()
-    local loaded = pr_lib.loadJson(PR.Objects.Storage.file, true)
+    local loaded = pr_lib.loadJsonRecovery(PR.Objects.Storage.file, true)
     if type(loaded) ~= 'table' then
         local defaults = clone(PR.Objects.Defaults)
         defaults.nextSceneId = 1
@@ -148,7 +148,7 @@ local function readState()
 end
 
 local function writeState(state)
-    local saved = pr_lib.saveJson(PR.Objects.Storage.file, state, { indent = true })
+    local saved = pr_lib.saveJsonRecovery(PR.Objects.Storage.file, state, { indent = true })
     return saved == true or type(saved) == 'table'
 end
 
@@ -171,12 +171,12 @@ local function countObjects(sceneId)
 end
 
 local function publish()
-    GlobalState.forgeObjects = {
+    ForgeCore.State.publish('objects',{
         enabled = Service.state.enabled == true,
         spawnDistance = Service.state.spawnDistance,
         objects = Service.state.objects or {},
         revision = Service.state.revision or GetGameTimer(),
-    }
+    })
 end
 
 function Service.canManage(source)
@@ -209,28 +209,31 @@ function Service.load()
     return Service.getAll()
 end
 
-function Service.save()
-    Service.state.revision = GetGameTimer()
-    if not writeState(Service.state) then return false, 'save_failed' end
+function Service.save(draft)
+    draft = draft or pr_lib.jsonDraft(Service.state, {})
+    draft.revision = GetGameTimer()
+    if not writeState(draft) then return false, 'save_failed' end
+    Service.state = draft
     publish()
     return true, Service.getAll()
 end
 
 function Service.createScene(source, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     local scene = {
-        id = Service.state.nextSceneId,
+        id = draft.nextSceneId,
         name = name,
     }
 
-    Service.state.nextSceneId = Service.state.nextSceneId + 1
-    Service.state.scenes[#Service.state.scenes + 1] = scene
+    draft.nextSceneId = draft.nextSceneId + 1
+    draft.scenes[#draft.scenes + 1] = scene
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.scene_created'), type = 'success' })
@@ -239,15 +242,16 @@ end
 
 function Service.renameScene(source, sceneId, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local scene = findById(Service.state.scenes, sceneId)
+    local scene = findById(draft.scenes, sceneId)
     if not scene then return false, 'scene_not_found' end
 
     name = trim(name)
     if name == '' then return false, 'invalid_name' end
 
     scene.name = name
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.scene_renamed'), type = 'success' })
@@ -256,13 +260,14 @@ end
 
 function Service.deleteScene(source, sceneId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
     if countObjects(sceneId) > 0 then return false, 'scene_not_empty' end
 
-    local _, index = findById(Service.state.scenes, sceneId)
+    local _, index = findById(draft.scenes, sceneId)
     if not index then return false, 'scene_not_found' end
 
-    table.remove(Service.state.scenes, index)
-    local ok, payload = Service.save()
+    table.remove(draft.scenes, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.scene_deleted'), type = 'success' })
@@ -271,16 +276,17 @@ end
 
 function Service.createObject(source, object)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
     object = normalizeObject(object)
-    if not findById(Service.state.scenes, object.sceneId) then return false, 'scene_not_found' end
+    if not findById(draft.scenes, object.sceneId) then return false, 'scene_not_found' end
     if object.model == '' then return false, 'invalid_model' end
 
-    object.id = Service.state.nextObjectId
-    Service.state.nextObjectId = Service.state.nextObjectId + 1
-    Service.state.objects[#Service.state.objects + 1] = object
+    object.id = draft.nextObjectId
+    draft.nextObjectId = draft.nextObjectId + 1
+    draft.objects[#draft.objects + 1] = object
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.object_created'), type = 'success' })
@@ -289,8 +295,9 @@ end
 
 function Service.updateObject(source, objectId, changes)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local object = findById(Service.state.objects, objectId)
+    local object = findById(draft.objects, objectId)
     if not object then return false, 'object_not_found' end
 
     changes = normalizeObject(changes)
@@ -298,7 +305,7 @@ function Service.updateObject(source, objectId, changes)
     object.rotation = changes.rotation
     object.heading = changes.heading
 
-    local ok, payload = Service.save()
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.object_updated'), type = 'success' })
@@ -307,12 +314,13 @@ end
 
 function Service.deleteObject(source, objectId)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.state)
 
-    local _, index = findById(Service.state.objects, objectId)
+    local _, index = findById(draft.objects, objectId)
     if not index then return false, 'object_not_found' end
 
-    table.remove(Service.state.objects, index)
-    local ok, payload = Service.save()
+    table.remove(draft.objects, index)
+    local ok, payload = Service.save(draft)
     if not ok then return false, payload end
 
     notify(source, { description = ForgeCore.t('notify.objects.object_deleted'), type = 'success' })
@@ -328,5 +336,9 @@ function Service.start()
 
     return true
 end
+
+pr_lib.wrapJsonMutations(PR.Objects.Storage.file, Service, {
+    'createScene', 'renameScene', 'deleteScene', 'createObject', 'updateObject', 'deleteObject',
+})
 
 ForgeCore.ObjectsService = Service

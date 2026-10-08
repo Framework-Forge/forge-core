@@ -435,14 +435,13 @@ function Farms.refresh(payload)
     end
 end
 
-AddStateBagChangeHandler('forgeFarms', 'global', function(_, _, value)
+ForgeCore.State.onChange('farms', function(value)
     Farms.refresh(value)
 end)
 
 CreateThread(function()
     Wait(2000)
-    local ok, payload = pr_lib.callback.await(PR.Farms.Callbacks.getAll, 10000)
-    if ok and payload then Farms.refresh(payload) else Farms.refresh(GlobalState.forgeFarms) end
+    Farms.refresh(ForgeCore.State.get('farms'))
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function()

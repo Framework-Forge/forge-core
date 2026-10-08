@@ -16,6 +16,10 @@ local Starterpack = {
     cameraEditor = nil,
     editorAddFrame = nil,
     playingCam = nil,
+    sceneGeneration = 0,
+    preparingScene = false,
+    preparationScheduled = false,
+    preparationAttempts = 0,
 }
 
 local stopRouteCamera
@@ -122,6 +126,10 @@ local function clearTarget()
 end
 
 local function cleanupScene(keepVehicles)
+    Starterpack.sceneGeneration = Starterpack.sceneGeneration + 1
+    Starterpack.preparingScene = false
+    Starterpack.preparationScheduled = false
+    Starterpack.preparationAttempts = 0
     Starterpack.boarding = false
     Starterpack.routeActive = false
     stopRouteCamera()
@@ -159,7 +167,13 @@ local function configureLamar(ped)
     TaskStartScenarioInPlace(ped, 'WORLD_HUMAN_STAND_MOBILE', 0, true)
 end
 
-local function configureVehicle(vehicle, lockDoors)
+local function unlockSceneVehicle(vehicle)
+    SetVehicleDoorsLocked(vehicle, 1)
+    SetVehicleDoorsLockedForAllPlayers(vehicle, false)
+    SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), false)
+end
+
+local function configureVehicle(vehicle)
     SetEntityAsMissionEntity(vehicle, true, true)
     SetEntityInvincible(vehicle, true)
     SetVehicleCanBreak(vehicle, false)
@@ -167,8 +181,8 @@ local function configureVehicle(vehicle, lockDoors)
     SetVehicleTyresCanBurst(vehicle, false)
     SetVehicleEngineCanDegrade(vehicle, false)
     SetVehicleEngineOn(vehicle, true, true, false)
-    SetVehicleDoorsLocked(vehicle, lockDoors == true and 4 or 1)
-    SetVehicleDoorsLockedForAllPlayers(vehicle, false)
+    -- Contain the player with scene controls, never a lock that also blocks Lamar.
+    unlockSceneVehicle(vehicle)
     SetVehicleRadioEnabled(vehicle, false)
     SetEntityProofs(vehicle, true, true, true, true, true, true, true, true)
 end
@@ -185,18 +199,52 @@ function setVehicleRouteLock(vehicle, locked)
     end
 end
 
-local function spawnVehicle(model, coords, heading)
+local function spawnVehicle(model, coords, heading, generation)
     if pr_lib and pr_lib.fivem and pr_lib.fivem.streaming and pr_lib.fivem.streaming.createVehicle then
-        return pr_lib.fivem.streaming.createVehicle(model, coords, heading, {
+        RequestCollisionAtCoord(coords.x, coords.y, coords.z)
+        local vehicle = pr_lib.fivem.streaming.createVehicle(model, coords, heading, {
             networked = false,
             missionEntity = true,
             invincible = true,
-            freeze = false,
+            freeze = true,
             collision = true,
             timeout = 5000,
-            placeProperly = true,
+            placeProperly = false,
             placementType = 'vehicle',
         })
+        if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then return nil end
+        if generation ~= Starterpack.sceneGeneration then
+            deleteEntity(vehicle)
+            return nil
+        end
+        Starterpack.vehicle = vehicle -- Cleanup can cancel an in-flight grounding operation.
+
+        local timeout = GetGameTimer() + 5000
+        repeat
+            if generation ~= Starterpack.sceneGeneration or not DoesEntityExist(vehicle) then break end
+            RequestCollisionAtCoord(coords.x, coords.y, coords.z)
+            if HasCollisionLoadedAroundEntity(vehicle) then
+                -- Editor coords already include the model's origin offset. Do not add it twice.
+                SetEntityCoordsNoOffset(vehicle, coords.x, coords.y, coords.z, false, false, false)
+                SetEntityHeading(vehicle, heading)
+                FreezeEntityPosition(vehicle, false)
+                local grounded = SetVehicleOnGroundProperly(vehicle)
+                if grounded == true or grounded == 1 then
+                    Wait(0) -- Let the physics placement finish before holding the parked car.
+                    if generation == Starterpack.sceneGeneration and DoesEntityExist(vehicle) then
+                        FreezeEntityPosition(vehicle, true)
+                        return vehicle
+                    end
+                    break
+                end
+                FreezeEntityPosition(vehicle, true)
+            end
+            Wait(50)
+        until GetGameTimer() >= timeout
+
+        deleteEntity(vehicle)
+        if Starterpack.vehicle == vehicle then Starterpack.vehicle = nil end
+        return nil
     end
 
     return nil
@@ -248,8 +296,8 @@ local function currentPrologue(payload)
     return type(payload.prologue) == 'table' and payload.prologue or {}
 end
 
-local function ensureScene(payload)
-    Starterpack.payload = payload or Starterpack.payload or GlobalState.forgeStarterpack
+local function createScene(payload, generation)
+    Starterpack.payload = payload or Starterpack.payload or ForgeCore.State.get('starterpack')
     local prologue = currentPrologue()
     if prologue.enabled ~= true then return false, 'prologue_disabled' end
     local vehicleStart = type(prologue.vehicleStart) == 'table' and prologue.vehicleStart or prologue.start
@@ -259,10 +307,12 @@ local function ensureScene(payload)
     local vehicleHeading = tonumber(vehicleStart.heading) or 0.0
 
     if not Starterpack.vehicle or not DoesEntityExist(Starterpack.vehicle) then
-        Starterpack.vehicle = spawnVehicle(prologue.vehicleModel or 'asea', vehicleCoords, vehicleHeading)
-        if not Starterpack.vehicle then return false, 'vehicle_spawn_failed' end
-        configureVehicle(Starterpack.vehicle, false)
-        FreezeEntityPosition(Starterpack.vehicle, true)
+        local vehicle = spawnVehicle(prologue.vehicleModel or 'asea', vehicleCoords, vehicleHeading, generation)
+        if generation ~= Starterpack.sceneGeneration then return false, 'scene_cancelled' end
+        if not vehicle then return false, 'vehicle_spawn_failed' end
+        Starterpack.vehicle = vehicle
+        configureVehicle(vehicle)
+        FreezeEntityPosition(vehicle, true)
     end
 
     if not Starterpack.lamar or not DoesEntityExist(Starterpack.lamar) then
@@ -273,13 +323,27 @@ local function ensureScene(payload)
         local lamarHeading = lamarStart and not isZeroCoords(lamarStart.coords)
             and (tonumber(lamarStart.heading) or vehicleHeading)
             or (vehicleHeading + 180.0)
-        Starterpack.lamar = spawnPed(prologue.lamarModel or 'ig_lamardavis', lamarCoords, lamarHeading)
-        if not Starterpack.lamar then return false, 'lamar_spawn_failed' end
+        local lamar = spawnPed(prologue.lamarModel or 'ig_lamardavis', lamarCoords, lamarHeading)
+        if generation ~= Starterpack.sceneGeneration then
+            deleteEntity(lamar)
+            return false, 'scene_cancelled'
+        end
+        Starterpack.lamar = lamar
+        if not lamar or lamar == 0 then return false, 'lamar_spawn_failed' end
         configureLamar(Starterpack.lamar)
     end
 
     addLamarTarget()
     return true
+end
+
+local function ensureScene(payload)
+    if Starterpack.preparingScene then return false, 'scene_preparing' end
+    local generation = Starterpack.sceneGeneration
+    Starterpack.preparingScene = true
+    local ok, reason = createScene(payload, generation)
+    if generation == Starterpack.sceneGeneration then Starterpack.preparingScene = false end
+    return ok, reason
 end
 
 local function showSubtitle(text, duration)
@@ -289,6 +353,41 @@ local function showSubtitle(text, duration)
     BeginTextCommandPrint('STRING')
     AddTextComponentSubstringPlayerName(text)
     EndTextCommandPrint(tonumber(duration) or 5000, true)
+end
+
+local function scheduleScenePreparation(delay)
+    if Starterpack.preparationScheduled then return end
+    local generation = Starterpack.sceneGeneration
+    Starterpack.preparationScheduled = true
+    SetTimeout(delay, function()
+        if generation ~= Starterpack.sceneGeneration then return end
+        Starterpack.preparationScheduled = false
+        if Starterpack.routeActive or Starterpack.boarding then return end
+        if Starterpack.vehicle and DoesEntityExist(Starterpack.vehicle) and Starterpack.lamar and DoesEntityExist(Starterpack.lamar) then return end
+        Starterpack.payload = Starterpack.payload or ForgeCore.State.get('starterpack')
+        local prologue = currentPrologue()
+        local point = type(prologue.vehicleStart) == 'table' and prologue.vehicleStart or prologue.start
+        if prologue.enabled ~= true or not point or isZeroCoords(point.coords) then return end
+        if Starterpack.preparingScene then return scheduleScenePreparation(2000) end
+
+        -- One local distance check only while preparation is pending. No world/player pool scan.
+        local ped = PlayerPedId()
+        if not DoesEntityExist(ped) or IsPedDeadOrDying(ped, true)
+            or (ForgeCore.Session and not ForgeCore.Session.isLoaded()) then
+            return scheduleScenePreparation(2000)
+        end
+        local playerCoords, startCoords = GetEntityCoords(ped), vec3(point.coords)
+        local dx, dy, dz = playerCoords.x-startCoords.x, playerCoords.y-startCoords.y, playerCoords.z-startCoords.z
+        if dx*dx + dy*dy + dz*dz > 200.0*200.0 then return scheduleScenePreparation(2000) end
+
+        Starterpack.preparationAttempts = Starterpack.preparationAttempts + 1
+        local ok, reason = ensureScene(Starterpack.payload)
+        if generation ~= Starterpack.sceneGeneration then return end
+        if not ok then
+            if Starterpack.preparationAttempts < 3 then return scheduleScenePreparation(5000) end
+            showSubtitle(t('notify.starterpack.prologue_start_failed', { error = tostring(reason or 'unknown') }), 4500)
+        end
+    end)
 end
 
 local function makeRouteBlip(stop)
@@ -469,7 +568,7 @@ local function playCameraFrames(frames)
     RenderScriptCams(false, true, 800, true, false)
 end
 
-local function forcePassengerState(vehicle)
+local function keepPlayerInVehicle(vehicle)
     local ped = PlayerPedId()
 
     DisablePlayerFiring(PlayerId(), true)
@@ -477,30 +576,9 @@ local function forcePassengerState(vehicle)
         DisableControlAction(0, control, true)
         DisableControlAction(2, control, true)
     end
-    DisableControlAction(0, 23, true)
-    DisableControlAction(2, 23, true)
-    DisableControlAction(0, 75, true)
-    DisableControlAction(2, 75, true)
-    DisableControlAction(0, 76, true)
-    DisableControlAction(2, 76, true)
-
     if not IsPedInVehicle(ped, vehicle, false) then
         TaskWarpPedIntoVehicle(ped, vehicle, -1)
     elseif GetPedInVehicleSeat(vehicle, -1) ~= ped then
-        TaskWarpPedIntoVehicle(ped, vehicle, -1)
-    end
-end
-
-local function keepPlayerLockedInVehicle(vehicle)
-    local ped = PlayerPedId()
-    forcePassengerState(vehicle)
-
-    if DoesEntityExist(vehicle) then
-        SetVehicleDoorsLocked(vehicle, 4)
-        SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
-    end
-
-    if not IsPedInVehicle(ped, vehicle, false) or GetPedInVehicleSeat(vehicle, -1) ~= ped then
         TaskWarpPedIntoVehicle(ped, vehicle, -1)
     end
 end
@@ -551,7 +629,7 @@ local function startAutopilotTask(ped, vehicle, coords, driveSpeed)
     TaskVehicleDriveToCoordLongrange(ped, vehicle, coords.x, coords.y, coords.z, driveSpeed, driveStyle, stopRange)
 end
 
-local function driveToStop(stop)
+local function driveToStop(stop, routeIsCurrent)
     local ped = PlayerPedId()
     local vehicle = Starterpack.vehicle
     local coords = vec3(stop.coords)
@@ -573,9 +651,7 @@ local function driveToStop(stop)
     startAutopilotTask(ped, vehicle, coords, driveSpeed)
 
     local timeout = GetGameTimer() + 240000
-    while Starterpack.routeActive and DoesEntityExist(vehicle) and GetGameTimer() < timeout do
-        forcePassengerState(vehicle)
-
+    while routeIsCurrent() and DoesEntityExist(vehicle) and GetGameTimer() < timeout do
         local now = GetGameTimer()
         local current = GetEntityCoords(vehicle)
         local remaining = #(current - coords)
@@ -624,6 +700,7 @@ local function driveToStop(stop)
         Wait(250)
     end
 
+    if not routeIsCurrent() or not DoesEntityExist(vehicle) then return end
     ClearPedTasks(ped)
     SetVehicleForwardSpeed(vehicle, 0.0)
     setVehicleRouteLock(vehicle, true)
@@ -635,6 +712,7 @@ local function finishRoute()
     local ped = PlayerPedId()
     local vehicle = Starterpack.vehicle
     local lamar = Starterpack.lamar
+    local generation = Starterpack.sceneGeneration
 
     Starterpack.routeActive = false
     stopRouteCamera()
@@ -643,9 +721,10 @@ local function finishRoute()
     if SetCinematicModeActive then SetCinematicModeActive(false) end
 
     if vehicle and DoesEntityExist(vehicle) then
-        SetVehicleDoorsLocked(vehicle, 1)
+        unlockSceneVehicle(vehicle)
         TaskLeaveVehicle(ped, vehicle, 0)
         Wait(1200)
+        if generation ~= Starterpack.sceneGeneration then return end
 
         if lamar and DoesEntityExist(lamar) then
             ClearPedTasksImmediately(lamar)
@@ -653,6 +732,7 @@ local function finishRoute()
             setVehicleRouteLock(vehicle, false)
             TaskWarpPedIntoVehicle(lamar, vehicle, -1)
             Wait(350)
+            if generation ~= Starterpack.sceneGeneration then return end
             TaskVehicleDriveWander(lamar, vehicle, 18.0, driveStyle)
         end
     end
@@ -660,12 +740,15 @@ local function finishRoute()
     local completeCallback = Starterpack.usesRouteRewards and PR.Starterpack.Callbacks.completePrologue or PR.Starterpack.Callbacks.claim
     local waitUntil = GetGameTimer() + 10000
     while Starterpack.pendingRewards > 0 and GetGameTimer() < waitUntil do Wait(100) end
+    if generation ~= Starterpack.sceneGeneration then return end
     pr_lib.callback.await(completeCallback, 10000)
     Starterpack.usesRouteRewards = false
     Starterpack.pendingRewards = 0
 
     SetTimeout(20000, function()
-        cleanupScene(false)
+        if generation == Starterpack.sceneGeneration and Starterpack.vehicle == vehicle and not Starterpack.routeActive then
+            cleanupScene(false)
+        end
     end)
 end
 
@@ -696,12 +779,16 @@ local function runPrologueRoute(stops)
     local ped = PlayerPedId()
     local vehicle = Starterpack.vehicle
     local lamar = Starterpack.lamar
+    local generation = Starterpack.sceneGeneration
+    local function routeIsCurrent()
+        return Starterpack.routeActive and generation == Starterpack.sceneGeneration and Starterpack.vehicle == vehicle
+    end
 
     Starterpack.boarding = false
     Starterpack.routeActive = true
     Starterpack.usesRouteRewards = hasRouteRewards(stops)
     clearTarget()
-    configureVehicle(vehicle, false)
+    configureVehicle(vehicle)
     setVehicleRouteLock(vehicle, true)
 
     if not lamar or not DoesEntityExist(lamar) then
@@ -713,20 +800,24 @@ local function runPrologueRoute(stops)
 
     ClearPedTasksImmediately(lamar)
     FreezeEntityPosition(lamar, false)
+    keepPlayerInVehicle(vehicle)
     TaskEnterVehicle(lamar, vehicle, 15000, 0, 1.0, 1, 0)
     showSubtitle(t('notify.starterpack.lamar_boarding'), 5000)
 
     CreateThread(function()
         local timeout = GetGameTimer() + 30000
-        while Starterpack.routeActive and GetGameTimer() < timeout do
+        while routeIsCurrent() and GetGameTimer() < timeout do
+            if not DoesEntityExist(vehicle) or PlayerPedId() ~= ped or IsPedDeadOrDying(ped, true) then
+                cleanupScene(false)
+                return
+            end
             setVehicleRouteLock(vehicle, true)
-            keepPlayerLockedInVehicle(vehicle)
+            keepPlayerInVehicle(vehicle)
 
             if not IsPedInVehicle(ped, vehicle, false) or GetPedInVehicleSeat(vehicle, -1) ~= ped then
                 Starterpack.routeActive = false
                 setVehicleRouteLock(vehicle, false)
-                SetVehicleDoorsLocked(vehicle, 1)
-                SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), false)
+                unlockSceneVehicle(vehicle)
                 addLamarTarget()
                 showSubtitle(t('notify.starterpack.driver_required'), 3500)
                 return
@@ -736,23 +827,25 @@ local function runPrologueRoute(stops)
             Wait(0)
         end
 
-        if not Starterpack.routeActive then return end
+        if not routeIsCurrent() then return end
         if not IsPedInVehicle(lamar, vehicle, false) then
             Starterpack.routeActive = false
             setVehicleRouteLock(vehicle, false)
-            SetVehicleDoorsLocked(vehicle, 1)
-            SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), false)
+            unlockSceneVehicle(vehicle)
             addLamarTarget()
             showSubtitle(t('notify.starterpack.lamar_boarding_failed'), 4500)
             return
         end
 
-        configureVehicle(vehicle, true)
-        SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
+        configureVehicle(vehicle)
         setVehicleRouteLock(vehicle, false)
         CreateThread(function()
-            while Starterpack.routeActive do
-                if DoesEntityExist(vehicle) then keepPlayerLockedInVehicle(vehicle) end
+            while routeIsCurrent() do
+                if not DoesEntityExist(vehicle) or PlayerPedId() ~= ped or IsPedDeadOrDying(ped, true) then
+                    cleanupScene(false)
+                    return
+                end
+                keepPlayerInVehicle(vehicle)
                 Wait(0)
             end
 
@@ -763,20 +856,22 @@ local function runPrologueRoute(stops)
 
         CreateThread(function()
             for index, stop in ipairs(stops) do
-                if not Starterpack.routeActive then break end
+                if not routeIsCurrent() then break end
 
-                driveToStop(stop)
-                if not Starterpack.routeActive then break end
+                driveToStop(stop, routeIsCurrent)
+                if not routeIsCurrent() then break end
 
                 showSubtitle(stop.arrivalText, 6500)
                 Wait(1200)
+                if not routeIsCurrent() then break end
                 playCameraFrames(stop.cameraFrames)
+                if not routeIsCurrent() then break end
                 showSubtitle(stop.nextText, 5500)
 
                 if index < #stops then Wait(1800) end
             end
 
-            if Starterpack.routeActive then finishRoute() end
+            if routeIsCurrent() then finishRoute() end
         end)
     end)
 end
@@ -797,16 +892,20 @@ function Starterpack.preparePrologue()
     end
 
     local vehicle = Starterpack.vehicle
+    local generation = Starterpack.sceneGeneration
     Starterpack.boarding = true
     clearTarget()
     FreezeEntityPosition(vehicle, false)
-    SetVehicleDoorsLocked(vehicle, 1)
-    SetVehicleDoorsLockedForAllPlayers(vehicle, false)
+    unlockSceneVehicle(vehicle)
     showSubtitle(t('notify.starterpack.walk_to_vehicle'), 6500)
 
     CreateThread(function()
         local timeout = GetGameTimer() + 120000
-        while Starterpack.boarding and GetGameTimer() < timeout do
+        while Starterpack.boarding and generation == Starterpack.sceneGeneration and Starterpack.vehicle == vehicle and GetGameTimer() < timeout do
+            if not DoesEntityExist(vehicle) then
+                cleanupScene(false)
+                return
+            end
             local ped = PlayerPedId()
             if IsPedInVehicle(ped, vehicle, false) then
                 if GetPedInVehicleSeat(vehicle, -1) == ped then
@@ -820,7 +919,7 @@ function Starterpack.preparePrologue()
             Wait(300)
         end
 
-        if Starterpack.boarding then
+        if Starterpack.boarding and generation == Starterpack.sceneGeneration and Starterpack.vehicle == vehicle then
             Starterpack.boarding = false
             addLamarTarget()
             showSubtitle(t('notify.starterpack.boarding_timeout'), 4500)
@@ -1021,24 +1120,21 @@ RegisterNetEvent(PR.Starterpack.Events.startTest, function(payload)
     showSubtitle(t('notify.starterpack.lamar_ready'), 5000)
 end)
 
-AddStateBagChangeHandler('forgeStarterpack', 'global', function(_, _, value)
+ForgeCore.State.onChange('starterpack', function(value)
     Starterpack.payload = type(value) == 'table' and value or nil
     if Starterpack.routeActive then return end
 
     cleanupScene(false)
     if Starterpack.payload and Starterpack.payload.prologue and Starterpack.payload.prologue.enabled == true then
-        SetTimeout(1500, function()
-            ensureScene(Starterpack.payload)
-        end)
+        scheduleScenePreparation(1500)
     end
 end)
 
-CreateThread(function()
-    Wait(2500)
-    Starterpack.payload = GlobalState.forgeStarterpack
-    if Starterpack.payload and Starterpack.payload.prologue and Starterpack.payload.prologue.enabled == true then
-        ensureScene(Starterpack.payload)
-    end
+scheduleScenePreparation(2500)
+
+AddEventHandler('forge-core:session:changed', function(character)
+    cleanupScene(false)
+    if character then scheduleScenePreparation(1500) end
 end)
 
 AddEventHandler('onResourceStop', function(resource)

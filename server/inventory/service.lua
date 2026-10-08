@@ -52,25 +52,12 @@ local function clone(value, seen)
     return copy
 end
 
-local function encodeJson(data)
-    local ok, encoded = pcall(json.encode, data or {})
-    if ok and encoded then return encoded end
-    return '{}'
-end
-
 local function decodeJson(path, fallback)
-    local content = LoadResourceFile(resourceName, path)
-    if type(content) ~= 'string' or content == '' then return fallback end
-
-    local ok, decoded = pcall(json.decode, content)
-    if ok and type(decoded) == 'table' then return decoded end
-
-    return fallback
+    return pr_lib.loadJsonRecovery(path) or fallback
 end
 
 local function saveJson(path, data)
-    local saved = SaveResourceFile(resourceName, path, encodeJson(data), -1)
-    return saved ~= false and saved ~= nil
+    return pr_lib.saveJsonRecovery(path, data)
 end
 
 local function bumpRevision()
@@ -665,8 +652,8 @@ local function loadInventoryFile()
     }
 end
 
-local function saveInventoryFile()
-    return saveJson(PR.Inventory.Storage.weaponInventory, Service.weaponInventory)
+local function saveInventoryFile(draft)
+    return saveJson(PR.Inventory.Storage.weaponInventory, draft or Service.weaponInventory)
 end
 
 function Service.canManage(source)
@@ -704,8 +691,8 @@ function Service.reload()
     return true
 end
 
-function Service.saveItems()
-    return saveJson(PR.Inventory.Storage.items, Service.items)
+function Service.saveItems(draft)
+    return saveJson(PR.Inventory.Storage.items, draft or Service.items)
 end
 
 function Service.getPayload()
@@ -745,12 +732,14 @@ end
 
 function Service.upsertItem(source, itemData)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.items, {})
 
     local item, err = normalizeItem(itemData)
     if not item then return false, err end
 
-    Service.items[item.name] = item
-    Service.saveItems()
+    draft[item.name] = item
+    if not Service.saveItems(draft) then return false, 'save_failed' end
+    Service.items = draft
     bumpRevision()
     syncItem(item.name, item)
     if ForgeCore.ConsumableService then
@@ -764,12 +753,14 @@ end
 
 function Service.deleteItem(source, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.items, {})
 
     name = normalizeItemName(name)
-    if not Service.items[name] then return false, 'not_found' end
+    if not draft[name] then return false, 'not_found' end
 
-    Service.items[name] = nil
-    Service.saveItems()
+    draft[name] = nil
+    if not Service.saveItems(draft) then return false, 'save_failed' end
+    Service.items = draft
     bumpRevision()
     syncItem(name, nil)
 
@@ -780,13 +771,15 @@ end
 
 function Service.setItemActive(source, name, active)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.items)
 
     name = normalizeItemName(name)
-    local item = Service.items[name]
+    local item = draft[name]
     if not item then return false, 'not_found' end
 
     item.active = active ~= false
-    Service.saveItems()
+    if not Service.saveItems(draft) then return false, 'save_failed' end
+    Service.items = draft
     bumpRevision()
     syncItem(name, item)
 
@@ -797,12 +790,14 @@ end
 
 local function upsertInventoryEntry(source, group, defaults, data)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.weaponInventory, { [group] = true })
 
     local entry, err = normalizeInventoryEntry(data, nil, defaults)
     if not entry then return false, err end
 
-    Service.weaponInventory[group][entry.name] = entry
-    saveInventoryFile()
+    draft[group][entry.name] = entry
+    if not saveInventoryFile(draft) then return false, 'save_failed' end
+    Service.weaponInventory = draft
     bumpRevision()
     syncInventoryEntry(group, entry.name, entry)
     if ForgeCore.WeaponOxSync then ForgeCore.WeaponOxSync.syncAll() end
@@ -814,12 +809,14 @@ end
 
 local function deleteInventoryEntry(source, group, name)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.weaponInventory, { [group] = true })
 
     name = normalizeOxName(name)
-    if not Service.weaponInventory[group][name] then return false, 'not_found' end
+    if not draft[group][name] then return false, 'not_found' end
 
-    Service.weaponInventory[group][name] = nil
-    saveInventoryFile()
+    draft[group][name] = nil
+    if not saveInventoryFile(draft) then return false, 'save_failed' end
+    Service.weaponInventory = draft
     bumpRevision()
     syncInventoryEntry(group, name, nil)
     if ForgeCore.WeaponOxSync then ForgeCore.WeaponOxSync.syncAll() end
@@ -831,13 +828,15 @@ end
 
 local function setInventoryEntryActive(source, group, name, active)
     if not canManage(source) then return false, 'no_permission' end
+    local draft = pr_lib.jsonDraft(Service.weaponInventory, { [group] = true })
 
     name = normalizeOxName(name)
-    local entry = Service.weaponInventory[group][name]
+    local entry = draft[group][name]
     if not entry then return false, 'not_found' end
 
     entry.active = active ~= false
-    saveInventoryFile()
+    if not saveInventoryFile(draft) then return false, 'save_failed' end
+    Service.weaponInventory = draft
     bumpRevision()
     syncInventoryEntry(group, name, entry)
     if ForgeCore.WeaponOxSync then ForgeCore.WeaponOxSync.syncAll() end
@@ -989,6 +988,11 @@ AddEventHandler('onResourceStart', function(resourceNameStarted)
 end)
 
 Service.reload()
+
+pr_lib.wrapJsonMutations(PR.Inventory.Storage.items, Service, { 'upsertItem', 'deleteItem', 'setItemActive' })
+pr_lib.wrapJsonMutations(PR.Inventory.Storage.weaponInventory, Service, {
+    'upsertAmmo', 'deleteAmmo', 'setAmmoActive', 'upsertComponent', 'deleteComponent', 'setComponentActive',
+})
 
 ForgeCore.InventoryService = Service
 
