@@ -1,0 +1,80 @@
+local R=dofile('tests/kernel_callback_registration_harness.lua');local H,n=R.H,0
+local function check(v,label)n=n+1;assert(v,label)end
+local function rejected(fn,label)check(not pcall(fn),label)end
+local w=R.wire();local native=w.server.owners.native
+check(w.server.active()==0 and not native.IsReady(),'transport constructor inert')
+rejected(function()native.Reserve('early')end,'no registration before explicit Open')
+rejected(function()native.CaptureRegister('a',function()end)end,'capture outside producer refused')
+local captured=native.Capture('test',function()native.CaptureRegister('test',function(...)return ... end)end)
+H.same(table.pack(captured(false,nil,4)),table.pack(false,nil,4),'capture preserves function and nils')
+rejected(function()native.Capture('x',function()end)end,'missing Security delivery refused')
+rejected(function()native.Capture('x',function()native.CaptureRegister('y',function()end)end)end,'capture name mismatch refused')
+rejected(function()native.Capture('x',function()native.CaptureRegister('x',function()end);native.CaptureRegister('x',function()end)end)end,'duplicate capture refused')
+local suspended
+rejected(function()native.Capture('x',function()suspended=coroutine.running();coroutine.yield()end)end,'capture yield refused')
+check(coroutine.status(suspended)=='dead','suspended preparation closed')
+rejected(function()native.Capture('x',function()native.Capture('y',function()end)end)end,'capture reentry refused')
+w.Initialize();check(native.IsReady(),'explicit owned engine opening')
+rejected(function()native.Open({}, {})end,'transport opening not repeatable')
+rejected(function()w.server.api.native.register('b',function()end)end,'legacy register cannot bypass leases in private transport')
+local foreign=w.server.listen('foreign',function()end)
+rejected(function()native.Reserve('foreign')end,'foreign event preflight refused')
+local lease=native.Reserve('test');rejected(function()native.Reserve('test')end,'lease collision refused')
+rejected(function()native.Bind({},function()end)end,'foreign lease refused')
+local calls=0
+check(native.Bind(lease,function(source,...)calls=calls+1;return source,... end),'explicit leased bind')
+rejected(function()native.Bind(lease,function()end)end,'bound lease never rebound')
+H.same(table.pack(w.client.api.native.await('test',5000,false,nil,9)),table.pack(2,false,nil,9),'installed native wire and nil returns')
+local record=w.server.find('test');native.Release(lease)
+record.handler('stale',8);check(calls==1 and not foreign.removed,'disabled lease and foreign listener preserved')
+rejected(function()native.Release(lease)end,'foreign or released lease cannot remove another callback')
+local ox=w.server.owners.ox;local token=ox.Reserve('ox-test');ox.Bind(token,function(source,...)return source,... end)
+check(w.server.registry.exists('ox-test'),'installed ox claim created')
+H.same(table.pack(w.client.api.ox.await('ox-test',false,'x',nil,5)),table.pack(2,'x',nil,5),'installed ox envelope and nil slots')
+check(w.trace[#w.trace-2].name=='ox_lib:validateCallback','ox validation envelope retained')
+ox.Release(token);check(not w.server.registry.exists('ox-test'),'owned ox claim released')
+local l=native.Reserve('retry');native.Bind(l,function()calls=calls+1 end)
+local rec=w.server.find('retry');w.server.failRemove=rec
+rejected(function()native.Release(l)end,'removal error retained for retry')
+rec.handler('disabled');check(calls==1,'lease disabled before failed native removal')
+w.server.failRemove=nil;check(native.Release(l),'only cleanup retry allowed')
+local a=H.load('kernel/shared/callback_registration.lua',R.env())
+local spec={owner={},side='server',isCurrent=function()return true end,entries={{name='one',owner='test',protocol='native',handler=function(source,...)return source,... end}}}
+local b=a(spec,w.server.owners);local before=w.server.active()
+check(b.Install()and b.Count==1,'callback binder explicit install')
+spec.entries[1].handler=function()error('caller mutation')end
+H.same(table.pack(w.client.api.native.await('one',5000,nil,4)),table.pack(2,nil,4),'binder copied descriptor')
+local old=w.server.find('one');check(not b.Install(),'binder install not repeatable')
+check(b.Dispose()and w.server.active()==before,'owned reverse disposal')
+b.State='installed';old.handler('stale');check(old.removed,'public State cannot resurrect callbacks')
+local failure=a({owner={},side='server',isCurrent=function()return true end,entries={
+ {name='first',owner='test',protocol='native',handler=function()end},{name='second',owner='test',protocol='native',handler=function()end}}},w.server.owners)
+w.server.failBind=(w.server.binds or 0)+2
+local ok,reason,failures=failure.Install();check(not ok and reason:find('virtual bind')and #failures==0,'partial installation rolls back known leases')
+check(w.server.find('first')==nil and not failure.Install(),'failed binder never reinstalled')
+local dup={owner={},side='server',isCurrent=function()return true end,entries={{name='x',owner='a',protocol='native',handler=function()end},{name='x',owner='b',protocol='ox',handler=function()end}}}
+rejected(function()a(dup,w.server.owners)end,'logical duplicate rejected before effects')
+local collision=a({owner={},side='server',isCurrent=function()return true end,entries={
+ {name='__ox_cb_x',owner='a',protocol='native',handler=function()end},{name='x',owner='b',protocol='ox',handler=function()end}}},w.server.owners)
+check(not collision.Install()and w.server.find('__ox_cb_x')==nil,'native/ox wire collision refused')
+local retry=a({owner={},side='server',isCurrent=function()return true end,entries={
+ {name='owned-retry',owner='a',protocol='native',handler=function()calls=calls+1 end}}},w.server.owners)
+w.server.failBind=nil;check(retry.Install(),'retry cleanup fixture installed')
+local retryRecord=w.server.find('owned-retry');w.server.failRemove=retryRecord
+check(not retry.Dispose()and retry.State=='dispose-failed','binder removal failure reported')
+local count=calls;retryRecord.handler('disabled');check(calls==count,'binder disables before removal failure')
+w.server.failRemove=nil;check(retry.Dispose()and not retry.Install(),'binder retries cleanup only')
+local yieldLease=native.Reserve('yield');native.Bind(yieldLease,function(source,...)
+ local args=table.pack(...);coroutine.yield('handler-wait');return source,table.unpack(args,1,args.n)
+end)
+local co=coroutine.create(function()return w.client.api.native.await('yield',1000,nil,7)end)
+local running,wait=coroutine.resume(co);check(running and wait=='handler-wait','installed callback yield preserved')
+native.Release(yieldLease)
+H.same(table.pack(coroutine.resume(co)),table.pack(true,2,nil,7),'inflight callback may finish after disposal')
+local errorLease=native.Reserve('error');native.Bind(errorLease,function()error('handler error',0)end)
+check(w.client.api.native.await('error',1000)==nil,'installed handler error returns nil exactly as legacy engine')
+native.Release(errorLease)
+local reserved=native.Reserve('late-collision');local other=w.server.listen('late-collision',function()end)
+rejected(function()native.Bind(reserved,function()end)end,'namespace rechecked after reservation')
+native.Release(reserved);check(not other.removed,'release of unbound lease preserves late foreign listener')
+print('PASS callback ownership '..n..' checks; installed native/ox adapters, capture, leases, partial failure and owned cleanup; virtual bus only')

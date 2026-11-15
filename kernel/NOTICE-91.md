@@ -1,0 +1,3 @@
+# Lot91 provenance
+
+Private ports of installed qbx_core/bridge/qb/client/drawtext.lua and events.lua. QBX authorship/license retained in kernel/NOTICE.md and kernel/LICENSE-QBX. Event/export registration becomes inert descriptors; PR TextUI, scheduler, canonical key config/helpers and platform operations are explicit ports. No startup thread, command, handler, UI or entity effect on import. Existing500ms delayed hide, shared-provider effects and name/modelName payload mismatch remain preserved and characterized. Composition/ownership publication is separate92. Original sources/captures01–90 remain frozen.

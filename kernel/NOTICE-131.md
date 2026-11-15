@@ -1,0 +1,1 @@
+Private PR-native configuration assembly preserves installed06 defaults and existing66/70 boundary ownership. Keys65 are borrowed;client HaveKey is the actual custom PR export,not a generic replacement. Native execution129,PR strings/waitFor and external optional key proxies are explicit. No operational load/restart/SQL/JSON changes. Tests virtual.

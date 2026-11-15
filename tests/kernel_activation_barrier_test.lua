@@ -1,0 +1,10 @@
+local T=dofile('tests/kernel_activation_barrier_harness.lua');local r=T.new();local calls=0
+local ingress=r.policy.WrapIngress(function(a,b,c)calls=calls+1;return a,b,c end)
+assert(ingress(1,nil,3)==nil and calls==0 and not r.policy.CanServe())
+r.allocate();r.publish();assert(r.policy.CanServe()and not r.policy.IsIngressOpen());r.attach()
+assert(r.pr.forgeNormalizedFacade.GetIdentifier(2)=='LATE114'and calls==0)
+local ok,missing=r.policy.Advance(6);assert(not ok and #missing==6 and not r.policy.IsIngressOpen())
+for k in pairs(r.facts)do r.facts[k]=true end;assert(r.policy.Advance(6)and r.policy.IsIngressOpen())
+local out=table.pack(ingress(1,nil,3));assert(out.n==3 and out[1]==1 and out[2]==nil and out[3]==3 and calls==1)
+assert(r.policy.Close()and r.policy.Progress().complete and ingress(1)==nil and r.api.IsCurrent())
+r.finish();print('PASS lot119 actual117/118 attachments,ordered A-F,readiness distinct from admission,canonical Player,closed ingress and reverse owned cleanup;fixtures only')

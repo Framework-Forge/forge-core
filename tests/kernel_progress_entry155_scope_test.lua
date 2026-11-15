@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_progress_entry155_harness.lua')
+local r=T.client();r.options155.public.settings={};r.allocate155();assert(not r.entry155.Prepare()and r.entry155.Progress().complete);r.finish155()
+local a=T.client();a.env155.LocalPlayer=nil;a.allocate155();assert(not a.entry155.Prepare()and a.entry155.Progress().complete);a.finish155()
+local b=T.client();b.env155.IsPedRagdoll=nil;b.allocate155();assert(not b.entry155.Prepare()and b.entry155.Progress().complete);b.finish155()
+local c=T.client();c.allocate155();assert(not c.entry155.Install()and not c.entry155.Start());assert(c.entry155.Stop()and not c.entry155.Prepare());c.finish155()
+local d=T.client();d.allocate155();assert(not pcall(d.factory155,d.raw,d.options155));d.entry155.Stop();assert(d.raw.RPC.Owners.native.IsReady());d.finish155()
+print('PASS155 five foreign-settings/player/native/order/duplicate checks;failed preparation releases owned seed and preserves raw')

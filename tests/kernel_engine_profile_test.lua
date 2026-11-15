@@ -1,0 +1,10 @@
+local T=dofile('tests/kernel_engine_profile_harness.lua');local s=T.new('server');local p=s.allocate149();assert(p.PortAudit.mapped>40)
+assert(p.Prepare('pt-br'));s.surface.Open();assert(p.Install());s.emit('onResourceStart','forge-core');s.begin();if coroutine.status(s.co)~='dead'then s.resume()end
+assert(s.outcome[1]and s.outcome[2],tostring(s.outcome[3]or s.outcome[2]));assert(p.Progress().phase=='running')
+local core=p.Bootstrap.Graph.PlayerCore;assert(core==s.fixture.base.PlayerCore and p.DomainConfiguration.Config.Inventory==p.Bootstrap.Graph.Config.Inventory)
+p.Stop();s.clock.advance(1200000);assert(p.Poll()and p.Engine.Progress().complete and s.seed.IsCurrent());s.platform.Close();s.finishProfile()
+local c=T.new('client');local q=c.allocate149();assert(q.PortAudit.mapped>150);assert(q.Prepare('pt-br'));c.installClientProfile();c.runtimeImports.pollNative();assert(q.Start())
+assert(c.seedUnit.wire.scopes.server.Ox.await('qbx_core:client:getStatusSnapshot',2))
+assert(q.Stop()and q.Engine.Progress().complete and c.seed.IsCurrent());assert(#c.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16)
+c.platform.Close();c.utilities.Close();c.finishProfile()
+print('PASS149 server/client profiles with actual native input boundaries,one Player/config/RPC,Prepare/Install/Start/Stop and engine-after-graph cleanup;no real effects')

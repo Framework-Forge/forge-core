@@ -1,0 +1,1 @@
+Etapa255: probes físicos exigem evidência externa e recibos estruturais canônicos;catálogos servidor só após Initialize completo.Hooks incertos/banco/chaves não abertos recusados.Sem inferência de hidratação/consumo ou resourceState.Inativo.

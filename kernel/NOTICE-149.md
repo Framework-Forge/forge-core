@@ -1,0 +1,1 @@
+Inactive149 composes PR146/schema146-147/binder148 before domain profile144. Graph drains before engine delegates close. Seed/raw remain borrowed. Diagnostics retain unknown ports;no claim that all remaining runtime services are mounted.

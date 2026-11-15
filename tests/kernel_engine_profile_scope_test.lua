@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_engine_profile_harness.lua');local s=T.new('server');local p=s.allocate149()
+assert(not p.Start()and not p.Install());assert(p.Stop()and p.Poll()and not p.Prepare());assert(s.seed.IsCurrent());s.finishProfile()
+local c=T.new('client');c.profilePorts.nativeAdjuncts=nil;assert(not pcall(c.allocate149));assert(c.seed.IsCurrent());c.finishProfile()
+local d=T.new('client');d.seedUnit.current=false;assert(not pcall(d.allocate149));d.seedUnit.current=true;d.finishProfile()
+local e=T.new('server');e.profilePorts.domainConfigurationPorts.locale=nil;assert(not pcall(e.allocate149));assert(e.seed.IsCurrent());e.finishProfile()
+local f=T.new('server');f.profilePorts.side='other';assert(not pcall(f.allocate149));f.finishProfile()
+print('PASS149 five lifecycle/missing-adjunct/stale/config-failure/side checks;borrowed seed/raw never closed by constructor failure')

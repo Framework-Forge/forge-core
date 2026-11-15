@@ -1,0 +1,1 @@
+Private call/await database facade delegates only to the installed PR oxmysql provider. No query,ready wait,thread or schema action during construction. Accepted callback/await effects can finish after Close;no rollback. Native tests invoke only virtual export/promise queues. Source provider behavior,including nil failures and update affected rows,is retained.

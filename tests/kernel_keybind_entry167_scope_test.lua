@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_keybind_entry167_harness.lua')
+local r=T.client();r.options167.public.settings={};r.allocate167();assert(not r.entry167.Prepare()and r.entry167.Progress().complete);r.finish167()
+local a=T.client();a.env167.LocalPlayer=nil;a.allocate167();assert(not a.entry167.Prepare()and a.entry167.Progress().complete);a.finish167()
+local b=T.client();b.env167.IsPedRagdoll=nil;b.allocate167();assert(not b.entry167.Prepare()and b.entry167.Progress().complete);b.finish167()
+local c=T.client();c.allocate167();assert(not c.entry167.Install()and not c.entry167.Start());assert(c.entry167.Stop()and not c.entry167.Prepare());c.finish167()
+local d=T.client();d.allocate167();assert(not pcall(d.factory167,d.raw,d.options167));d.entry167.Stop();assert(d.raw.RPC.Owners.native.IsReady());d.finish167()
+print('PASS167 five foreign-settings/player/native/order/duplicate checks;failed preparation releases owned seed and preserves raw')

@@ -1,0 +1,1 @@
+Etapa250: entrega incremental privada241–250;origem canônica/compatibilidade concreta/controle local e remoto/prestart protegido.Não instalada,sem prontidão operacional alegada.Preserva240 e declara entrypoint249.Inativo.

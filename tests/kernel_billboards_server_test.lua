@@ -1,0 +1,50 @@
+local R=dofile('tests/kernel_billboards_harness.lua')
+local H,n=R.H,0
+H.same(R.config(true),R.config(false),'whole billboard config')
+local function case(name,fn,raw)R.case(name,fn,raw);n=n+1 end
+case('inert query',function(r)assert(not r.service.getAll().enabled and #r.service.getAll().billboards==0 and r.service.canManage==nil)end,true)
+case('start once',function(r)local before=#r.m.trace;assert(r.service.start()and #r.m.trace==before)end)
+case('counts/copy/public fields',function(r)local p=r.service.getAll();assert(p.groups[1].count==1 and p.groups[2].count==0);p.billboards[1].url='CHANGED';assert(r.service.getAll().billboards[1].url=='fixture://image-A');local v=r.state.get('billboards');assert(v.billboards and not v.groups and not v.editDistance)end)
+case('job precedence console',function(r)r.jobResult=false;local ok,e=r.service.createGroup(0,'X');assert(not ok and e=='no_permission')end)
+case('ACE fallback',function(r)r.services.JobService=nil;r.ace=false;assert(r.service.createGroup(0,'Console'));local ok,e=r.service.createGroup(2,'Denied');assert(not ok and e=='no_permission')end)
+case('job exception',function(r)r.jobError=true;return r.service.createGroup(2,'X')end)
+for _,v in ipairs({'','  ',' New ',123,false})do case('group name '..n,function(r)return r.service.createGroup(2,v)end)end
+case('rename',function(r)local ok,p=r.service.renameGroup(2,'1',' New ');assert(ok and p.groups[1].name=='New')end)
+case('rename empty',function(r)return r.service.renameGroup(2,1,' ')end)
+case('rename missing',function(r)return r.service.renameGroup(2,99,'X')end)
+case('delete nonempty',function(r)local ok,e=r.service.deleteGroup(2,1);assert(not ok and e=='group_not_empty')end)
+case('delete empty',function(r)assert(r.service.deleteGroup(2,2))end)
+case('delete missing',function(r)return r.service.deleteGroup(2,99)end)
+case('create aliases/data/vertices',function(r)local ok,id,p=r.service.createBillboard(2,{Uid=999,groupid='2',name=' New ',Vertices={{1,'2',3},{4,5,6}},Data={Url=' fixture://data ',Width='900.8',Height=800},offset=3});local v=p.billboards[2];assert(ok and id==2 and v.id==2 and v.url=='fixture://data'and v.width==900 and v.offset==2 and v.vertices[1].y==2 and v.vertices[4].x==0)end)
+case('uppercase URL/size',function(r)local ok,id,p=r.service.createBillboard(2,{groupId=1,Url='fixture://upper',Width=900,Height=600});assert(ok and p.billboards[2].height==600)end)
+for _,v in ipairs({false,{}, {groupId=99,url='x'},{groupId=1,url=' '},{groupId=1,url='not-a-url'},{groupId=1,url='ftp://fixture'}})do case('create payload '..n,function(r)return r.service.createBillboard(2,v)end)end
+case('update full payload and move group',function(r)local v=R.seed().billboards[1];v.id=99;v.groupId=2;v.name='Moved';local ok,p=r.service.updateBillboard(2,1,v);assert(ok and p.billboards[1].id==1 and p.billboards[1].groupId==2 and p.groups[1].count==0 and p.groups[2].count==1)end)
+case('invalid group ignored during update',function(r)local v=R.seed().billboards[1];v.groupId=99;local ok,p=r.service.updateBillboard(2,1,v);assert(ok and p.billboards[1].groupId==1)end)
+case('update absent values reset',function(r)local ok,p=r.service.updateBillboard(2,1,{name='Partial'});local v=p.billboards[1];assert(ok and v.name=='Partial'and v.url==''and v.width==1920 and v.height==1080 and v.vertices[1].x==0)end)
+case('malformed update accepted',function(r)local ok,p=r.service.updateBillboard(2,1,false);assert(ok and p.billboards[1].url=='')end)
+case('update empty url lost on next load',function(r)assert(r.service.updateBillboard(2,1,{}));assert(#r.service.getAll().billboards==1);r.service.load();assert(#r.service.getAll().billboards==0)end)
+case('missing update',function(r)return r.service.updateBillboard(2,99,{})end)
+case('delete then group',function(r)assert(r.service.deleteBillboard(2,1));assert(r.service.deleteGroup(2,1))end)
+case('delete missing board',function(r)return r.service.deleteBillboard(2,99)end)
+for _,key in ipairs({'createGroup','renameGroup','deleteGroup','createBillboard','updateBillboard','deleteBillboard'})do case('deny '..key,function(r)r.jobResult=false;local ok,e=r.service[key](2,1,'X');assert(not ok and e=='no_permission')end)end
+case('public getAll callback',function(r)r.jobResult=false;local ok,p=r.callbacks[r.config.Billboards.Callbacks.getAll](1);assert(ok and #p.groups==2)end)
+case('callback CRUD',function(r)local c=r.config.Billboards.Callbacks;assert(r.callbacks[c.createGroup](2,'New'));assert(r.callbacks[c.renameGroup](2,3,'Rename'));local ok,id=r.callbacks[c.createBillboard](2,{groupId=3,url='fixture://new'});assert(ok);assert(r.callbacks[c.updateBillboard](2,id,{groupId=3,url='fixture://other'}));assert(r.callbacks[c.deleteBillboard](2,id));assert(r.callbacks[c.deleteGroup](2,3))end)
+case('normalize ids/orphans/counters',function(r)local p=R.seed();p.groups={{id=4.8},{id=4},{id=0},{id='2',name='B'}};p.billboards={{Uid=10,groupId=4,Url='x'},{id=10,groupId=4,url='dup'},{id=3,groupId=99,url='orphan'},{id=0,groupId=2,url='zero'},{id=5,groupId=2,url=''}};r.m.seed(r.config.Billboards.Storage.file,p);local s=r.service.load();assert(#s.groups==2 and #s.billboards==1 and s.groups[1].id==2 and r.service.state.nextBillboardId==11 and r.service.state.nextGroupId==5)end)
+for _,v in ipairs({-10,0,25,26.5,'800','bad',1000000})do case('render distance '..v,function(r)local p=R.seed();p.renderDistance=v;p.editDistance=v;r.m.seed(r.config.Billboards.Storage.file,p);return r.service.load()end)end
+for _,v in ipairs({true,false,'yes','sim','1','FALSE',0})do case('bool '..tostring(v),function(r)local p=R.seed();p.enabled=v;p.billboards[1].enabled=v;r.m.seed(r.config.Billboards.Storage.file,p);return r.service.load()end)end
+for _,v in ipairs({-5,-2,0,2,5})do case('offset '..v,function(r)local ok,id,p=r.service.createBillboard(2,{groupId=1,url='x',offset=v});assert(ok and p.billboards[2].offset==math.max(-2,math.min(2,v)))end)end
+case('dimension minimum/floor',function(r)local ok,id,p=r.service.createBillboard(2,{groupId=1,url='x',width=-1,height=3.9});assert(ok and p.billboards[2].width==1 and p.billboards[2].height==3)end)
+case('no dimension upper clamp',function(r)local ok,id,p=r.service.createBillboard(2,{groupId=1,url='x',width=10000000,height=10000000});assert(ok and p.billboards[2].width==10000000)end)
+case('missing JSON defaults',function(r)r.m.files={};local p=r.service.load();assert(p.enabled and p.renderDistance==120 and p.editDistance==10 and #p.billboards==0)end)
+case('backup recovery',function(r)local p=r.config.Billboards.Storage.file;r.m.files[p]='bad';r.m.seed(p..'.bak',R.seed());return r.service.load()end)
+case('load failure leaves started',function(r)local p=r.config.Billboards.Storage.file;r.m.files[p]='bad';r.m.files[p..'.bak']='bad';assert(not pcall(r.service.start)and r.service.started);assert(r.service.start())end,true)
+case('save refused no publish',function(r)local before=r.state.getRecord('billboards');r.m.onWrite=function()return false end;local ok,e=r.service.deleteBillboard(2,1);assert(not ok and e=='save_failed');H.same(r.state.getRecord('billboards'),before)end)
+case('writer exception',function(r)r.m.onWrite=function()error('fixture-write',0)end;return r.service.deleteBillboard(2,1)end)
+for _,v in ipairs({0,1,true,false,{}})do case('raw writer '..n,function(r)r.library.saveJsonRecovery=function()return v end;local ok=r.service.createGroup(2,'RAW');assert(ok==(v==true or type(v)=='table'))end)end
+case('nil writer refused',function(r)r.library.saveJsonRecovery=function()end;return r.service.createGroup(2,'RAW')end)
+case('internal save no guard',function(r)r.jobResult=false;assert(r.service.save())end)
+case('revision same tick',function(r)local rev=r.service.state.revision;assert(r.service.createGroup(2,'New'));assert(r.service.state.revision==rev)end)
+case('revision new tick',function(r)r.now=r.now+1;r.service.save();assert(r.service.state.revision==r.now)end)
+case('optional notify/trim fallback',function(r)r.library.notify=nil;r.library.utils=nil;return r.service.renameGroup(2,1,' New ')end)
+case('mutation lock busy/release',function(r)local p=r.config.Billboards.Storage.file;local co=coroutine.create(function()return r.library.withJsonLock(p,function()coroutine.yield('locked')end)end);assert(coroutine.resume(co));local ok,e=r.service.createGroup(2,'BUSY');assert(not ok and e=='busy');assert(coroutine.resume(co));assert(r.service.createGroup(2,'AFTER'))end)
+print('PASS billboards server/config differentials '..n)

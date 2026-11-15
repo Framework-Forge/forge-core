@@ -1,0 +1,1 @@
+Etapa240: entrega privada revisável;Poll cliente/candidato corrigidos e montagem A–F com composição explícita. Não instalar/iniciar:compatibilidade/rotas/probes físicos e ambiente isolado ainda pendentes. Capturas e ZIP230 preservados.

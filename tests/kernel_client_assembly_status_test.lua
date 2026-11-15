@@ -1,0 +1,28 @@
+local A=dofile('tests/kernel_client_assembly_harness.lua');local r=A.new();local api=r.mount();r.installEvents()
+local p,x=api.Parts.Producers,api.Parts.Runtime
+assert(p.Initialize()and not p.Initialize());assert(api.Parts.Legacy.Initialize()and not api.Parts.Legacy.Initialize()and r.groupPulls==1)
+assert(x.Initialize()and not x.Initialize(),'initialization only explicit in test')
+assert(api.Parts.Legacy.Groups.GetJob('taxi').label=='Taxi','actual groups replica from explicit one pull')
+assert(x.Main.GetVehiclesByName('car')==r.state.Shared.Vehicles.car)
+assert(x.Main.GetVehiclesByCategory().cars[1]==r.state.Shared.Vehicles.car,'runtime consumes actual same helper07')
+local nextData={citizenid='CANONICAL49',metadata={hunger=21,thirst=30},job={name='taxi',grade={level=0}}}
+r.dispatch('QBCore:Player:SetPlayerData',nextData)
+assert(r.state.PlayerData==nextData and api.Parts.Legacy.Functions.GetPlayerData()==nextData,'replace canonical snapshot, not holder')
+assert(r.state.Session.snapshot().data.character=='CANONICAL49')
+r.runtime.caller='foreign';r.dispatch('QBCore:Player:SetPlayerData',{citizenid='OTHER'});r.runtime.caller=nil
+assert(r.state.PlayerData==nextData,'existing foreign-caller guard intact')
+assert(next(r.producer.cache)==nil,'bridge stopped is passive, not a framework read-through')
+p.Status.Exports.SetStatus('hunger',20);p.Status.Exports.SetStatus('thirst',30)
+r.dispatch('forge-core:client:inventory:applyInteractionEffects',{statuses={hunger=5,thirst=2}})
+assert(r.state.Status.hunger==25 and r.state.PlayerData.metadata.hunger==25 and r.state.Status.thirst==32,'consumption applies same status producer')
+x.Main.Callbacks['qbx_core:client:setHealth'](155)
+assert(r.producer.health==155 or r.runtime.health==155,'health callback native plus producer')
+r.dispatch('QBCore:Notify','Title','success',500,'Body')
+local notice=r.runtime.trace[#r.runtime.trace];assert(notice.kind=='notify'and notice.args[1].title=='Title','same actual local Notify')
+-- Actual effects callback, progress/model/animation only through declared PR library ports.
+local used=api.Parts.Consumption.Callbacks['forge-core:client:inventory:useInteraction']('burger',{enabled=true,category='food',duration=10})
+assert(used==true,'client interaction on canonical assembly')
+r.producer.bridge='started';r.state.BridgeCache.refreshContext('test-explicit');r.dispatch('onClientResourceStart','pr_bridge')
+assert(r.producer.cache.playerData and r.producer.cache['resource:qbx_core:session'],'passive PR publication only after explicit availability')
+assert(api.IsCanonical()and api.Unbound,'explicit test init is not framework installation')
+print('PASS lot49 status: actual same Lib/Shared/groups/Functions/PlayerData/Session/Status/consumption, caller guard, raw health/Notify and passive delivery; PR/natives virtual, no real resource boot')

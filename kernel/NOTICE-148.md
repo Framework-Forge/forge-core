@@ -1,0 +1,1 @@
+Inactive148 pure engine bindings on100/101 graph inputs. Copy per native-table identity;only catalogued functions replaced. Unknown/scalar ports reported and preserved. External PR integrations/config/cache/callbacks unchanged;no registration/activation.

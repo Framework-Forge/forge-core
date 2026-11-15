@@ -1,0 +1,18 @@
+local T=dofile('tests/kernel_locale_runtime_harness.lua');local r=T.provider(true);r.api.Initialize('en');assert(r.api.Open())
+r.readHook=function()coroutine.yield()end
+local co=coroutine.create(function()r.api.Initialize('pt-br')end)
+assert(coroutine.resume(co));assert(r.api.Progress().pending==1);r.api.CloseIngress()
+assert(not pcall(r.api.Translate,'x')and not pcall(r.api.Initialize,'en'))
+r.readHook=nil;assert(coroutine.resume(co));assert(r.api.Progress().pending==0,'accepted load may finish after ingress closure')
+r.api.DuringCleanup(function()assert(r.api.Translate('error.not_online')~='error.not_online')end)
+local foreign=coroutine.create(function()assert(not pcall(r.api.GetLocales))end)
+r.api.DuringCleanup(function()assert(coroutine.resume(foreign))end)
+assert(not pcall(r.api.DuringCleanup,function()error('cleanup',0)end)and r.api.Progress().cleanupWindows==0)
+local alias;r.api.DuringCleanup(function()alias=r.api.GetLocales()end);r.api.Close()
+assert(r.api.Progress().complete and alias['error.not_online'],'closing does not erase retained dictionary aliases')
+local stale=T.provider(true);stale.current=false;assert(not pcall(stale.api.Initialize,'en')and #stale.reads==0)
+local cancelled=T.server();cancelled.allocate();cancelled.locales.readHook=function()coroutine.yield()end
+local c=coroutine.create(function()local ok=cancelled.api.Prepare();assert(not ok)end)
+assert(coroutine.resume(c));assert(cancelled.api.Stop()and not cancelled.api.Progress().complete)
+cancelled.locales.readHook=nil;assert(coroutine.resume(c));assert(cancelled.api.Graph==nil and cancelled.api.Progress().complete,'cancelled preparation never builds server graph')
+print('PASS lot74 locale scope:pending load/late effects,closed/new IO refusal,coroutine cleanup,error release,alias retention,stale owner and cancellation before any graph construction')

@@ -1,0 +1,3 @@
+# Lot93 provenance
+
+Private binding of installed qbx_core/bridge/qb/shared/export-function.lua protocol to existing kernel/shared/event_registration.lua51 and public_registration.lua53. QBX authorship/license remain in kernel/NOTICE.md and kernel/LICENSE-QBX. The alias event name stays qb-core; no resource-name/provide/manifest choice or operational publication. Constructor only describes bindings. Explicit ports supply event/public namespace ownership. Native export wrappers are revocable, not physically removable; retained core objects/mutable methods remain R07. Does not close the supplied bridge/core or convert inventory items. Sources/captures01–92 remain frozen.

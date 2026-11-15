@@ -1,0 +1,1 @@
+Inactive144 composes141/142/143 before135/136 profile construction. Owned domain persistence closes after graph. Seed/raw borrowed;no second lifecycle or service. Virtual tests only;remaining native/PR/cache/coordinator/UAT gates apply.

@@ -1,0 +1,484 @@
+-- Inactive complete payroll/MEI port. Explicit start only; see NOTICE-16.md.
+return function(ports)
+    local PR = {Job = assert(ports.config), NotifyPos = ports.notifyPosition}
+    local services = assert(ports.services)
+    local library = assert(ports.library)
+    local translate = assert(ports.translate)
+    local kernel = assert(ports.kernel)
+    local isReady = assert(ports.isReady)
+    local integrations = assert(ports.integrations)
+    local native, clock = assert(ports.native), assert(ports.time)
+local Payments = {
+    started = false,
+    nextPaymentAt = 0,
+    settings = {},
+}
+
+local function debug(level, message)
+    local debugApi = library and library.debug
+    if not debugApi then return end
+
+    local fn = debugApi[level]
+    if type(fn) == 'function' then
+        fn(message)
+    elseif type(debugApi) == 'function' then
+        debugApi(level, message)
+    end
+end
+
+local function notify(source, data)
+    if not source or source <= 0 then return end
+
+    library.notify.NotifyPlayer(source, {
+        title = data.title or translate('core.title'),
+        description = data.description,
+        type = data.type,
+        position = data.position or PR.NotifyPos,
+    })
+end
+
+local function boolValue(value, fallback)
+    if value == nil then return fallback == true end
+    if type(value) == 'boolean' then return value end
+
+    local lowered = tostring(value):lower()
+    return lowered == 'true' or lowered == '1' or lowered == 'yes' or lowered == 'sim'
+end
+
+local function clampInterval(value)
+    value = tonumber(value) or PR.Job.Payments.intervalMinutes or 10
+    value = math.floor(value)
+
+    if value < 1 then return 1 end
+    if value > 1440 then return 1440 end
+
+    return value
+end
+
+local function clampPercent(value, fallback)
+    value = tonumber(value)
+    if value == nil then value = tonumber(fallback) or 100 end
+
+    if value < 0 then return 0 end
+    if value > 100 then return 100 end
+
+    return value
+end
+
+local function normalizeAccount(value)
+    value = tostring(value or PR.Job.Payments.account or 'bank'):lower()
+
+    if value ~= 'cash' and value ~= 'bank' and value ~= 'crypto' then
+        return 'bank'
+    end
+
+    return value
+end
+
+local function normalizeSocietyAccount(value)
+    value = tostring(value or PR.Job.Mei.governmentAccount or 'government'):lower()
+    value = value:gsub('^%s+', ''):gsub('%s+$', '')
+
+    if value == '' then return 'government' end
+
+    return value
+end
+
+local function defaultSettings()
+    return {
+        enabled = PR.Job.Payments.enabled == true,
+        intervalMinutes = clampInterval(PR.Job.Payments.intervalMinutes),
+        account = normalizeAccount(PR.Job.Payments.account),
+        payOffDuty = PR.Job.Payments.payOffDuty == true,
+        useSociety = PR.Job.Payments.useSociety == true,
+        societySalaryPercent = clampPercent(PR.Job.Payments.societySalaryPercent, 100),
+        notify = PR.Job.Payments.notify ~= false,
+        mei = {
+            enabled = PR.Job.Mei.enabled == true,
+            openingCost = math.max(0, tonumber(PR.Job.Mei.openingCost) or 0),
+            monthlyCost = math.max(0, tonumber(PR.Job.Mei.monthlyCost) or 0),
+            governmentAccount = normalizeSocietyAccount(PR.Job.Mei.governmentAccount),
+            paymentAccount = normalizeAccount(PR.Job.Mei.paymentAccount),
+        },
+    }
+end
+
+local function normalizeSettings(raw)
+    local defaults = defaultSettings()
+    raw = type(raw) == 'table' and raw or {}
+    local useSociety = raw.useSociety
+    if useSociety == nil then useSociety = raw.society end
+
+    local rawMei = type(raw.mei) == 'table' and raw.mei or raw
+
+    return {
+        enabled = boolValue(raw.enabled, defaults.enabled),
+        intervalMinutes = clampInterval(raw.intervalMinutes or raw.interval),
+        account = normalizeAccount(raw.account),
+        payOffDuty = boolValue(raw.payOffDuty, defaults.payOffDuty),
+        useSociety = boolValue(useSociety, defaults.useSociety),
+        societySalaryPercent = clampPercent(raw.societySalaryPercent or raw.societyPercent, defaults.societySalaryPercent),
+        notify = boolValue(raw.notify, defaults.notify),
+        mei = {
+            enabled = boolValue(rawMei.meiEnabled or rawMei.enabledMei or rawMei.enabled, defaults.mei.enabled),
+            openingCost = math.max(0, math.floor(tonumber(rawMei.openingCost) or defaults.mei.openingCost)),
+            monthlyCost = math.max(0, math.floor(tonumber(rawMei.monthlyCost) or defaults.mei.monthlyCost)),
+            governmentAccount = normalizeSocietyAccount(rawMei.governmentAccount),
+            paymentAccount = normalizeAccount(rawMei.paymentAccount),
+        },
+    }
+end
+
+local function qbxReady()
+    return isReady()
+end
+
+local function getPlayers()
+    if not qbxReady() then return {} end
+
+    local ok, players = pcall(function()
+        return kernel.GetQBPlayers()
+    end)
+
+    if ok and type(players) == 'table' then return players end
+
+    debug('warn', translate('debug.payments.players_failed'))
+    return {}
+end
+
+local function getJob(jobName)
+    if not qbxReady() then return nil end
+
+    local ok, job = pcall(function()
+        return kernel.GetJob(jobName)
+    end)
+
+    if ok then return job end
+
+    return nil
+end
+
+local function getGradeData(jobData, level)
+    if not jobData or type(jobData.grades) ~= 'table' then return nil end
+
+    return jobData.grades[level] or jobData.grades[tostring(level)] or jobData.grades[tonumber(level)]
+end
+
+local function isMeiJob(jobData)
+    if not jobData then return false end
+
+    return jobData.jobtype == 'mei' or jobData.type == 'mei'
+end
+
+local function getSocietyBalance(accountName)
+    if not library.banking or type(library.banking.JobAccountExists) ~= 'function' then return nil end
+
+    local existsOk, exists = pcall(library.banking.JobAccountExists, accountName)
+    if not existsOk or exists ~= true then return nil end
+
+    local ok, balance = pcall(library.banking.GetJobAccountBalance, accountName)
+    if not ok then return nil end
+
+    return tonumber(balance)
+end
+
+local function removeSocietyMoney(accountName, payment)
+    if not library.banking or type(library.banking.RemoveJobAccountBalance) ~= 'function' then return false end
+    local ok, result = pcall(library.banking.RemoveJobAccountBalance, accountName, payment, translate('payments.reason'))
+
+    return ok and result ~= false
+end
+
+local function addSocietyMoney(accountName, amount, reason)
+    if not library.banking or type(library.banking.AddJobAccountBalance) ~= 'function' then return false end
+    local ok, result = pcall(library.banking.AddJobAccountBalance, accountName, amount, reason)
+
+    if not ok or result == nil then return false, 'government_charge_unknown' end
+    return result == true
+end
+
+local function payPlayer(player, settings)
+    if not player or not player.PlayerData then return false, 'invalid_player' end
+
+    local data = player.PlayerData
+    if data.metadata and data.metadata.prCompatPaycheckEnabled == false then
+        return false, 'individual_paycheck_disabled'
+    end
+    local job = data.job
+    if not job or not job.name then return false, 'missing_job' end
+
+    local jobData = getJob(job.name)
+    if not jobData then return false, 'missing_job_data' end
+
+    local grade = job.grade
+    local level = type(grade) == 'table' and grade.level or grade
+    local gradeData = getGradeData(jobData, level) or {}
+    local payment = tonumber(gradeData.payment or job.payment) or 0
+
+    if payment <= 0 then return false, 'no_payment' end
+    if not settings.payOffDuty and not jobData.offDutyPay and not job.onduty then return false, 'off_duty' end
+
+    local isMei = isMeiJob(jobData)
+    local useSociety = settings.useSociety == true or isMei
+    local societyPercent = isMei and 100 or clampPercent(settings.societySalaryPercent, 100)
+    local societyDebit = useSociety and math.floor((payment * societyPercent / 100) + 0.5) or 0
+
+    if societyDebit > 0 then
+        local balance = getSocietyBalance(job.name)
+
+        if balance == nil then
+            notify(data.source, {
+                title = translate('payments.title'),
+                description = translate('notify.payments.society_missing'),
+                type = 'error',
+            })
+            return false, 'society_missing'
+        end
+
+        if balance < societyDebit then
+            notify(data.source, {
+                title = translate('payments.title'),
+                description = translate('notify.payments.society_no_money'),
+                type = 'error',
+            })
+            return false, 'society_no_money'
+        end
+
+        if not removeSocietyMoney(job.name, societyDebit) then
+            notify(data.source, {
+                title = translate('payments.title'),
+                description = translate('notify.payments.society_remove_failed'),
+                type = 'error',
+            })
+            return false, 'society_remove_failed'
+        end
+    end
+
+    local ok = player.Functions.AddMoney(settings.account, payment, translate('payments.reason'))
+    if not ok then
+        if societyDebit > 0 then
+            addSocietyMoney(job.name, societyDebit, translate('payments.refund_reason'))
+        end
+        return false, 'add_money_failed'
+    end
+
+    if settings.notify then
+        notify(data.source, {
+            title = translate('payments.title'),
+            description = translate('notify.payments.received', { payment = payment }),
+            type = 'success',
+        })
+    end
+
+    return true, payment
+end
+
+local function payVipSalary(player, settings)
+    if not player or not player.PlayerData or not services.VipService then return false, 'invalid_player' end
+    local source = player.PlayerData.source
+    local active = services.VipService.get(source)
+    local salary = active and active.config and active.config.salary
+    if not salary or salary.enabled ~= true or (tonumber(salary.amount) or 0) <= 0 then return false, 'no_vip_salary' end
+    local amount = math.floor(tonumber(salary.amount) or 0)
+    local account = tostring(salary.account or 'bank')
+    local reason = ('Salário VIP %s'):format(active.config.label or active.tier)
+    local accountOk, accountResult = pcall(player.Functions.AddMoney, account, amount, reason)
+    local success = accountOk and accountResult ~= false
+    if not success and integrations.inventoryReady() then
+        local itemOk, itemResult = pcall(function() return library.inventory.AddItem(source, account, amount) end)
+        success = itemOk and itemResult ~= false
+    end
+    if not success then return false, 'vip_add_currency_failed' end
+    if settings.notify then
+        notify(source, { title = translate('payments.title'), description = ('Salário VIP %s recebido: %s %s.'):format(active.config.label or active.tier, amount, account), type = 'success' })
+    end
+    return true, amount
+end
+function Payments.getSettings()
+    local settings = next(Payments.settings) and Payments.settings or defaultSettings()
+
+    return {
+        enabled = settings.enabled,
+        intervalMinutes = settings.intervalMinutes,
+        account = settings.account,
+        payOffDuty = settings.payOffDuty,
+        useSociety = settings.useSociety,
+        societySalaryPercent = settings.societySalaryPercent,
+        notify = settings.notify,
+        mei = settings.mei or defaultSettings().mei,
+        nextPaymentAt = Payments.nextPaymentAt,
+    }
+end
+
+function Payments.load()
+    local stored = services.JobStorage.loadPayments()
+
+    if not next(stored) then
+        Payments.settings = defaultSettings()
+    else
+        Payments.settings = normalizeSettings(stored)
+    end
+
+    Payments.nextPaymentAt = clock() + Payments.settings.intervalMinutes * 60
+    return Payments.getSettings()
+end
+
+function Payments.save(settings)
+    local draft = normalizeSettings(settings)
+    local saved = services.JobStorage.savePayments(draft)
+    if saved then
+        Payments.settings = draft
+        Payments.nextPaymentAt = clock() + draft.intervalMinutes * 60
+        debug('success', translate('debug.payments.saved'))
+    end
+
+    return saved
+end
+
+function Payments.processAll(reason)
+    local settings = Payments.settings
+    if not settings.enabled and reason ~= 'force' then return 0, 0 end
+
+    local paid = 0
+    local skipped = 0
+    local players = getPlayers()
+
+    for _, player in pairs(players) do
+        local jobPaid = payPlayer(player, settings)
+        local vipPaid = payVipSalary(player, settings)
+        if jobPaid or vipPaid then
+            paid = paid + 1
+        else
+            skipped = skipped + 1
+        end
+    end
+
+    debug('info', translate('debug.payments.cycle_finished', {
+        paid = tostring(paid),
+        skipped = tostring(skipped),
+        reason = tostring(reason or 'interval'),
+    }))
+
+    Payments.nextPaymentAt = clock() + settings.intervalMinutes * 60
+    return paid, skipped
+end
+
+function Payments.force(source)
+    if services.JobService and not services.JobService.canManage(source) then
+        return false, 'no_permission'
+    end
+
+    local paid, skipped = Payments.processAll('force')
+    notify(source, {
+        title = translate('payments.title'),
+        description = translate('notify.payments.forced', { paid = paid, skipped = skipped }),
+        type = 'success',
+    })
+
+    return true, { paid = paid, skipped = skipped }
+end
+
+function Payments.update(source, settings)
+    if services.JobService and not services.JobService.canManage(source) then
+        return false, 'no_permission'
+    end
+
+    local saved = Payments.save(settings)
+    if not saved then return false, 'save_failed' end
+
+    notify(source, {
+        title = translate('payments.title'),
+        description = translate('notify.payments.saved'),
+        type = 'success',
+    })
+
+    return true, Payments.getSettings()
+end
+
+function Payments.updateMei(source, settings)
+    if services.JobService and not services.JobService.canManage(source) then
+        return false, 'no_permission'
+    end
+
+    local current = Payments.getSettings()
+    current.mei = normalizeSettings({ mei = settings }).mei
+
+    local saved = Payments.save(current)
+    if not saved then return false, 'save_failed' end
+
+    notify(source, {
+        title = translate('mei.title'),
+        description = translate('notify.mei.settings_saved'),
+        type = 'success',
+    })
+
+    return true, Payments.getSettings()
+end
+
+function Payments.chargeMeiOpening(player, settings)
+    local mei = settings and settings.mei or Payments.getSettings().mei
+    if not mei or not mei.enabled then return false, 'mei_disabled' end
+
+    local amount = math.max(0, tonumber(mei.openingCost) or 0)
+    if amount <= 0 then return true end
+
+    local account = normalizeAccount(mei.paymentAccount)
+    local governmentAccount = normalizeSocietyAccount(mei.governmentAccount)
+
+    if not player.Functions.RemoveMoney(account, amount, translate('mei.opening_reason')) then
+        return false, 'not_enough_money'
+    end
+
+    local transferred, transferErr = addSocietyMoney(governmentAccount, amount, translate('mei.opening_reason'))
+    if transferred then
+        return true
+    end
+    if transferErr then return false, transferErr end
+    if player.Functions.AddMoney(account, amount, translate('mei.refund_reason')) ~= true then return false, 'refund_failed' end
+    return false, 'government_account_failed'
+end
+
+function Payments.refundMeiOpening(player, settings)
+    local mei = settings and settings.mei or Payments.getSettings().mei
+    local amount = math.max(0, tonumber(mei and mei.openingCost) or 0)
+    if amount <= 0 then return true end
+
+    local account = normalizeAccount(mei and mei.paymentAccount)
+    local governmentAccount = normalizeSocietyAccount(mei and mei.governmentAccount)
+    if not library.banking or type(library.banking.RemoveJobAccountBalance) ~= 'function' then return false end
+    local called, removed = pcall(library.banking.RemoveJobAccountBalance, governmentAccount, amount, translate('mei.refund_reason'))
+    if not called or removed ~= true then return false end
+    local credited, result = pcall(player.Functions.AddMoney, account, amount, translate('mei.refund_reason'))
+    if credited and result == true then return true end
+    -- Keep the government transfer balanced if the player's refund is rejected.
+    if credited then addSocietyMoney(governmentAccount, amount, translate('mei.opening_reason')) end
+    return false
+end
+
+function Payments.start()
+    if Payments.started then return true end
+
+    Payments.started = true
+    Payments.load()
+
+    native.spawn(function()
+        while Payments.started do
+            native.wait(5000)
+
+            if Payments.settings.enabled then
+                local now = clock()
+                if now >= Payments.nextPaymentAt then
+                    Payments.processAll('interval')
+                end
+            else
+                Payments.nextPaymentAt = clock() + Payments.settings.intervalMinutes * 60
+            end
+        end
+    end)
+
+    debug('success', translate('debug.payments.started'))
+    return true
+end
+return Payments
+end
+

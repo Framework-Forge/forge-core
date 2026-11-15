@@ -1,0 +1,13 @@
+local M=dofile('tests/kernel_native_bootstrap_harness.lua');local r=M.server();local before=r.fixture.snapshot()
+r.allocateBootstrap();M.H.same(r.fixture.snapshot(),before,'100 allocation inert');assert(r.active()==0 and #r.locales.reads==0)
+r.prepareBootstrap();assert(r.api.Graph.PlayerCore==r.fixture.base.PlayerCore)
+local originalEvents=r.importPorts.deliveryContext.mediaContext.supportContext.configurationContext.vehicleContext.bankingContext.operationsContext.inventoryContext.startup.lifecycle.events
+assert(originalEvents==r.events,'caller ports not mutated')
+r.startBootstrap();assert(r.api.Progress().phase=='running'and not r.api.OperationalReady)
+local pc=r.graph.PlayerCore;pc.Players.CheckPlayerData(2,{citizenid='NATIVE100',license='license:test',userId=101})
+pc.Players.SetMetadata(2,'native100',100);assert(r.cacheDelivery.host.GetMetadata(2,'native100')==100)
+assert(r.surface.exports.GetPlayer(2)==pc.Lookup.GetPlayer(2));assert(r.active('onResourceStop')==1 and r.active('ox_lib:setLocale')==1)
+r.emit('ox_lib:setLocale','pt-br');assert(r.surface.exports.getLocale('error.not_online')==r.api.Context.Imports.Translate('error.not_online'))
+assert(r.drain());assert(r.api.Progress().complete and r.api.Transport.Progress().listenerRemaining==0)
+assert(r.surface.exports.GetPlayer(2)==nil and r.surface.exports.getLocale('x')==nil and r.active()==0)
+print('PASS lot100 actual server74 through native99 ports:inert construction,one graph/Player/cache/locale/Stop,unchanged caller providers,ordered Prepare/Install/Start and owned drain;virtual native/SQL/PR only')

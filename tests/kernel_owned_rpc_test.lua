@@ -1,0 +1,12 @@
+local T=dofile('tests/kernel_owned_rpc_harness.lua');local H=T.H;local w=T.new()
+assert(w.server.active()==0 and w.client.active()==0);local a=w.scopes.server
+local captured=a.Owners.native.Capture('owned122',function()a.Native.register('owned122',function(source,...)return source,...end)end)
+w.open();assert(w.server.active()==7 and w.client.active()==5 and w.prs.server.callback==a.Native)
+local lease=a.Owners.native.Reserve('owned122');assert(a.Owners.native.Bind(lease,captured))
+H.same(table.pack(w.scopes.client.Native.await('owned122',5000,false,nil,8)),table.pack(2,false,nil,8),'native installed source/tuple')
+local ox=a.Owners.ox.Reserve('ox122');assert(a.Owners.ox.Bind(ox,function(source,...)return source,...end))
+H.same(table.pack(w.scopes.client.Ox.await('ox122',false,false,nil,9)),table.pack(2,false,nil,9),'ox installed source/tuple')
+assert(not pcall(a.Native.register,'bypass122',function()end));assert(not a.Open())
+local held=w.scopes.client.Native.await;assert(a.Close()and a.Progress().complete and w.server.active()==0)
+assert(w.scopes.client.Close()and w.client.active()==0 and not pcall(held,'owned122',1))
+print('PASS lot122 single native/ox engines with actual adapters/registry/owned52;source/tuples,capture,no legacy bypass,seven/five owned base listeners closed')

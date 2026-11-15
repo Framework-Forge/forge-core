@@ -1,0 +1,3 @@
+# JobService administrativo — lote 15
+
+Porte privado/inativo do server/job/service.lua instalado do Forge Core. Autoria: Forge Devs — PierreMoraes. Corpo integral, incluindo MEI, preservado com dependências explícitas; operações do núcleo usam Groups/Player/lookup/Lifecycle locais. Persistência, banco externo e notificações permanecem biblioteca PR. Componentes QBX anteriormente portados conservam LICENSE-QBX. Payments/Points/Business são dependências futuras, não importações de serviços ativos antigos. Sem manifesto, SQL real, JSON operacional ou lifecycle ativado. Falhas herdadas de confirmação, reload/start e identidade em operações suspensas exigem decisão antes dos binds.

@@ -1,0 +1,1 @@
+Inactive150 physical engine entry with146-149,96-file overlay/93 Lua. Captures actual environment functions;missing required slots fail preparation. Unknown/optional native ports stay explicit. No manifest/cfg/data activation or real UAT.

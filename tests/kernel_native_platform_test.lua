@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_native_platform_harness.lua');local r=T.new('server');r.mount();local p=r.platform.Player();assert(#r.effects==0)
+local result=table.pack(p.getIdentifier(2,'license'));assert(result.n==4 and result[1]=='GetPlayerIdentifierByType'and result[2]==nil and result[3]==false and result[4]==7)
+p.emitServer('local137',2);assert(r.effects[#r.effects][1]=='TriggerEvent');assert(p.time()==101 and p.locale('x',2)=='x')
+assert(p.on('test',function()end)=='token');local n=r.platform.Select({'getSource','SetPlayerRoutingBucket'});r.source=33;assert(n.getSource()==33);r.source=34;assert(n.getSource()==34)
+local effect=false;p.thread(function()effect=true end);r.platform.Close();r.clock.advance(1);assert(not effect and r.platform.Progress().complete);r.finish()
+local c=T.new('client');c.mount();c.platform.Select({'emitServer'}).emitServer('net137');assert(c.effects[1][1]=='TriggerServerEvent');c.finish()
+print('PASS lot137 explicit Player fields,server/client event destinations,tuples/dynamic source/owned listen,time/locale and queued Close;all engine effects virtual')

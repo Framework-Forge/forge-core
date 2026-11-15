@@ -1,0 +1,1 @@
+Etapa244: owner concreto QB95/gateways QBX105/publicação110,mesmo grafo/origem241.Registradores externos bloqueados até commit/barreira;origem emprestada,núcleo não fechado.enablebridge=false usa API sem getter QB.Inativo.

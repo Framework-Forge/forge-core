@@ -1,0 +1,1 @@
+Inactive145 physical entry141-144 and91-file overlay;88 Lua. No production manifest/cfg/data changed. Historical gate inclusion is pending approval;candidate-only checks do not replace it. Real UAT/readiness remain pending.

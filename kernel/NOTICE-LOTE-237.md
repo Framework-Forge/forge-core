@@ -1,0 +1,1 @@
+Etapa237: grupo de consumidores e controle PR no próprio contexto do consumidor. Não publica exports automaticamente;proxies/rota Cfx explícitos pendentes de montagem. Teste com factories PR/API/admissão reais,plataforma e compatibilidade virtuais. Inativo.

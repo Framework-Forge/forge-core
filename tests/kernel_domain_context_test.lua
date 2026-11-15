@@ -1,0 +1,8 @@
+local T=dofile('tests/kernel_domain_context_harness.lua');local s=T.server();s.allocateProfile();assert(s.profile.Prepare('pt-br'));s.surface.Open();assert(s.profile.Install())
+local g=s.profile.Bootstrap.Graph;assert(g.Config.Inventory==s.domainConfig.Config.Inventory and g.Config.CharacterSlots==s.domainConfig.Config.CharacterSlots)
+assert(g.Central.Config.Job==s.domainConfig.Config.Job);assert(s.profile.Stop());s.domainPersistence.Close();s.finishProfile()
+local c=T.client();c.allocateClientProfile();assert(c.profile.Prepare('pt-br'));c.installClientProfile();c.runtimeImports.pollNative();assert(c.profile.Start())
+local a=c.profile.Bootstrap.Graph;assert(a.Config.Inventory==c.domainConfig.Config.Inventory and a.Central.Config.Inventory==a.Config.Inventory)
+assert(a.Config.CharacterSlots.previewStorage=='data/character_previews.json');assert(c.profile.Stop())
+assert(#c.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16);c.finishProfile()
+print('PASS143 full100/101 allocations with canonical domain configs,central identities and single client shutdown;other providers explicit')

@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_forge_preflight_harness.lua');local p=T.probe();assert(p.pings==0 and p.describes==0)
+local ok,report=p.api.Check();assert(ok and #report.checks==10 and p.pings==1 and p.describes==1 and not p.api.OperationalReady)
+p.selection='qbx';assert(not p.api.Check()and p.pings==1)
+local r=T.context();r.prepareForge();assert(r.startupInstall());r.emit('onResourceStart','forge-core');r.begin();if coroutine.status(r.co)~='dead'then r.resume()end;assert(r.outcome[1]and r.outcome[2],tostring(r.outcome[3]or r.outcome[2]))
+assert(r.api.Progress().phase=='running'and r.api.Schema.Progress().verified)
+r.api.Stop();r.clock.advance(1200000);r.api.Poll()
+print('PASS lot126 explicit Forge preflight and derived61/60 startup,ten checks,prepared descriptor/no core pull,qbx refused;schema/start/stop effects virtual')

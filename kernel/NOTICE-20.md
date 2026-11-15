@@ -1,0 +1,3 @@
+# Lote 20 — porte privado de consumo
+Corpos completos de server/inventory/consumables.lua, client/inventory/consumables.lua e do registro/dispatch usável do adaptador PR OX instalado, com portas explícitas e composições canônicas. Nenhum bind ou inicialização automática. Identificadores QBX preservados; status/registro usável resolvem localmente. Hooks/remoção via PR; evidence/lockpick exigem integração PR futura. Código QBX previamente portado mantém LICENSE-QBX.
+Riscos de bloqueio/identidade pós-wait, confirmação/descarte e persistência de efeitos herdados não foram corrigidos. Testes em memória não autorizam ativação nem equivalem ao caso completo MIG-23.

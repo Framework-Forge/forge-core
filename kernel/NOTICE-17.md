@@ -1,0 +1,3 @@
+# Pontos e negócios de empregos — lote 17
+
+Porte privado/inativo dos server/job/points.lua e server/job/business.lua instalados do Forge Core. Autoria: Forge Devs — PierreMoraes. Componentes QBX anteriores conservam LICENSE-QBX. PD/duty/membresias/lookup/autoridade resolvem localmente; inventário/telefone/banking/webhook ficam contratos PR explícitos. Protocolos de hook/post-event do OX personalizado preservados, mas ownership/remoção/HTTP e outras lacunas requerem bind/integração futura. Nenhum registro, item, saldo, SQL, JSON operacional, HTTP ou evento real ativado neste lote. Falhas herdadas de compensação/confirmação/distância/descarte não foram corrigidas por consequência.

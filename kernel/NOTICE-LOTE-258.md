@@ -1,0 +1,1 @@
+Etapa258: Start servidor concreto revelou CreateThread ausente no controle e timer versionCheck sem dono após Close.Revisões novas usam EngineInputs.CreateThread e scheduler do Logging owner existente.Teste Start/Stop/Poll+HTTP pendente+relógio após fechamento.Sem efeitos reais.

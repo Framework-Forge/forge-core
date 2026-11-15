@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_domain_entry145_harness.lua')
+local r=T.client();r.options140.domainLocale=nil;local e=r.allocate145();assert(not e.Prepare()and e.Progress().complete and r.env140.PRCore.forgeNativeSeed==nil);r.finish145()
+local a=T.client();a.env140.vec3=nil;local ok,b=pcall(a.allocate145);assert(not ok and a.env140.PRCore.forgeNativeSeed==nil);a.finish145()
+local c=T.client();c.options140.domainLocale={};local d=c.allocate145();assert(not d.Prepare()and d.Progress().complete);c.finish145()
+local f=T.client();local g=f.allocate145();assert(not g.Install()and not g.Start());assert(g.Stop()and not g.Prepare());f.finish145()
+local h=T.client();local i=h.allocate145();assert(not pcall(h.factory145,h.raw,h.options140));i.Stop();h.finish145()
+print('PASS145 five entry required-locale/vector/type/order/duplicate checks;failed configuration closes owned seed without closing borrowed raw')

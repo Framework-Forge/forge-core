@@ -1,0 +1,3 @@
+# Etapa179
+
+Fundação nativa integrada: seed130, registros176, bases172/173, cache174, idiomas175, engine177 e factories178. Fábricas reais, sem dependência de harness na implementação. Nenhum contexto completo é fabricado; BindBootstrap conecta o transport e o idioma canônicos após construção do grafo. Close recusa bootstrap ainda ativo e libera seed por último. O observador de printlevel do PR fica adiado até OpenObservers após instalação; remoção recusada conserva a seed e registro incerto impede fechamento confirmado. Não substitui os builders completos servidor100/cliente101 nem a coordenação A–F.

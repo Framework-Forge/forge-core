@@ -1,0 +1,26 @@
+local T=dofile('tests/kernel_owned_rpc_harness.lua');local count=0
+local function case(fn)local w=T.new();fn(w);w.close();count=count+1 end
+case(function(w)w.prs.server.callback={_transportInstalled=true};assert(not w.scopes.server.Open());assert(w.server.active()==0)end)
+case(function(w)local p=w.ports.server;assert(not pcall(T.H.load(T.path,T.H.environment()),p))end)
+case(function(w)w.open();w.foreign='collision122';assert(not pcall(w.scopes.server.Owners.native.Reserve,'collision122'))end)
+case(function(w)w.open();assert(not pcall(w.scopes.server.Owners.native.Release,{}))end)
+case(function(w)w.open();w.stale=true;assert(not w.scopes.server.Owners.native.IsReady());assert(not pcall(w.scopes.client.Native.await,'stale122',1))end)
+case(function(w)
+    w.open();local a=w.scopes.server;local lease=a.Owners.native.Reserve('slow122')
+    assert(a.Owners.native.Bind(lease,function()coroutine.yield('accepted122');return true,nil,'tail'end))
+    local co=coroutine.create(function()return w.scopes.client.Native.await('slow122',10000)end)
+    local ok,v=coroutine.resume(co);assert(ok and v=='accepted122');assert(not a.Close()and a.Progress().pending==1)
+    local out=table.pack(coroutine.resume(co));assert(out[1]and out[2]and out[3]==nil and out[4]=='tail');assert(a.Close())
+end)
+case(function(w)
+    w.open();w.client.hold=true;local co=coroutine.create(function()return w.scopes.client.Native.await('missing122',5000)end)
+    assert(coroutine.resume(co));assert(not w.scopes.client.Close());assert(w.scopes.client.Progress().requests==1)
+    w.expire();local out=table.pack(coroutine.resume(co));assert(out[1]and out[2]==nil and out[3]=='timeout');assert(w.scopes.client.Close())
+end)
+case(function(w)
+    w.open();local token=w.server.find('pr_bridge:callback:response');w.server.failRemove=token
+    assert(not w.scopes.server.Close()and not w.scopes.server.Progress().complete);w.server.failRemove=nil;assert(w.scopes.server.Close())
+end)
+case(function(w)w.loadHook=function(side,path)if side=='server'and path:find('ox_callback',1,true)then error('partial122')end end
+    assert(not w.scopes.server.Open()and w.scopes.server.Progress().complete and w.server.active()==0)end)
+assert(count==9);print('PASS lot122 nine collision/legacy/stale/lease/accepted-work/timeout/removal/partial-open cases;drain before base removal')

@@ -1,0 +1,1 @@
+Inactive141:local composition of installed Forge shared configuration and26 domain families. Original files/data,callbacks and authorship preserved. No JSON read/write or public registration. See migration/BLOCO-141-145.md.

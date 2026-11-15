@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_engine_entry150_harness.lua')
+local r=T.client();r.env150.GetEntityHealth=nil;r.allocate150();local ok,why=r.entry150.Prepare('pt-br');assert(not ok and tostring(why):find('GetEntityHealth',1,true)and r.entry150.Progress().complete);r.finish150()
+local a=T.client();a.env150.promise=false;a.allocate150();assert(not a.entry150.Prepare('pt-br')and a.entry150.Progress().complete);a.finish150()
+local b=T.client();b.options150.domainLocale=nil;b.allocate150();assert(not b.entry150.Prepare('pt-br')and b.entry150.Progress().complete);b.finish150()
+local c=T.client();c.allocate150();assert(not c.entry150.Install()and not c.entry150.Start());assert(c.entry150.Stop()and not c.entry150.Prepare());c.finish150()
+local d=T.client();d.allocate150();assert(not pcall(d.factory150,d.raw,d.options150));d.entry150.Stop();assert(d.raw.RPC.Owners.native.IsReady());d.finish150()
+print('PASS150 five physical entry missing-engine/promise/domain-config/order/duplicate cases;owned seed closes,borrowed raw stays open')

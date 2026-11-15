@@ -1,0 +1,17 @@
+local T=dofile('tests/kernel_client_locale_harness.lua');local r=T.new();local before=r.fixture.snapshot()
+r.allocate();T.H.same(r.fixture.snapshot(),before,'75 allocation inert');assert(#r.locales.reads==0 and r.api.Graph==nil)
+r.prepareLocale();assert(r.initialClientKey=='pt-br'and r.locales.reads[2]=='pt-br','actual client settings resolver,not server convar')
+assert(not r.api.Prepare());assert(r.installLocale());r.runtimeImports.pollNative();assert(r.api.Start())
+local translate=r.api.Context.Imports.Translate
+assert(translate('error.not_online')==r.surface.exports.getLocale('error.not_online'),'shared dictionary before Runtime/Character')
+r.emit('ox_lib:setLocale','en');assert(translate('error.not_online')=='Player not online')
+local data=r.fixture.state.PlayerData;data.citizenid='LANG75';data.metadata={};data.money={cash=7}
+r.graph.Central.Parts.Producers.Cache.Producer.player(data,'test')
+assert(r.cacheDelivery.host.get('playerData').citizenid=='LANG75'and r.api.Context.Imports.NativeCache~=r.api.Context.Context.Boundary.Cache)
+assert(r.active('onResourceStop')==1 and r.active('ox_lib:setLocale')==1)
+r.api.Stop();r.clock.advance(120000);r.api.Poll();assert(r.api.Progress().complete)
+assert(#r.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16,'same16 domain cleanups')
+assert(r.active('ox_lib:setLocale')==0 and r.surface.exports.getLocale('x')==nil and r.surface.exports.GetPlayerData()==nil)
+local native=T.new();native.prepareLocale();assert(native.installLocale());native.emit('onResourceStop','forge-core')
+assert(native.api.Progress().complete,'native Stop with same58 sequence')
+print('PASS lot75 client73:explicit local locale Prepare,installed client resolver,shared Runtime/Character dictionary,event/export reload,native/passive cache separation,one Stop/16 cleanups;virtual only')

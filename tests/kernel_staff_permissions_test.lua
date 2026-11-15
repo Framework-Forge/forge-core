@@ -1,0 +1,62 @@
+local Q=dofile('tests/kernel_staff_harness.lua')
+local H=Q.H
+H.same(Q.config(true),Q.config(false),'whole config')
+H.same(Q.config(true,'custom.admin'),Q.config(false,'custom.admin'),'configured AdminAce')
+Q.case('console manager',function(r)return r.api.canManage(0)end)
+Q.case('job manager',function(r)return r.api.canManage(2)end)
+Q.case('nonadmin',function(r)return r.api.canManage(1)end)
+for _,ace in ipairs({'forge-core.admin','admin','group.admin','command','command.car','command.optin','txAdmin','txAdmin.Menu','txAdmin.players.kick'})do
+    Q.case('configured detection '..ace,function(r)r.aces['player.1']={[ace]=true};return r.api.canManage(1)end)
+end
+Q.case('numeric one ACE accepted',function(r)r.numericAce=true;r.aces['player.1']={admin=true};return r.api.canManage('1')end)
+Q.case('native fallback principal',function(r)r.aces['player.1']={admin=true};return r.api.canManage(1)end,function(r)r.aceDisabled=true end)
+Q.case('native fallback exception guarded',function(r)r.principalError=true;return r.api.canManage(1)end,function(r)r.aceDisabled=true end)
+Q.case('native player exception not swallowed',function(r)r.principalError=true;r.playerAceError=true;return r.api.canManage(1)end,function(r)r.aceDisabled=true end)
+Q.case('PR query error',function(r)r.playerAceError=true;r.principalError=true;return r.api.canManage(1)end)
+Q.case('manager error propagates',function(r)r.manageError=true;return r.api.canManage(2)end)
+Q.case('PR whitelist license fast path',function(r)r.adminConvar='"license:one"';return r.api.canManage(1)end)
+Q.case('PR whitelist character local lookup',function(r)r.adminConvar='"citizenid:one"';return r.api.canManage(1)end)
+Q.case('forbidden framework lookup proves integration gap',function(r)r.adminConvar='"citizenid:one"';r.forbidLookup=true;assert(not r.api.canManage(1));return false end)
+Q.case('catalog fallback+hidden',function(r)return r.api.getPermissionCatalog()end)
+Q.case('PR config catalog memory only',function(r)
+    r.configFiles['server.cfg']={'add_ace group.dev custom.permission allow # comment','add_ace group.dev hidden.deny deny','add_principal identifier.x group.custom'}
+    r.configFiles['permissions.cfg']={'add_ace group.x command allow','add_ace group.x command.car allow'}
+    return r.api.getPermissionCatalog()
+end)
+Q.case('PR registered/dynamic catalog',function(r)
+    r.ace.registerPermission('registered.permission',{label='Registered'});r.catalogConvar='runtime.permission';return r.api.getPermissionCatalog()
+end)
+Q.case('PR empty falls back',function(r)r.ace.getPermissionCatalog=function()return{}end;return r.api.getPermissionCatalog()end)
+Q.case('PR error falls back',function(r)r.ace.getPermissionCatalog=function()error('catalog-error')end;return r.api.getPermissionCatalog()end)
+Q.case('PR wrong type falls back',function(r)r.ace.getPermissionCatalog=function()return'bad'end;return r.api.getPermissionCatalog()end)
+Q.case('no PR catalog fallback',function(r)return r.api.getPermissionCatalog()end,function(r)r.aceDisabled=true end)
+Q.case('permission status console',function(r)return r.api.permissionStatus(0)end)
+Q.case('permission diagnostics invalid',function(r)return r.api.permissionDiagnostics('bad')end)
+Q.case('permission diagnostics stored',function(r)
+    r.players[1].PlayerData.metadata.staff={version=2,permissions={'group.mod','custom.case'}}
+    r.aces['forge.permission.637573746f6d2e63617365']={['custom.case']=true}
+    return r.api.permissionDiagnostics('1')
+end)
+for _,raw in ipairs({'Admin',' group.mod ','custom.permission',{'group.admin','group.admin','BAD SPACE','UPPER.CASE'},
+    {permissions={'support','pr_bridge.developer'}},{['group.mod']=true,['group.admin']=false},42,{}})do
+    Q.case('normalize stored '..tostring(raw),function(r)r.players[1].PlayerData.metadata.staff=raw;return r.api.getPlayerPermissions(1)end)
+end
+Q.case('GetPlayerPermissions object preserves',function(r)return r.api.getPlayerPermissions(r.offline.OFF)end)
+Q.case('GetPlayerPermissions lookup catches',function(r)r.lookupError=true;return r.api.getPlayerPermissions(1)end)
+Q.case('list online/offline+empty metadata table',function(r)
+    r.players[1].PlayerData.metadata.staff={};return r.api.list()
+end)
+Q.case('list no db',function(r)r.library.db=nil;return r.api.list()end)
+Q.case('list SQL error',function(r)r.queryError=true;return r.api.list()end)
+Q.case('list bad offline load swallowed',function(r)r.offlineError=true;return r.api.list()end)
+Q.case('getPlayers coercion/invalid/sorted',function(r)return r.api.getPlayers({'2',999,'1','bad'})end)
+Q.case('getPlayers non-table',function(r)return r.api.getPlayers('bad')end)
+Q.case('start explicit and idempotent',function(r)r.api.start();r.runTimers();return r.api.start()end)
+Q.case('start failed remains started',function(r)
+    r.executeError=true;assert(not pcall(r.api.start));r.executeError=false;assert(r.api.started);return r.api.start()
+end)
+Q.case('timer applies current source not original citizenid',function(r)
+    r.api.start();r.players[1].PlayerData.citizenid='REPLACED';r.players[1].PlayerData.metadata.staff='group.support';r.runTimers()
+end)
+print('PASS staff permission/config/query: '..Q.count..' differential cases; complete legacy+v2 config, PR ACE/catalog in memory and native fallback; no real ACL/DB')
+

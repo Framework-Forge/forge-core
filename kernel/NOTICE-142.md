@@ -1,0 +1,1 @@
+Inactive142:PR Bridge domain persistence view over borrowed IO127. Installed PRCore recovery/batch implementations preserved,including failures/accepted writes. Tests use virtual files only. No operational data changed.

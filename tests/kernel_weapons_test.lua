@@ -1,0 +1,40 @@
+local R=dofile('tests/kernel_server_runtime_harness.lua')
+local H,count=R.H,0
+local function test(name,fn) R.compare('weapons',name,fn);count=count+1 end
+test('invalid batch',function(r) return r.api.CreateWeapons('invalid') end)
+test('empty batch',function(r) return r.api.CreateWeapons({}) end)
+test('invalid entries',function(r) return r.api.CreateWeapons({a=false,b=3,c={name=''}}) end)
+test('normalization/hash/no stored hash',function(r)
+    local value={name='WEAPON TEST',hash='10',label='Test',nested={x=1}}
+    assert(r.api.CreateWeapons({value})); assert(r.core.Shared.Weapons[10].name=='weapon_test' and r.core.Shared.Weapons[10].hash==nil)
+    value.nested.x=4;assert(r.core.Shared.Weapons[10].nested.x==1)
+    return r.api.HasWeapon(10)
+end)
+test('missing name mutates batch input',function(r)
+    local value={label='No name'};assert(r.api.CreateWeapons({WEAPON_MISSING=value}));assert(value.name=='WEAPON_MISSING')
+    return r.api.HasWeapon('weapon_missing')
+end)
+test('cyclic weapon clone',function(r)
+    local value={name='weapon_cycle',hash=10};value.self=value
+    assert(r.api.CreateWeapons({value}));local stored=r.core.Shared.Weapons[10];assert(stored~=value and stored.self==stored)
+    local has,copy,managed,hash=r.api.HasWeapon(10);assert(has and copy~=stored and copy.self==copy and managed and hash==10)
+end)
+for _,input in ipairs({123,'123','weapon_old','missing',false}) do
+    test('has '..tostring(input),function(r) return r.api.HasWeapon(input or nil) end)
+    test('remove '..tostring(input),function(r) return r.api.RemoveWeapon(input or nil) end)
+end
+test('managed clone isolated',function(r)
+    r.api.CreateWeapons({{name='weapon_test',hash=10}});local managed=r.api.GetManagedWeapons();managed[10]=nil
+    assert(r.api.GetManagedWeapons()[10]);return r.api.HasWeapon(10)
+end)
+test('replace then remove',function(r)
+    local ref=r.core.Shared.Weapons;r.api.CreateWeapons({{name='first',hash=10}});r.api.CreateWeapons({{name='second',hash=10}})
+    assert(r.core.Shared.Weapons==ref);local before=r.api.HasWeapon(10);assert(r.api.RemoveWeapon(10));assert(not r.api.RemoveWeapon(10))
+    return before,r.api.HasWeapon(10),r.api.GetManagedWeapons()
+end)
+test('zero hash',function(r) r.api.CreateWeapons({{name='zero',hash=0}});return r.api.HasWeapon(0),r.api.RemoveWeapon(0) end)
+test('has returns clone',function(r)
+    local _,copy=r.api.HasWeapon(123);copy.label='Changed';assert(r.core.Shared.Weapons[123].label=='Old')
+    return r.api.GetManagedWeapons()
+end)
+print('PASS weapon catalog: '..count..' differential cases; four exports, cycle-safe clones, normalization/input mutation, managed state and shared update/removal; no OX integration')

@@ -1,0 +1,1 @@
+Inactive151 mounts the installed PR native progress engine once per local PRCore. No second implementation. Owned listener/ingress/pending accounting;accepted cleanup drains before releasing scope. Virtual tests only;other PR modules remain separate.

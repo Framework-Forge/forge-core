@@ -1,0 +1,1 @@
+Etapa239: entrada revisável aceita montagem A–F explícita e fixa a mesma barreira nas opções físicas. Coordenador v4/cliente v2. Não instalada;providers de compatibilidade/consumidores/probes/registro/locale permanecem obrigatórios.

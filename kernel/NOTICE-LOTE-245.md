@@ -1,0 +1,1 @@
+Etapa245: portas de compatibilidade capturam funções Cfx usadas no código portado e biblioteca/Inventory.Search já preparados no PR.Factory não executa conversão legada;config Shared e conversor são dependências explícitas.Inativo.

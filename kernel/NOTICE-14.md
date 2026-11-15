@@ -1,0 +1,3 @@
+# Catálogos administrativos de empregos/grupos — lote 14
+
+Porte privado/inativo dos fontes instalados do Forge Core: shared/job.lua e server/job/{registry,storage,qbx_sync}. Autoria do recurso: Forge Devs — PierreMoraes. Configuração e persistência PR explícitas; projeção passa a chamar o Groups interno, sem encaminhar exports QBX. A implementação Groups/Player anteriormente portada mantém sua licença original em LICENSE-QBX. Nenhum recurso ativo/JSON foi alterado. Service, duty, MEI/payroll, membresias/SQL e compat/binds ainda precisam conciliação; a composição não inicia reload, transações ou pagamentos.

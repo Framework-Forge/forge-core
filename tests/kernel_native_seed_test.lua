@@ -1,0 +1,16 @@
+local T=dofile('tests/kernel_native_seed_harness.lua');local r=T.server()
+assert(r.ioFixture.core.forgeOwnedCallbacks==r.servicesFixture.wire.scopes.server and #r.ioFixture.writes==0)
+assert(r.registry.Require('kernel.server.main')==r.registry.Require('kernel.server.main_forge'))
+assert(r.registry.Require('kernel.server.startup_context')==r.registry.Require('kernel.server.startup_forge_context'))
+r.allocateBootstrap();assert(r.api.Prepare('pt-br'));r.graph=r.api.Graph
+assert(r.fixture.base.PlayerCore==r.graph.PlayerCore and r.fixture.base.PlayerCore.State==r.graph.PlayerCore.State)
+assert(r.public.library.cache==r.public.cache and r.public.library.callback==r.servicesFixture.wire.scopes.server.Native)
+r.installNewPR();assert(r.servicesFixture.wire.scopes.server.Progress().leases==203)
+r.emit('onResourceStart','forge-core');r.begin();if coroutine.status(r.co)~='dead'then r.resume()end
+assert(r.outcome[1]and r.outcome[2],tostring(r.outcome[3]or r.outcome[2]));assert(r.api.Progress().phase=='running')
+assert(r.seed.Execution.Native.GetConvar('inventory:framework','qbx')=='forge'and #r.ioFixture.writes==0)
+assert(r.seed.IO.JSON.loadJson('@forge-core/data/character_previews.json'))
+r.api.Stop();r.clock.advance(1200000);r.api.Poll();assert(r.seed.Close()and r.seed.Progress().complete)
+assert(r.servicesFixture.wire.scopes.server.Owners.native.IsReady(),'borrowed RPC must stay open until its own shutdown')
+assert(r.servicesFixture.api.Close());r.servicesFixture.wire.close()
+print('PASS lot130 server100 via127 IO/130 registry/126 Forge startup+main,pt-br installed locale,128 passive library,129 native convars,same123/122203 leases;all writes DB scheduling virtual')

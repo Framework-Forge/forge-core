@@ -1,0 +1,4 @@
+# Lote 25 — menus centrais/de empregos privados e inativos
+Porte integral dos fontes Forge instalados menu.lua/menu_job.lua/menu_business.lua/menu_mei.lua e job/creator.lua em seis módulos privados. Mesmo Menu/Shared/JobState/Producer/Legacy/JobZoneCore, sem processar nova autoridade ou registrar evento/export/callback no construtor. UI/RPC/utilitários seguem PR; seis painéis externos têm portas futuras PR e a interface global já usa PR, sem novos exports diretos nem ligação em produção.
+Formulários/campos perdidos, snapshots/timers antigos, locks em exceção, índices de pergunta e demais falhas herdadas não foram corrigidos silenciosamente. Outros menus/serviços e bootstrap permanecem pendentes; teste simulado não autoriza ativação/SQL/recursos reais. Mantém capturas e fontes anteriores intactos.
+

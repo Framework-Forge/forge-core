@@ -1,0 +1,16 @@
+local T=dofile('tests/kernel_consumer_admission_harness.lua');local r=T.new();r.prepareAdmission()
+assert(not r.admission.IsAllowed(r.boundResource,'call'));r.commitAdmission()
+assert(r.admission.IsAllowed(r.boundResource,'call')and r.proxy.API.framework.GetPlayer(2)==r.graph.PlayerCore.State.Players[2])
+assert(r.pr.forgeNormalizedFacade.GetIdentifier(2)=='LATE114');r.consumerInstance='consumer124-v2'
+assert(not r.admission.IsAllowed(r.boundResource,'call')and not pcall(r.proxy.API.framework.GetPlayer,2))
+local held=r.surface.exports.ForgePrConsumerState;assert(r.control.Close()and held('barrier119','consumer124-v2','committed')==nil)
+r.finish()
+local P=dofile('tests/kernel_activation_package_harness.lua');local M=dofile('tests/kernel_native_registration_harness.lua')
+local barrier=P.barrier();local n=M.new();local env=T.H.environment({require=function(name)assert(name=='kernel.entry.ingress_ports');return T.H.load('kernel/entry/ingress_ports.lua',T.H.environment())end})
+local bind=T.H.load('kernel/entry/bootstrap_ingress_ports.lua',env);n.ports=bind(barrier,n.ports,{})
+local pub=n.allocate();assert(pub.Open());local calls=0
+pub.Public.publishExport('ForgePrConsumerState',function()calls=calls+1;return true end)
+pub.Public.publishExport('game124',function()calls=calls+1 end)
+assert(n.published.ForgePrConsumerState());n.published.game124();assert(calls==1)
+assert(barrier.Close()and pub.Close())
+print('PASS lot124 actual117/118/119 plus observed native control53 and99 ingress exception;Prepare/Attach/commit same Player;instance change closes calls,no caller in payload')

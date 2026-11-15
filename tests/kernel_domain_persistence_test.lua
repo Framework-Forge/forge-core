@@ -1,0 +1,10 @@
+local T=dofile('tests/kernel_domain_persistence_harness.lua');local r=T.new();local reads,writes=#r.reads,#r.writes;local p=r.mount();assert(#r.reads==reads and #r.writes==writes)
+r.files['forge-core/data/character_previews.json']='{"value":71}'
+local loaded=p.Library.loadJsonRecovery('data/character_previews.json',true);assert(loaded.value==71)
+assert(p.Library.saveJsonRecovery('data/domain142.json',{value=72},{indent=true}))
+assert(p.Library.loadJsonRecovery('data/domain142.json').value==72)
+local before=#r.writes;local direct=r.api.JSON.saveJsonBatch({['data/a142.json']={value=1},['data/b142.json']={value=2}})
+local mediated=p.Library.saveJsonBatch({['data/a142.json']={value=1},['data/b142.json']={value=2}})
+T.H.same(mediated,direct,'batch result');assert(#r.writes>=before)
+assert(p.Close()and not r.api.Progress().closed);assert(r.api.JSON.loadJsonRecovery('data/domain142.json').value==72)
+print('PASS142 installed PRCore recovery/batch delegates with virtual files,preview path,read/write returns and borrowed IO preserved')

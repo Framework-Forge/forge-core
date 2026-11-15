@@ -1,0 +1,8 @@
+local T=dofile('tests/kernel_native_domains_config_harness.lua');local r=T.new();local a=r.mount();local b=r.mount()
+assert(a.Config~=b.Config and a.Config.Npcs~=b.Config.Npcs and a.Config.Npcs.AnimationPresets~=b.Config.Npcs.AnimationPresets)
+a.Config.Stores.Defaults.enabled=false;assert(b.Config.Stores.Defaults.enabled)
+r.current=false;assert(not pcall(r.mount))
+local q=T.new();q.ports.locale=nil;assert(not pcall(q.mount))
+local p=T.new();local old=p.ports.requireLocal;p.ports.requireLocal=function(name)local v=old(name);p.current=false;return v end;assert(not pcall(p.mount))
+local z=T.new();z.ports.vec3=nil;assert(not pcall(z.mount))
+print('PASS141 five isolation/refusal checks;fresh tables,stale owner,required locale/vector,change during module load')

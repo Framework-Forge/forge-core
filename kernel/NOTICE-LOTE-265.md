@@ -1,0 +1,1 @@
+Etapa265: prova servidor A–F com preparador/entry/compat/API/admissão/host reais e uma seed.F pendente→commit sem nova construção.Proveniência normalizada para Cfx virtual no harness;controle externo raw e efeitos IO/SQL/Cfx virtuais.Inativo.

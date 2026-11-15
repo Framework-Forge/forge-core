@@ -1,0 +1,12 @@
+local H=dofile('tests/kernel_harness.lua');local factory=H.load('../pr_bridge/bridge/delivery/forge_progress_streaming_lease.lua',H.environment())
+local function ports(fn)return{requestModel=fn,releaseModel=fn,requestAnimDict=fn,releaseAnimDict=fn}end
+local calls=0;local current=true;local p=ports(function(...)calls=calls+1;return nil,...,false end)
+local lib=factory(p,function()return current end)
+local out=table.pack(lib.requestModel('model'));assert(out.n==3 and out[1]==nil and out[2]=='model'and out[3]==false)
+current=false;assert(not pcall(lib.requestModel,'m')and calls==1)
+current=true;local failing=factory(ports(function()error('provider failure')end),function()return current end)
+local ok,err=pcall(failing.requestAnimDict);assert(not ok and tostring(err):find('provider failure'))
+local after=factory(ports(function()current=false;return true end),function()return current end)
+assert(not pcall(after.releaseModel));assert(p.requestModel~=lib.requestModel)
+assert(not pcall(factory,{},function()return true end))
+print('PASS160 five lease checks:nils/returns,closed before call,provider error,closed after call,missing methods/no mutation')

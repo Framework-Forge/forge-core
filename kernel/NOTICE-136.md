@@ -1,0 +1,1 @@
+Private client binder/profile reuse the current122 native/ox owner for both descriptors and requests,including Character's explicit callbacks. No callback engine/init/framework/policy or live manifest changes. Same canonical101 graph/PlayerData/Stop ledger. Profile releases its leases without shutting borrowed122. Virtual tests only.

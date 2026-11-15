@@ -1,0 +1,10 @@
+local T=dofile('tests/kernel_native_graph_harness.lua');local s=T.server();s.allocateProfile();assert(s.profile.Prepare('pt-br'));s.surface.Open();assert(s.profile.Install())
+s.emit('onResourceStart','forge-core');s.begin();if coroutine.status(s.co)~='dead'then s.resume()end;assert(s.outcome[1]and s.outcome[2],tostring(s.outcome[3]or s.outcome[2]))
+assert(s.profile.Stop());s.platform.Close();s.finishProfile()
+local c=T.client();c.allocateClientProfile();assert(c.profile.Prepare('pt-br'));c.installClientProfile();c.runtimeImports.pollNative();assert(c.profile.Start())
+local data=c.fixture.state.PlayerData;data.citizenid='GRAPH139';data.metadata={};data.money={cash=1}
+c.profile.Bootstrap.Graph.Central.Parts.Producers.Cache.Producer.player(data,'test');assert(c.surface.exports.GetPlayerData()==data)
+assert(c.seedUnit.wire.scopes.server.Ox.await('qbx_core:client:getStatusSnapshot',2))
+assert(c.profile.Stop());assert(#c.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16)
+c.platform.Close();c.utilities.Close();c.finishProfile()
+print('PASS lot139 server100 Player platform/client10122 native ports+PR utilities,one state/status RPC136 and lifecycle/cleanup preserved;remaining platform/domain ports explicit')

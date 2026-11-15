@@ -1,0 +1,1 @@
+Private native/platform alias selection is explicit and delegates to129 and borrowed99. Player fields match installed02;server emitServer is local TriggerEvent. No raw listener/bootstrap/export routing or source snapshot. Existing task scopes57 remain owners;queued bodies are inert after this view closes. Runtime operations are virtual in tests.

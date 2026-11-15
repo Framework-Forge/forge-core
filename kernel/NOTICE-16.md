@@ -1,0 +1,3 @@
+# Pagamentos e VIP — lote 16
+
+Porte privado/inativo dos fontes instalados Forge Core server/job/payments.lua, server/vip/service.lua e shared/vip.lua. Autoria: Forge Devs — PierreMoraes. Componentes QBX prévios preservam LICENSE-QBX. Dinheiro/metadados/catálogos resolvem no mesmo Player/lookup/Groups; sociedades e inventário externo permanecem contratos PR. Bônus ApplyPlayerInventoryBonus exige integração PR futura específica do OX personalizado; funções bancárias ausentes/retornos ambíguos e falhas herdadas não foram corrigidos por consequência. VIP Initialize e pagamentos start são explícitos; nenhuma rotina/ACE/JSON/saldo/inventário real ativado no construtor ou neste lote.

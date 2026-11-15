@@ -1,0 +1,1 @@
+Etapa238: compositor A–F/barreira/probes/publicação/grupo de consumidores. Teste integrado usa módulos reais,com delegate de boot/compatibilidade/plataforma virtuais. Não comprova boot físico;inativo.

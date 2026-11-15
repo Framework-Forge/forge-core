@@ -1,0 +1,1 @@
+Inactive154 progress profile composes151-153 before149. Open follows UI;listener/ingress close before graph stop,pending cleanup before borrowed seed/raw release. Server delegates149. No operational activation.

@@ -1,0 +1,1 @@
+Etapa249: preparador/opções/entrada revisados ligam origem241 antes do grafo,compat244–245 e A–F248.Coordenação usa Start interno protegido e commit sem repetição.Controles PR remotos podem vir de consumerSpecs explícitas;hosts246 precisam de instalação própria.Inativo.

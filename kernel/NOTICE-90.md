@@ -1,0 +1,3 @@
+# Lot90 provenance
+
+Private port of installed qbx_core/bridge/qb/client/functions.lua. QBX authorship and license remain in kernel/NOTICE.md and kernel/LICENSE-QBX. The installed file credits its best-effort vehicle property setter to Overextended; its custom mappings, warning and branches are preserved. Native/platform/library/inventory boundaries are explicit. GetPlayerData/Notify resolve to internal services, Helpers are the already ported canonical library. No standard inventory/property implementation replaces installed custom behavior. No runtime export/event/command or live entity is created on import. Native game-build metadata is read on factory construction as installed. Sources01–89/captures preserved; client composition remains92.

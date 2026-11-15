@@ -1,0 +1,6 @@
+local T=dofile('tests/kernel_progress_profile_harness.lua');local r=T.new('client');local p=r.allocate154();assert(not p.Start()and not p.Install());assert(p.Stop()and not p.Prepare());r.finishProfile()
+local a=T.new('client');a.profilePorts.progress=nil;assert(not pcall(a.allocate154));assert(a.seed.IsCurrent());a.finishProfile()
+local b=T.new('client');b.profilePorts.progress.settings={};assert(not pcall(b.allocate154));assert(b.seed.IsCurrent());b.finishProfile()
+local c=T.new('client');c.profilePorts.prCore.forgeProgressScope={};local held=c.profilePorts.prCore.forgeProgressScope;assert(not pcall(c.allocate154));assert(c.profilePorts.prCore.forgeProgressScope==held);c.profilePorts.prCore.forgeProgressScope=nil;c.finishProfile()
+local d=T.new('client');d.seedUnit.current=false;assert(not pcall(d.allocate154));d.seedUnit.current=true;d.finishProfile()
+print('PASS154 five order/missing-ports/settings/foreign-owner/stale checks;construction failures do not close seed or replace foreign owner')

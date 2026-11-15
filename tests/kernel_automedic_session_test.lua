@@ -1,0 +1,41 @@
+local A=dofile('tests/kernel_automedic_harness.lua')
+local n=0
+local function case(label,fn,opt)A.case(label,fn,opt);n=n+1 end
+case('local lookup and string source',function(r)
+    assert(r.services.Session.isLoaded(1));assert(r.services.Session.character('1')=='C1');return true
+end)
+case('flag false blocks even with player',function(r)
+    r.cache['forge-core:session:1']=false;assert(not r.services.Session.isLoaded(1))
+    return r.services.Session.character(1)
+end)
+case('passive disconnected gate',function(r)
+    r.library.cache.SetResourceState('qbx_core','session:1',{connected=false})
+    assert(not r.services.Session.isLoaded(1));return r.services.Session.character(1)
+end)
+case('passive loaded=false is not authoritative here',function(r)
+    r.library.cache.SetResourceState('qbx_core','session:1',{loaded=false})
+    assert(r.services.Session.isLoaded(1));return r.services.Session.character(1)
+end)
+case('load/unload invalid source handlers',function(r)
+    r.event('pr_bridge:server:OnPlayerUnloaded','1');assert(r.services.Session.character(1)==nil)
+    r.event('pr_bridge:server:OnPlayerLoaded','1');assert(r.services.Session.character(1)=='C1')
+    r.event('pr_bridge:server:OnPlayerLoaded','bad');return r.cache
+end)
+case('missing/empty/numeric identifier',function(r)
+    r.players[1]=nil;assert(not r.services.Session.isLoaded(1))
+    r.players[1]={PlayerData={citizenid=22}};assert(not r.services.Session.isLoaded(1))
+    r.players[1].PlayerData.citizenid='';return r.services.Session.isLoaded(1)
+end)
+case('identifier fallback',function(r)
+    r.players[1]={PlayerData={identifier='old'}};return r.services.Session.character(1)
+end)
+case('drop flag survives source reuse until load',function(r)
+    r.event('playerDropped');r.players[1].PlayerData.citizenid='REUSED';assert(r.services.Session.character(1)==nil)
+    r.event('pr_bridge:server:OnPlayerLoaded',1);assert(r.services.Session.character(1)=='REUSED');return true
+end)
+case('resource stop only self key reset inherited',function(r)
+    r.event('onResourceStop','other');r.event('onResourceStop','forge-core')
+    assert(r.cache['forge-core:session:self'].loaded==false and r.cache['forge-core:session:1']==nil);return true
+end)
+print('PASS Forge server session view differentials '..n)
+

@@ -1,0 +1,3 @@
+# Lote 21 — armas administrativas, inativo
+Config/Registry/Storage/projeções/Service/callbacks/comandos completos dos fontes Forge instalados. Publicação do núcleo usa o runtime já portado do QBX no lote 10, com LICENSE-QBX preservada. Integração OX personalizada fica em portas PR específicas, ainda sem API pública localizada; não substituída por vanilla.
+Nenhum registro, IO, bootstrap ou manifesto ativo alterado. Confirmação parcial, sementes não rastreadas, falhas de reload/start e risco de policy após remoção são herdados, não corrigidos. Testes em memória não provam equipamento/tiro/uso completo nem autorizam ativação.

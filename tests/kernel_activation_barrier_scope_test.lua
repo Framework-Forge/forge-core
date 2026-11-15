@@ -1,0 +1,31 @@
+local T=dofile('tests/kernel_activation_barrier_harness.lua');local count=0
+local function case(fn)local r=T.new();fn(r);r.finish();count=count+1 end
+case(function(r)r.policyPorts.probes.banking=nil;assert(not pcall(T.H.load(T.path,T.H.environment()),r.policyPorts))end)
+case(function(r)assert(not r.policy.Advance(2));assert(r.policy.Progress().stage==0)end)
+case(function(r)
+    assert(not r.policy.ConsumerState('stale',r.boundResource,'prepared'))
+    assert(not r.policy.ConsumerState('barrier119','foreign','prepared'))
+    assert(not r.policy.ConsumerState('barrier119',r.boundResource,'committed'))
+    r.allocate();assert(not r.policy.ConsumerState('barrier119',r.boundResource,'prepared'))
+end)
+case(function(r)assert(not r.policy.Advance(1));assert(not r.policy.CanServe());r.allocate();assert(r.policy.Advance(1))end)
+case(function(r)r.allocate();r.publish();assert(not r.policy.Advance(5));assert(not r.policy.IsConsumerAllowed(r.boundResource,'call'))end)
+case(function(r)r.allocate();r.publish();assert(not r.policy.IsConsumerAllowed('foreign','describe'));assert(not r.policy.IsConsumerAllowed(r.boundResource,'network'))end)
+case(function(r)r.allocate();r.publish();r.attach();for k in pairs(r.facts)do r.facts[k]=true end;r.facts.banking=false
+    local ok,missing=r.policy.Advance(6);assert(not ok and #missing==1 and missing[1]=='banking'and not r.policy.IsIngressOpen())end)
+case(function(r)r.allocate();r.publish();r.attach();r.probeHook=function()r.policy.Close()end;assert(not r.policy.Advance(6));assert(r.policy.Close())end)
+case(function(r)r.allocate();r.publish();r.attach();r.probeHook=function()error('probe119')end;assert(not r.policy.Advance(6));assert(r.policy.Progress().closed)end)
+case(function(r)r.allocate();r.publish();r.policyCurrent=false;assert(not r.policy.CanServe()and not r.policy.IsConsumerAllowed(r.boundResource,'describe'))end)
+case(function(r)
+    r.allocate();r.publish();r.attach();for k in pairs(r.facts)do r.facts[k]=true end;assert(r.policy.Advance(6))
+    local fn=r.policy.WrapIngress(function()coroutine.yield('accepted119');return true,nil,'tail'end)
+    local co=coroutine.create(fn);local ok,v=coroutine.resume(co);assert(ok and v=='accepted119'and r.policy.Progress().pending==1)
+    assert(not r.policy.Close()and not r.policy.IsIngressOpen());local out=table.pack(coroutine.resume(co));assert(out[1]and out[2]and out[3]==nil and out[4]=='tail')
+    assert(r.policy.Close())
+end)
+case(function(r)
+    local calls,allow=0,false;local p={};for k,v in pairs(r.policyPorts)do p[k]=v end
+    p.ownedCleanup={{name='first',close=function()calls=calls+1;return true end},{name='retry',close=function()return allow end}}
+    local owner=T.H.load(T.path,T.H.environment())(p);assert(not owner.Close()and calls==1);allow=true;assert(owner.Close()and calls==1)
+end)
+assert(count==12);print('PASS lot119 twelve stage/admission/readiness/ownership/refusal cases;accepted work drains,cleanup retry is owned;no real readiness inferred')

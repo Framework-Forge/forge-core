@@ -1,0 +1,20 @@
+local T=dofile('tests/kernel_server_startup_harness.lua');local n=0
+local function case(label,change)
+    local r=T.new();change(r);r.prepareStartup();local ok,report=r.api.Check();assert(not ok,label)
+    assert(report.ready==false and #r.sqlTrace==0 and r.active()==0,'diagnostic never installs/writes')
+    assert(not r.startupInstall()and #r.sqlTrace==0 and r.active()==0,'dependency refusal before publication');n=n+1
+end
+case('bridge starting',function(r)r.states.pr_bridge='starting'end)
+case('DB stopped',function(r)r.states.oxmysql='stopped'end)
+case('inventory missing',function(r)r.states.ox_inventory='missing'end)
+case('inventory contract old',function(r)r.versions.ox_inventory='2.42.0'end)
+case('original ox_lib contract old',function(r)r.states.ox_lib='started';r.versions.ox_lib='3.19.9'end)
+case('inventory framework invalid',function(r)r.fixture.central.n.convars['inventory:framework']='qb'end)
+case('OneSync disabled',function(r)r.fixture.central.n.convars.onesync_enableInfinity=0 end)
+case('DB provider unready',function(r)r.dbReady=false end)
+case('SQL ping failed',function(r)r.ping=false end)
+case('provider throws',function(r)r.dependencyHook=function()error('virtual dependency error')end end)
+local good=T.new();good.prepareStartup();assert(good.states.ox_lib=='stopped'and good.api.Check(),'installed PR ox_lib contract accepted')
+assert(#good.api.Describe()==9 and #good.sqlTrace==0 and good.active()==0)
+local a,b=good.api.Check();b.ready=false;assert(a and good.api.Check(),'old diagnostic cannot activate/refuse later check')
+print('PASS lot61 preflight '..n..' refusal cases plus real PR ox_lib shim, nine checks, inert construction/diagnostics;no HTTP/quit/SQL writes')

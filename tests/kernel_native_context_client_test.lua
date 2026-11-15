@@ -1,0 +1,10 @@
+local T=dofile('tests/kernel_native_context_harness.lua');local r=T.client();r.allocateBootstrap();assert(r.api.Prepare());r.graph=r.api.Graph
+assert(r.graph.Core==r.fixture.state and r.uiAssembly.Progress().phase=='allocated')
+assert(r.installBootstrap());assert(r.uiAssembly.Open());r.runtimeImports.pollNative();assert(r.api.Start())
+assert(r.api.Progress().phase=='running'and r.active('onResourceStop')==1)
+local data=r.fixture.state.PlayerData;data.citizenid='BIND134';data.metadata={};data.money={cash=9};r.graph.Central.Parts.Producers.Cache.Producer.player(data,'test')
+assert(r.surface.exports.GetPlayerData()==data and r.cacheDelivery.host.get('playerData').citizenid=='BIND134')
+local l=r.uiAssembly.Library;l.registerContext({id='native134',title='Forge',options={}});l.showContext('native134');assert(l.getOpenContextMenu()=='native134')
+assert(r.drain());assert(#r.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16);assert(r.uiAssembly.Close())
+r.configAssembly.Close();r.seed.Close();r.seedUnit.finishSeed();r.uiFixture.finish()
+print('PASS lot134 client101 with131 config and133 installed UI/streaming,canonical PlayerData/passive delivery,one Stop/16 cleanups;no FiveM visual/native UAT')

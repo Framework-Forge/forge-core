@@ -1,0 +1,3 @@
+# Lote 23 — cliente de empregos, inativo
+Porte completo de client/job/state.lua, client/job/main.lua e client/main.lua do Forge instalado, com dependências explícitas e composição sobre ProducerCore/LegacyCore locais. Réplica administrativa distinta de PlayerData e Groups runtime; biblioteca/transporte PR preservados. Evento, callback e bootstrap são descritores, não instalação automática.
+Revisão/identidade/flag admin antigas, erro de refresh parcial e payload sensível herdados não foram corrigidos. Points/Business e menu central são dependências futuras, não declarados portados por esta ligação. Testes em memória não autorizam ativação nem equivalem a início real.

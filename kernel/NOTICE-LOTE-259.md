@@ -1,0 +1,1 @@
+Etapa259: entrada revisável seleciona portscompatv5/coordenadorv7/preparadorv5/servidorv2/clientev3;effectProofs podem ser restringidos por255.Sem instalação ou aprovação automática.Hosts e registros/locale/perfis explícitos ainda necessários.

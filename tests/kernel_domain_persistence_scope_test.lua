@@ -1,0 +1,11 @@
+local T=dofile('tests/kernel_domain_persistence_harness.lua')
+local r=T.new();local p=r.mount();p.Close();assert(not pcall(p.Library.loadJsonRecovery,'data/a.json'))
+local q=T.new();local v=q.mount();q.domainCurrent=false;assert(not pcall(v.Library.loadJsonRecovery,'data/a.json'))
+local z=T.new();local w=z.mount();z.api.Close();assert(not pcall(w.Library.loadJsonRecovery,'data/a.json'))
+local a=T.new();local b=a.mount();a.api.JSON.loadJsonRecovery=function()end;assert(not pcall(b.Library.loadJsonRecovery,'data/a.json'))
+local c=T.new();c.persistencePorts.io.JSON.saveJsonBatch=nil;assert(not pcall(c.mount))
+local d=T.new();local e=d.mount();d.saveHook=function()coroutine.yield('accepted')end
+local co=coroutine.create(function()return e.Library.saveJsonRecovery('data/pending142.json',{value=14})end)
+local ok,why=coroutine.resume(co);assert(ok and why=='accepted'and e.Progress().pending==1)
+assert(not e.Close());d.saveHook=nil;assert(coroutine.resume(co));assert(e.Progress().complete and not d.api.Progress().closed)
+print('PASS142 six owner/lifecycle checks;retained call denied,new owner substitution denied,accepted write drains after Close;no rollback claim')

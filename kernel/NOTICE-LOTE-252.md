@@ -1,0 +1,1 @@
+Etapa252: UIv3 expõe requestAnimSet/requestPtfxAsset do módulo de streaming já carregado;entryclientv3 publica identidade ClientUI;librarycompat empresta aliases sem segundo host/runtime.Opções/preparador novos,inativos.

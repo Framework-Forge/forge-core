@@ -1,0 +1,1 @@
+Etapa248: corrigido ciclo comprovado hooks/catálogos↔Start.Antes do Start exige decisions/environment;Start interno autorizado uma vez mantém ingresso fechado;F espera provas efetivas e commit não repete Start.Teste com delegate/Cfx/compat virtuais;sem SQL/Start real.

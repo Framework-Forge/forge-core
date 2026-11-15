@@ -1,0 +1,7 @@
+local T=dofile('tests/kernel_progress_environment_harness.lua');local r=T.new();local n=#r.trace;local b=r.build();assert(#r.trace==n)
+assert(b.LocalPlayer==r.environment.LocalPlayer and b.Environment.LocalPlayer.state==r.state and b.Settings==r.settings)
+assert(not pcall(b.Streaming.requestModel,'model'))
+r.ui.Streaming=r.streaming;local ok,hash=b.Streaming.requestModel('model');assert(ok and hash=='model')
+b.Streaming.releaseModel('model');r.now=541;assert(b.Environment.GetGameTimer()==541)
+r.executionFixture.api.Close();assert(not pcall(b.Environment.PlayerPedId))
+print('PASS153 borrowed player/settings identity,lazy owned UI streaming,execution129 natives,no eager effects or fallback')

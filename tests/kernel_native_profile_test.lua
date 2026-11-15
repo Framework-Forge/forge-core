@@ -1,0 +1,12 @@
+local M=dofile('tests/kernel_native_profile_harness.lua')
+local s=M.server();s.allocateProfile();assert(s.profile.Prepare('pt-br'));s.surface.Open();assert(s.profile.Install())
+assert(s.servicesFixture.wire.scopes.server.Progress().leases==203)
+s.emit('onResourceStart','forge-core');s.begin();if coroutine.status(s.co)~='dead'then s.resume()end
+assert(s.outcome[1]and s.outcome[2],tostring(s.outcome[3]or s.outcome[2]));assert(s.profile.Progress().phase=='running'and s.profile.Bootstrap.Progress().phase=='running')
+assert(s.profile.Stop());assert(s.profile.Progress().complete and s.seed.IsCurrent());s.finishProfile()
+local c=M.client();c.allocateProfile();assert(c.profile.Prepare('pt-br'));c.wire.Initialize();c.surface.Open();assert(c.profile.Install())
+c.runtimeImports.pollNative();assert(c.profile.Start()and c.profile.Progress().phase=='running')
+assert(c.profile.UI.Progress().listeners==10 and c.active('onResourceStop')==1)
+assert(c.profile.Stop());assert(c.profile.Progress().complete and c.seed.IsCurrent())
+assert(#c.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16);c.finishProfile()
+print('PASS lot135 private profile server100/client101,131/132/133/134 bindings,203 leases,ten UI listeners,one Stop/16 cleanup;borrowed130 seed retained;all effects virtual')

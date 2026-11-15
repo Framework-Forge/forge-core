@@ -1,0 +1,90 @@
+local Q=dofile('tests/kernel_staff_harness.lua')
+Q.case('add permission denied',function(r)return r.api.add(1,{source=2,role='admin'})end)
+Q.case('add missing permissions',function(r)return r.api.add(2,{source=1})end)
+Q.case('add invalid target',function(r)return r.api.add(2,{source=999,role='admin'})end)
+Q.case('add normalized role',function(r)return r.api.add(2,{source='1',role=' MOD '})end)
+Q.case('unconfigured group ACE cannot confirm a v2 principal grant',function(r)
+    r.aces={};local ok,reason=r.api.add(2,{source=1,role='mod'});assert(not ok);return ok,reason
+end)
+Q.case('add explicit permission set',function(r)return r.api.add(2,{source=1,permissions={'group.mod','pr_bridge.developer','unknown','command'}})end)
+Q.case('add dedup/invalid map',function(r)return r.api.add(2,{source=1,permissions={permissions={'mod','group.mod','bad space'}}})end)
+Q.case('add unknown permissions denied',function(r)return r.api.add(2,{source=1,permissions={'not.registered'}})end)
+Q.case('mixed-case PR catalog mismatch retained',function(r)r.ace.registerPermission('Custom.Case');return r.api.add(2,{source=1,permissions={'Custom.Case'}})end)
+Q.case('add lower citizenid alias offline',function(r)return r.api.add(2,{citizenid='OFF',permissions={'group.mod'}})end)
+Q.case('add upper citizenId offline',function(r)return r.api.add(2,{citizenId='OFF',role='admin'})end)
+Q.case('offline failure',function(r)r.offlineResult=false;return r.api.add(2,{citizenId='OFF',role='mod'})end)
+Q.case('offline nil acknowledges',function(r)r.offlineResult=nil;return r.api.add(2,{citizenId='OFF',role='mod'})end)
+Q.case('offline throw caught',function(r)r.offlineSaveError=true;return r.api.add(2,{citizenId='OFF',role='mod'})end)
+Q.case('target source takes priority over supplied cid',function(r)return r.api.add(2,{source=1,citizenId='OFF',role='mod'})end)
+Q.case('missing offline',function(r)return r.api.add(2,{citizenId='MISSING',role='mod'})end)
+Q.case('online Save false ignored',function(r)r.saveResult=false;return r.api.add(2,{source=1,role='mod'})end)
+Q.case('online metadata false ignored',function(r)r.metadataResult=false;r.skipMetadata=true;return r.api.add(2,{source=1,role='mod'})end)
+Q.case('online metadata throws after ACL',function(r)r.metadataError=true;return r.api.add(2,{source=1,role='mod'})end)
+Q.case('online Save throws after ACL/meta',function(r)r.saveError=true;return r.api.add(2,{source=1,role='mod'})end)
+Q.case('failed ACL keeps metadata but removes old grants',function(r)
+    assert(r.api.add(2,{source=1,role='mod'}));r.ignoreExecute=true
+    local ok,err=r.api.add(2,{source=1,role='support'});assert(not ok);return ok,err
+end)
+Q.case('PR whitelist masks ignored grant result',function(r)
+    r.ignoreExecute=true;r.adminConvar='"license:one"';local ok=r.api.add(2,{source=1,role='mod'});assert(ok);return ok
+end)
+Q.case('execute exception partial',function(r)
+    local count=0;r.executeHook=function()count=count+1;if count==3 then r.executeError=true end end
+    return r.api.add(2,{source=1,role='mod'})
+end)
+Q.case('legacy string cleanup',function(r)r.players[1].PlayerData.metadata.staff='group.admin';return r.api.add(2,{source=1,role='support'})end)
+Q.case('existing v2 replaced not merged',function(r)
+    r.players[1].PlayerData.metadata.staff={version=2,permissions={'group.mod'}};return r.api.add(2,{source=1,permissions={'pr_bridge.developer'}})
+end)
+Q.case('identifier dedup and filtering',function(r)r.ids[1]={'license:one','license:one','discord:one','ip:skip','steam:skip'};return r.api.add(2,{source=1,role='support'})end)
+Q.case('identifier errors fallback player only',function(r)r.identifierError=true;return r.api.add(2,{source=1,role='support'})end)
+Q.case('revoke denied',function(r)return r.api.remove(1,{source=2})end)
+Q.case('revoke nonstaff',function(r)return r.api.remove(2,{source=1})end)
+Q.case('revoke invalid',function(r)return r.api.remove(2,{source=999})end)
+Q.case('revoke online',function(r)assert(r.api.add(2,{source=1,role='mod'}));return r.api.remove(2,{source=1})end)
+Q.case('revoke offline',function(r)return r.api.remove(2,{citizenid='OFF'})end)
+Q.case('revoke offline save false enters inherited and/or fallback',function(r)r.offlineResult=false;return r.api.remove(2,{citizenid='OFF'})end)
+Q.case('revoke metadata empty table treated nonstaff',function(r)r.players[1].PlayerData.metadata.staff={};return r.api.remove(2,{source=1})end)
+Q.case('shared identifier revocation affects other session',function(r)
+    r.ids[2]=r.ids[1];assert(r.api.add(2,{source=1,role='mod'}));assert(r.allowed(2,'group.mod'))
+    r.api.remove(2,{source=1});assert(not r.allowed(2,'group.mod'));return true
+end)
+Q.case('grant revocation is not reference counted',function(r)
+    r.ids[2]=r.ids[1];assert(r.api.add(2,{source=1,role='mod'}));assert(r.api.add(2,{source=2,role='mod'}))
+    r.api.remove(2,{source=1});return r.parents
+end)
+Q.case('external inherited permission not revoked',function(r)
+    r.parents['player.1']={['external.admin']=true};r.aces['external.admin']={['group.mod']=true}
+    assert(r.api.add(2,{source=1,role='mod'}));assert(r.api.remove(2,{source=1}));assert(r.allowed(1,'group.mod'));return true
+end)
+Q.case('apply legacy migrates but does not update optin',function(r)
+    r.players[1].PlayerData.metadata.staff='mod';r.players[1].PlayerData.metadata.optin=false
+    local ok=r.api.applyPlayer(1);assert(ok and r.players[1].PlayerData.metadata.optin==false);return ok
+end)
+Q.case('apply v2 table not rewritten',function(r)
+    r.players[1].PlayerData.metadata.staff={permissions={'group.support'}};return r.api.applyPlayer(1)
+end)
+local emptyRole={}
+Q.case('apply empty table uses legacy grants with table role',function(r)
+    -- Same opaque input identity: legacy tostring(table) becomes part of the ACL name.
+    r.players[1].PlayerData.metadata.staff=emptyRole;return r.api.applyPlayer(1)
+end)
+Q.case('apply configured admin broadens command.car',function(r)
+    r.aces['player.1']={['command.car']=true};assert(r.api.applyPlayer(1));assert(r.allowed(1,'forge-core.admin'));return true
+end)
+Q.case('apply missing player',function(r)return r.api.applyPlayer(999)end)
+Q.case('apply none not admin',function(r)return r.api.applyPlayer(1)end)
+Q.case('forceApply unrestricted local helper',function(r)return r.api.forceApply(1)end)
+Q.case('forceApply nonexistent target',function(r)return r.api.forceApply(999,'group.support')end)
+Q.case('forceApply unknown role',function(r)return r.api.forceApply(1,'custom-role')end)
+Q.case('concurrent metadata mutation overwritten',function(r)
+    r.metadataHook=function(p,key)if key=='staff'then p.PlayerData.metadata.staff={permissions={'pr_bridge.developer'}}end end
+    return r.api.add(2,{source=1,role='mod'})
+end)
+Q.case('revocation of actor during Save not rechecked',function(r)r.saveHook=function()r.manage[2]=false end;return r.api.add(2,{source=1,role='mod'})end)
+Q.case('source data changes during offline read',function(r)
+    r.offlineHook=function()r.manage[2]=false;r.offline.OFF.PlayerData.citizenid='CHANGED'end
+    return r.api.add(2,{citizenid='OFF',role='mod'})
+end)
+print('PASS staff actions: '..Q.count..' differential cases; legacy/v2 metadata, ACL ordering/partial failures/persistence/identifiers/reentry preserved in memory only')
+

@@ -1,0 +1,1 @@
+Inactive147 explicit client engine schema. Native names retained from installed private ports. Skills time remains GetGameTimer;vectors map to vec3;SetTrafficLightsState2 optional and not invented. No globals/discovery/registration.

@@ -1,0 +1,12 @@
+local T=dofile('tests/kernel_native_library_harness.lua')
+for _,side in ipairs({'server','client'})do local r=T.new(side);local before=#r.host.trace;r.allocate();assert(#r.loads==0);assert(r.api.Prepare())
+    assert(#r.host.trace==before and r.api.Cache==r.public.cache and r.api.NativeCache~=r.api.Cache)
+    r.public.cache:set('local128',7);assert(r.public.cache:get('local128')==7)
+    r.public.cache.SetResourceState('qbx_core','session',{authenticated=false});assert(r.public.cache:GetResourceState('qbx_core','session').authenticated==false)
+    assert(r.public.library.cache==r.public.cache);assert(r.public.library.callback==r.wire.scopes[side].Native)
+    assert(r.public.library.array and r.public.library.table);assert(r.wire[side].active()==(side=='server'and 7 or 5))
+    local held=r.public.library;local cache=r.public.cache;assert(r.api.Close()and r.api.Progress().complete and r.public.cache==nil)
+    assert(cache:get('local128')==7 and not pcall(function()return held.map end))
+    r.finish()
+end
+print('PASS lot128 installed lazy library/cache/settings both sides,colon identity,explicit passive cache state,existing122 callback/no extra listeners;retained objects characterized')

@@ -1,0 +1,11 @@
+local T=dofile('tests/kernel_domain_profile_harness.lua');local s=T.new('server');local p=s.allocate144();assert(p.Prepare('pt-br'));s.surface.Open();assert(p.Install())
+s.emit('onResourceStart','forge-core');s.begin();if coroutine.status(s.co)~='dead'then s.resume()end
+assert(s.outcome[1]and s.outcome[2],tostring(s.outcome[3]or s.outcome[2]));assert(p.Progress().phase=='running')
+assert(p.DomainConfiguration.Config==p.Bootstrap.Graph.Config or p.DomainConfiguration.Config.Inventory==p.Bootstrap.Graph.Config.Inventory)
+assert(p.Persistence.IsCurrent());p.Stop();s.clock.advance(1200000);assert(p.Poll()and p.Progress().complete)
+assert(p.Persistence.Progress().complete and s.seed.IsCurrent());s.platform.Close();s.finishProfile()
+local c=T.new('client');local q=c.allocate144();assert(q.Prepare('pt-br'));c.installClientProfile();c.runtimeImports.pollNative();assert(q.Start())
+assert(c.seedUnit.wire.scopes.server.Ox.await('qbx_core:client:getStatusSnapshot',2))
+assert(q.Stop()and #c.fixture.state.ClientMediaContext.Sequence.Progress().ledger==16)
+assert(c.seed.IsCurrent());c.platform.Close();c.utilities.Close();c.finishProfile()
+print('PASS144 domain/native profiles server/client Prepare/Install/Start/Stop,same seed/PR callback owner,canonical configs,persistence closes after graph')

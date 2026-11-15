@@ -1,0 +1,15 @@
+local T=dofile('tests/kernel_central_pr_entry_harness.lua');local r=T.new();r.allocateBootstrap();assert(r.api.Prepare('en'));r.graph=r.api.Graph
+local s=r.servicesFixture;assert(r.fixture.base.PlayerCore==r.graph.PlayerCore and r.fixture.base.PlayerCore.State.Players==r.graph.PlayerCore.State.Players)
+assert(r.adopted.SecurityLibrary~=r.originalPorts.deliveryContext.mediaContext.supportContext.configurationContext.vehicleContext.bankingContext.operationsContext.inventoryContext.startup.lifecycle.callbacks.securityLibrary)
+r.installNewPR();assert(s.api.Inventory.Progress().phase=='open'and s.api.Banking.Progress().phase=='open')
+assert(r.fixture.base.ServerInventoryContext.Inventory==r.adopted.Inventory)
+assert(r.fixture.base.ServerBankingContext.Banking==r.adopted.Banking)
+assert(r.fixture.base.ServerVehicleContext.Vehicles==r.adopted.Keys)
+assert(s.wire.scopes.server.Progress().leases==203,'201 core descriptors plus two existing supplemental callbacks')
+-- Complete the existing startup in virtual IO,native providers and legacy preflight fixture only.
+r.emit('onResourceStart','forge-core');r.begin();r.resume();assert(r.outcome[1]and r.outcome[2],tostring(r.outcome[2]))
+assert(r.api.Progress().phase=='running')
+assert(not r.barrier.IsIngressOpen());T.P.open(r.barrier)
+assert(r.barrier.IsIngressOpen());r.barrier.Close();r.api.Stop();r.clock.advance(1200000);r.api.Poll()
+assert(s.api.Close());s.wire.close();assert(s.wire.scopes.server.Progress().complete)
+print('PASS lot125 actual server100 graph with same123 provider scopes,122203 callback leases/CaptureRegister,124 ingress;original ports unmodified;no real DB/natives')

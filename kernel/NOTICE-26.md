@@ -1,0 +1,4 @@
+# Lote 26 — inativo
+Porta os corpos completos instalados de shared/multijob, server/multijob/{service,callbacks}, client/menu/menu_multijob e server/player/prison. O mesmo Player/Groups/JobService/Security mantém autoridade; metadata.multijob não é convertido em PlayerData.jobs. PR permanece integração de prisão/persistência/notificação/UI/RPC. Config e oito descritores preservam nomes QB/QBX/Forge, cinco callbacks admin e três player. Não há binder real, alteração de origens/SQL/JSON operacional/boot ou renomeação.
+Initialize apenas envolve saveSettings com o wrapper PR; start permanece ação explícita separada. Herança de falhas/ACL local/source/snapshots/retornos nil/locks/timers/metadata vs vínculos preservada para decisão posterior. Módulos privados fora do manifesto; não equivalem a migração/integração operacional completas.
+
