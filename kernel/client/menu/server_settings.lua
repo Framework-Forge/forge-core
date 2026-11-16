@@ -413,7 +413,7 @@ function Menu.openServerSettingsMenu()
                 description = t('menu.appearance.description'),
                 icon = 'person-bounding-box',
                 onSelect = function()
-                    local resource = 'illenium-appearance'
+                    local resource = 'forge-appearance'
                     if integration.resourceState(resource) ~= 'started' then
                         notify({
                             title = t('menu.appearance.title'),

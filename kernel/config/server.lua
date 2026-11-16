@@ -138,10 +138,10 @@ return {
     ---@alias ColumnName string
     ---@type [TableName, ColumnName][]
     characterDataTables = {
-        --  ps-housing
+        --  forge-housing
         --{ 'properties',                    'owner' },
         { "properties", "owner_citizenid" },
-        -- ps-housing
+        -- forge-housing
         { "bank_accounts_new", "id" },
         { "playerskins", "citizenid" },
         { "player_mails", "citizenid" },

@@ -142,7 +142,7 @@ end
 
 local function openFirstCharacterAppearance()
     for _ = 1, 50 do
-        if native.GetResourceState('illenium-appearance') == 'started' then break end
+        if native.GetResourceState('forge-appearance') == 'started' then break end
         native.Wait(100)
     end
 
@@ -193,7 +193,7 @@ local function spawnLastLocation()
         heading = core.PlayerData.position.w
     }) end)
 
-    --  ps-housing
+    --  forge-housing
     local insideMeta = core.PlayerData.metadata and core.PlayerData.metadata.inside
     if insideMeta and insideMeta.property_id then
         integrations.enterProperty(tostring(insideMeta.property_id))
@@ -201,7 +201,7 @@ local function spawnLastLocation()
 
     native.TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
     native.TriggerEvent('QBCore:Client:OnPlayerLoaded')
-    -- ps-housing
+    -- forge-housing
 
     while not native.IsScreenFadedIn() do
         native.Wait(0)

@@ -44,7 +44,6 @@ O retorno da nativa deve ser conferido para confirmar o assentamento: [contrato 
 
 ## Verificação
 
-`tests/starterpack_scene_test.lua` carrega o código real do Starterpack com providers/nativas simulados, sem gravações reais. Cobre:
 
 - colisão atrasada, assentamento com falhas iniciais, retorno numérico de sucesso, origem e rumo salvos;
 - chão/colisão indisponíveis e handle inválido;

@@ -151,6 +151,51 @@ local function openInterfaceAdminMenu()
     return true
 end
 
+local function openLoadscreenAdminMenu()
+    if GetResourceState('forge-loadscreen') ~= 'started' then
+        notify({
+            title = 'Forge Loadscreen',
+            description = t('panels.unavailable', { resource = 'forge-loadscreen' }),
+            type = 'error',
+        })
+        return false
+    end
+
+    TriggerEvent('forge-loadscreen:client:openAdminMenu', 'forge_core_main', GetCurrentResourceName())
+    return true
+end
+
+local function openPauseAdminMenu()
+    if GetResourceState('forge-pause') ~= 'started' then
+        notify({
+            title = 'Forge Pause',
+            description = t('panels.unavailable', { resource = 'forge-pause' }),
+            type = 'error',
+        })
+        return false
+    end
+
+    TriggerEvent('forge-pause:client:openAdminMenu', 'forge_core_main', GetCurrentResourceName())
+    return true
+end
+
+local function openSynSitAdminMenu()
+    local resource = 'Syn_Sit'
+    if GetResourceState(resource) ~= 'started' then
+        notify({ title = 'Gerenciador de assentos', description = t('panels.unavailable', { resource = resource }), type = 'error' })
+        return false
+    end
+
+    local called, opened = pcall(function()
+        return exports[resource]:OpenAdminMenu('forge_core_main', GetCurrentResourceName())
+    end)
+    if not called or opened ~= true then
+        notify({ title = 'Gerenciador de assentos', description = t('panels.failed'), type = 'error' })
+        return false
+    end
+    return true
+end
+
 local function groupTitle(group)
     return ('%s - %s'):format(group.label or group.name, group.name or group.job)
 end
@@ -592,6 +637,28 @@ function Menu.openMain()
                 onSelect = function()
                     openInterfaceAdminMenu()
                 end,
+            },
+            {
+                title = 'Forge Loadscreen',
+                description = 'Configurar a tela de carregamento, midias, cores e tempo minimo.',
+                icon = 'film',
+                disabled = GetResourceState('forge-loadscreen') ~= 'started',
+                onSelect = openLoadscreenAdminMenu,
+            },
+            {
+                title = 'Forge Pause',
+                description = 'Abrir a administracao do menu de pausa.',
+                icon = 'pause-circle',
+                disabled = GetResourceState('forge-pause') ~= 'started',
+                onSelect = openPauseAdminMenu,
+            },
+            {
+                title = 'Gerenciador de assentos · Syn_Sit',
+                description = 'Configurar props, animações de sentar, áreas e interações.',
+                icon = 'person-workspace',
+                arrow = true,
+                disabled = GetResourceState('Syn_Sit') ~= 'started',
+                onSelect = openSynSitAdminMenu,
             },
             {
                 title = t('panels.documents.title'),

@@ -751,6 +751,40 @@ function Service.upsertItem(source, itemData)
     return true, item
 end
 
+-- Trusted server compatibility service; validate the entire batch before save.
+-- Runtime definitions and Forge's JSON registry must have the same authority.
+function Service.addCompatibilityItems(items)
+    if GetResourceState('ox_inventory') ~= 'started' then return false, 'inventory_unavailable' end
+    local draft = clone(Service.items)
+    local prepared, count = {}, 0
+    for _, data in ipairs(items) do
+        local item, err = normalizeItem(data)
+        if not item then return false, err end
+        if not exports.ox_inventory:Items(item.name) then
+            if not draft[item.name] then
+                draft[item.name] = item
+                count = count + 1
+            end
+            prepared[item.name] = draft[item.name]
+        end
+    end
+    if not next(prepared) then return true, 0 end
+    if count > 0 then
+        if not Service.saveItems(draft) then return false, 'save_failed' end
+        Service.items = draft
+        bumpRevision()
+    end
+    for name, item in pairs(prepared) do
+        syncItem(name, item)
+        local live = exports.ox_inventory:Items(name)
+        if not live or live.label ~= item.label or live.weight ~= item.weight then
+            return false, 'runtime_sync_failed:' .. name
+        end
+        if ForgeCore.ConsumableService then ForgeCore.ConsumableService.refreshItem(name) end
+    end
+    return true, count
+end
+
 function Service.deleteItem(source, name)
     if not canManage(source) then return false, 'no_permission' end
     local draft = pr_lib.jsonDraft(Service.items, {})
@@ -989,7 +1023,7 @@ end)
 
 Service.reload()
 
-pr_lib.wrapJsonMutations(PR.Inventory.Storage.items, Service, { 'upsertItem', 'deleteItem', 'setItemActive' })
+pr_lib.wrapJsonMutations(PR.Inventory.Storage.items, Service, { 'upsertItem', 'deleteItem', 'setItemActive', 'addCompatibilityItems' })
 pr_lib.wrapJsonMutations(PR.Inventory.Storage.weaponInventory, Service, {
     'upsertAmmo', 'deleteAmmo', 'setAmmoActive', 'upsertComponent', 'deleteComponent', 'setComponentActive',
 })

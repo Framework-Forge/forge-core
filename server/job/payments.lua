@@ -194,6 +194,9 @@ local function payPlayer(player, settings)
     if not player or not player.PlayerData then return false, 'invalid_player' end
 
     local data = player.PlayerData
+    if data.metadata and data.metadata.prCompatPaycheckEnabled == false then
+        return false, 'individual_paycheck_disabled'
+    end
     local job = data.job
     if not job or not job.name then return false, 'missing_job' end
 

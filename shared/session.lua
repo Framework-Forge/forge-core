@@ -16,6 +16,8 @@ function Session.isLoaded(src)
         return record and record.loaded==true or false
     end
     if cache.get(prefix..tostring(src))==false then return false end
+    local session=cache.GetResourceState('qbx_core','session:'..tostring(src))
+    if session and session.connected==false then return false end
     local data=playerData(src)
     local identifier=data.citizenid or data.identifier
     return type(identifier)=='string' and identifier~=''
@@ -30,22 +32,21 @@ end
 if server then
     AddEventHandler('pr_bridge:server:OnPlayerLoaded',function(src)
         src=tonumber(src);if not src then return end
-        cache.InvalidatePlayer(src);cache.set(prefix..src,true)
+        cache.set(prefix..src,true)
     end)
     AddEventHandler('pr_bridge:server:OnPlayerUnloaded',function(src)
         src=tonumber(src);if not src then return end
-        cache.InvalidatePlayer(src);cache.set(prefix..src,false)
+        cache.set(prefix..src,false)
     end)
     AddEventHandler('playerDropped',function()
-        cache.InvalidatePlayer(tonumber(source));cache.clear(prefix..tostring(source))
+        cache.set(prefix..tostring(source),false)
     end)
 else
     local lifecycle=0
     function Session.refresh()
-        cache.InvalidatePlayer()
         local data=playerData()
         local identifier=data.citizenid or data.identifier
-        local loaded=pr_lib.framework.IsPlayerLoaded()==true and type(identifier)=='string' and identifier~=''
+        local loaded=cache.get('playerLoaded')~=false and pr_lib.framework.IsPlayerLoaded()==true and type(identifier)=='string' and identifier~=''
         local old=cache.get(prefix..'self') or {}
         local record={loaded=loaded,character=loaded and identifier or nil,
             job=loaded and ForgeCore.State.copy(data.job) or nil,gang=loaded and ForgeCore.State.copy(data.gang) or nil}
@@ -62,10 +63,13 @@ else
     end
     AddEventHandler('pr_bridge:client:OnPlayerLoaded',Session.refresh)
     AddEventHandler('pr_bridge:client:OnPlayerUnloaded',function()
-        lifecycle=lifecycle+1;cache.InvalidatePlayer();cache.set(prefix..'self',{loaded=false})
+        lifecycle=lifecycle+1;cache.set(prefix..'self',{loaded=false})
         TriggerEvent('forge-core:session:changed',nil,lifecycle)
     end)
     local function deferRefresh() SetTimeout(0,Session.refresh) end
+    AddEventHandler('qbx_core:client:cacheChanged',function(changes)
+        if changes.job or changes.gang or changes.playerLoaded then Session.refresh() end
+    end)
     AddEventHandler('pr_bridge:client:OnInventoryChanged',deferRefresh)
     RegisterNetEvent('QBCore:Client:OnJobUpdate',deferRefresh)
     RegisterNetEvent('QBCore:Client:OnGangUpdate',deferRefresh)
@@ -73,5 +77,5 @@ else
     Session.refresh()
 end
 AddEventHandler('onResourceStop',function(resource)
-    if resource==GetCurrentResourceName() then cache.clearPrefix(prefix) end
+    if resource==GetCurrentResourceName() then cache.set(prefix..'self',{loaded=false}) end
 end)

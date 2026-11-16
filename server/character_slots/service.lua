@@ -159,6 +159,13 @@ function Service.getPreviews()
     return Service.previews
 end
 
+-- An explicit QBX request during character selection. Only the normalized
+-- public scene is returned; no player list, inventory or slot permissions.
+exports('GetCharacterPreviews', function()
+    if not Service.loaded then loadPreviews() end
+    return ForgeCore.State.get('characterPreviews') or {}
+end)
+
 function Service.savePreview(index, data)
     local draft = pr_lib.jsonDraft(Service.previews, {})
     local preview = normalizePreview(data)
