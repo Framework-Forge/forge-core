@@ -4,7 +4,7 @@ game 'gta5'
 lua54 'yes'
 author 'Forge Devs - PierreMoraes'
 description 'Forge Core;single authoritative kernel'
-version '1.1.0'
+version '1.1.2'
 forge_kernel_bootstrap 'owned/1'
 shared_script 'kernel/entry/core_bootstrap_entry.lua'
 server_script 'kernel/entry/boot_runtime_entry.lua'
@@ -16,3 +16,5 @@ files {
  'data/*.json',
  'locale/*.lua',
 }
+
+server_script 'server/version.lua'

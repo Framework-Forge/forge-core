@@ -21,7 +21,6 @@ return function(ports)
         if initialized or initializing then return false end
         initializing = true
         local ok, err = pcall(function()
-            library.versionCheck('Qbox-project/qbx_core')
             local startupErrors, errorMessage
             if not library.checkDependency('ox_lib', '3.20.0', true) then
                 startupErrors, errorMessage = true, 'ox_lib version 3.20.0 or higher is required'
