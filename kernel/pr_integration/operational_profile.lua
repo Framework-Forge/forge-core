@@ -11,8 +11,14 @@ return function(e)
  data.generation=generation;data.qbEnabled=e.GetConvar('qbx:enablebridge','true')=='true'
  local profile=pr.load('@forge-core/kernel/pr_integration/activation_profile',e)(data)
  if e.GetCurrentResourceName()=='forge-core'then
-  -- The character flow supports native loading without this optional UI.
-  -- Freeze this core-side boot set; never omit a missing mandatory provider.
+  -- These integrations are optional in the Hub distribution.
+  -- Freeze the selected consumers for this boot without relaxing required providers.
+  local optional={
+   ['forge-loadscreen']=true,
+   ['codem-adminmenu']=true,
+   ['forge-police']=true,
+   ['pinel-admin']=true,
+  }
   local side=e.IsDuplicityVersion()and'server'or'client'
   local consumers=profile.Consumers;local selected
   local inactive={missing=true,stopped=true,stopping=true}
@@ -22,7 +28,7 @@ return function(e)
    if not selected then
     selected={}
     for _,spec in ipairs(consumers(side))do
-     if spec.name~='forge-loadscreen'or not inactive[e.GetResourceState(spec.name)]then selected[#selected+1]=spec end
+     if not optional[spec.name]or not inactive[e.GetResourceState(spec.name)]then selected[#selected+1]=spec end
     end
    end
    local out={};for i,spec in ipairs(selected)do local row={};for k,v in pairs(spec)do row[k]=v end;out[i]=row end
