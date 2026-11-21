@@ -1,1 +1,444 @@
-{"realestate":{"job":"realestate","defaultDuty":true,"grades":{"1":{"payment":25,"name":"Agente Imobiliário"},"2":{"payment":35,"bankAuth":true,"isboss":true,"name":"Gerente Imobiliário"},"0":{"payment":15,"name":"Corretor"}},"type":"job","name":"realestate","offDutyPay":false,"label":"Imobiliário","stashes":[],"jobtype":"realestate"},"firefighter":{"job":"firefighter","defaultDuty":true,"grades":{"1":{"payment":25,"name":"Soldado"},"2":{"payment":34,"bankAuth":true,"isboss":true,"name":"Cabo"},"3":{"payment":43,"bankAuth":true,"isboss":true,"name":"Major"},"4":{"payment":57,"bankAuth":true,"isboss":true,"name":"Coronel"},"0":{"payment":23,"name":"Recruta"}},"type":"job","name":"firefighter","offDutyPay":false,"label":"Bombeiros","stashes":[],"jobtype":"ems"},"government":{"job":"government","defaultDuty":true,"grades":{"1":{"payment":25,"name":"Acessor"},"2":{"payment":37,"name":"Parlamentar"},"3":{"payment":43,"bankAuth":true,"isboss":true,"name":"Governador"},"0":{"payment":24,"bankAuth":false,"isboss":false,"name":"Recepcionista"}},"type":"job","name":"government","offDutyPay":false,"label":"Governo","stashes":[],"jobtype":"mei"},"police":{"job":"police","stashes":[{"title":"Delegacia de Davis","enabled":false,"duty":{"coords":{"x":373.6905517578125,"y":-1615.9801025390626,"z":29.53101730346679},"enabled":true,"label":"Ponto","minGrade":1},"applications":[{"minGrade":0,"minScore":70,"targetLabel":"Alistamento a Policia de Davis","coords":{"x":374.8072509765625,"y":-1625.6121826171876,"z":29.23294067382812},"questions":[{"correct":4,"question":"Vinicius é gay?","options":[{"label":"Sim"},{"label":"Nao"},{"label":"Talvez"},{"label":"So depois da meia noite"}]}],"public":true,"id":"alistamento_a_policia_de_davis","label":"Alistamento a Policia de Davis","enabled":true,"submissions":[{"phone":"1211094579","createdAt":1783548711,"name":"Pierre Mkz","citizenid":"ETK100KY","passed":true,"id":"ETK100KY_1783548711","score":100,"status":"rejected","answers":["4"]}]}],"stash":{"minGrade":0,"enabled":true,"slots":500,"itemAmount":1,"password":"111","weight":1000000,"item":"","label":"Bau de Davis","coords":{"x":382.5721435546875,"y":-1611.86181640625,"z":29.50056266784668},"webhook":""},"alarms":[{"minGrade":0,"enabled":true,"targetLabel":"alarme","coords":{"x":370.7103271484375,"y":-1627.2991943359376,"z":29.12471771240234},"message":"Tira que eu vou cagar!","id":"alarme","label":"alarme"}],"bossMenus":[{"minGrade":4,"enabled":true,"targetLabel":"Painel Boss","id":"painel_boss","label":"Painel Boss","coords":{"x":371.60687255859377,"y":-1618.464111328125,"z":29.92575073242187},"public":false}],"id":"delegacia_de_davis","shops":[{"minGrade":1,"enabled":true,"targetLabel":"Lojinha","coords":{"x":376.6802673339844,"y":-1623.23779296875,"z":29.18154907226562},"type":"shop","public":false,"items":[{"label":"9mm","buyGrade":1,"name":"ammo-9","price":200}],"buyGrade":1,"supplyGrade":0,"label":"Lojinha","stock":{"ammo-9":0},"id":"lojinha"}]},{"title":"Paleto Bay","enabled":true,"duty":{"coords":{"x":-440.3634948730469,"y":6004.93994140625,"z":31.62582206726074},"enabled":true,"label":"Bater Ponto","minGrade":0},"stash":{"minGrade":0,"enabled":true,"slots":500,"itemAmount":1,"password":"0000","weight":10000000,"item":"","label":"Arquivo de Evidências","coords":{"x":-451.76910400390627,"y":6011.74951171875,"z":31.98226165771484},"webhook":""},"shops":[{"minGrade":0,"enabled":true,"targetLabel":"Lojinha da DP","coords":{"x":-447.4677429199219,"y":6012.51513671875,"z":31.70353317260742},"type":"shop","public":true,"items":[{"buyGrade":0,"name":"WEAPON_PISTOL","label":"Pistola","price":0}],"buyGrade":0,"supplyGrade":2,"label":"Lojinha da DP","stock":{"WEAPON_PISTOL":0},"id":"lojinha_da_dp"}],"bossMenus":[{"minGrade":3,"enabled":true,"targetLabel":"Painel do Delegado","id":"painel_do_delegado","label":"Painel do Delegado","coords":{"x":-450.2257995605469,"y":6012.673828125,"z":31.54897308349609},"public":false}],"id":"paleto_bay","alarms":[{"minGrade":0,"enabled":true,"targetLabel":"Alarme Central","coords":{"x":-450.7621765136719,"y":6010.2919921875,"z":31.71383285522461},"message":"Delegacia de Paleto Bay sob alerta.","id":"alarme_central","label":"Alarme Central"}],"registers":[{"minGrade":2,"enabled":true,"targetLabel":"Caixa Forde da DP","robberyAmount":0,"coords":{"x":-451.3956909179688,"y":6011.02734375,"z":32.55351257324219},"password":"","robbery":{"difficulty":"medium","type":"lockpick"},"accessMode":"grade","balance":12000,"id":"caixa_forde_da_dp","label":"Caixa Forde da DP","robberyEnabled":false,"robberyAlertChance":35}]},{"title":"Praca","enabled":true,"stash":{"item":"","enabled":true,"slots":5000,"itemAmount":1,"password":"","webhook":"","coords":{"x":445.0420227050781,"y":-974.7394409179688,"z":31.04991149902343},"label":"Bau Delegacia da Praça","minGrade":5,"weight":100000000},"alarms":[{"minGrade":0,"enabled":true,"targetLabel":"Alerta Delegacia","coords":{"x":438.2430419921875,"y":-995.2938232421875,"z":30.99947929382324},"message":"Todos os Policiais Atenção aos chamados!!!!!","id":"alerta_delegacia","label":"Alerta Delegacia"}],"duty":{"coords":{"x":445.38165283203127,"y":-979.5861206054688,"z":31.37025070190429},"enabled":true,"label":"Bater Cartão","minGrade":0},"id":"praca","registers":[{"minGrade":3,"enabled":true,"targetLabel":"Cofre da DP","robberyAmount":0,"coords":{"x":452.156494140625,"y":-972.8021850585938,"z":30.77353858947754},"password":"","robbery":{"difficulty":"medium","type":"lockpick"},"accessMode":"grade","balance":0,"id":"cofre_da_dp","label":"Cofre da DP","robberyEnabled":false,"robberyAlertChance":35}]}],"grades":{"1":{"payment":28,"name":"Soldado"},"2":{"payment":34,"name":"Sargento"},"3":{"payment":42,"name":"Delegado"},"4":{"payment":53,"name":"Major"},"5":{"payment":58,"bankAuth":true,"isboss":true,"name":"Coronel"},"0":{"payment":23,"name":"Aspira"}},"type":"job","name":"police","jobtype":"leo","label":"Policia","defaultDuty":false,"offDutyPay":false}}
+{
+  "firefighter": {
+    "defaultDuty": true,
+    "grades": {
+      "0": {
+        "name": "Recruta",
+        "payment": 23
+      },
+      "1": {
+        "name": "Soldado",
+        "payment": 25
+      },
+      "2": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Cabo",
+        "payment": 34
+      },
+      "3": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Major",
+        "payment": 43
+      },
+      "4": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Coronel",
+        "payment": 57
+      }
+    },
+    "job": "firefighter",
+    "jobtype": "ems",
+    "label": "Bombeiros",
+    "name": "firefighter",
+    "offDutyPay": false,
+    "stashes": [],
+    "type": "job"
+  },
+  "government": {
+    "defaultDuty": true,
+    "grades": {
+      "0": {
+        "bankAuth": false,
+        "isboss": false,
+        "name": "Recepcionista",
+        "payment": 24
+      },
+      "1": {
+        "name": "Acessor",
+        "payment": 25
+      },
+      "2": {
+        "name": "Parlamentar",
+        "payment": 37
+      },
+      "3": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Governador",
+        "payment": 43
+      }
+    },
+    "job": "government",
+    "jobtype": "mei",
+    "label": "Governo",
+    "name": "government",
+    "offDutyPay": false,
+    "stashes": [],
+    "type": "job"
+  },
+  "police": {
+    "defaultDuty": false,
+    "grades": {
+      "0": {
+        "name": "Aspira",
+        "payment": 23
+      },
+      "1": {
+        "name": "Soldado",
+        "payment": 28
+      },
+      "2": {
+        "name": "Sargento",
+        "payment": 34
+      },
+      "3": {
+        "name": "Delegado",
+        "payment": 42
+      },
+      "4": {
+        "name": "Major",
+        "payment": 53
+      },
+      "5": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Coronel",
+        "payment": 58
+      }
+    },
+    "job": "police",
+    "jobtype": "leo",
+    "label": "Policia",
+    "name": "police",
+    "offDutyPay": false,
+    "stashes": [
+      {
+        "alarms": [
+          {
+            "coords": {
+              "x": 370.7103271484375,
+              "y": -1627.2991943359375,
+              "z": 29.12471771240234
+            },
+            "enabled": true,
+            "id": "alarme",
+            "label": "alarme",
+            "message": "Tira que eu vou cagar!",
+            "minGrade": 0,
+            "targetLabel": "alarme"
+          }
+        ],
+        "applications": [
+          {
+            "coords": {
+              "x": 374.8072509765625,
+              "y": -1625.6121826171875,
+              "z": 29.23294067382812
+            },
+            "enabled": true,
+            "id": "alistamento_a_policia_de_davis",
+            "label": "Alistamento a Policia de Davis",
+            "minGrade": 0,
+            "minScore": 70,
+            "public": true,
+            "questions": [
+              {
+                "correct": 4,
+                "options": [
+                  {
+                    "label": "Sim"
+                  },
+                  {
+                    "label": "Nao"
+                  },
+                  {
+                    "label": "Talvez"
+                  },
+                  {
+                    "label": "So depois da meia noite"
+                  }
+                ],
+                "question": "Vinicius é gay?"
+              }
+            ],
+            "submissions": [],
+            "targetLabel": "Alistamento a Policia de Davis"
+          }
+        ],
+        "bossMenus": [
+          {
+            "coords": {
+              "x": 371.60687255859375,
+              "y": -1618.464111328125,
+              "z": 29.92575073242187
+            },
+            "enabled": true,
+            "id": "painel_boss",
+            "label": "Painel Boss",
+            "minGrade": 4,
+            "public": false,
+            "targetLabel": "Painel Boss"
+          }
+        ],
+        "duty": {
+          "coords": {
+            "x": 373.6905517578125,
+            "y": -1615.9801025390625,
+            "z": 29.53101730346679
+          },
+          "enabled": true,
+          "label": "Ponto",
+          "minGrade": 1
+        },
+        "enabled": false,
+        "id": "delegacia_de_davis",
+        "shops": [
+          {
+            "buyGrade": 1,
+            "coords": {
+              "x": 376.6802673339844,
+              "y": -1623.23779296875,
+              "z": 29.18154907226562
+            },
+            "enabled": true,
+            "id": "lojinha",
+            "items": [
+              {
+                "buyGrade": 1,
+                "label": "9mm",
+                "name": "ammo-9",
+                "price": 200
+              }
+            ],
+            "label": "Lojinha",
+            "minGrade": 1,
+            "public": false,
+            "stock": {},
+            "supplyGrade": 0,
+            "targetLabel": "Lojinha",
+            "type": "shop"
+          }
+        ],
+        "stash": {
+          "coords": {
+            "x": 382.5721435546875,
+            "y": -1611.86181640625,
+            "z": 29.50056266784668
+          },
+          "enabled": true,
+          "item": "",
+          "itemAmount": 1,
+          "label": "Bau de Davis",
+          "minGrade": 0,
+          "password": "",
+          "slots": 500,
+          "webhook": "",
+          "weight": 1000000
+        },
+        "title": "Delegacia de Davis"
+      },
+      {
+        "alarms": [
+          {
+            "coords": {
+              "x": -450.7621765136719,
+              "y": 6010.2919921875,
+              "z": 31.71383285522461
+            },
+            "enabled": true,
+            "id": "alarme_central",
+            "label": "Alarme Central",
+            "message": "Delegacia de Paleto Bay sob alerta.",
+            "minGrade": 0,
+            "targetLabel": "Alarme Central"
+          }
+        ],
+        "bossMenus": [
+          {
+            "coords": {
+              "x": -450.2257995605469,
+              "y": 6012.673828125,
+              "z": 31.54897308349609
+            },
+            "enabled": true,
+            "id": "painel_do_delegado",
+            "label": "Painel do Delegado",
+            "minGrade": 3,
+            "public": false,
+            "targetLabel": "Painel do Delegado"
+          }
+        ],
+        "duty": {
+          "coords": {
+            "x": -440.3634948730469,
+            "y": 6004.93994140625,
+            "z": 31.62582206726074
+          },
+          "enabled": true,
+          "label": "Bater Ponto",
+          "minGrade": 0
+        },
+        "enabled": true,
+        "id": "paleto_bay",
+        "registers": [
+          {
+            "accessMode": "grade",
+            "balance": 0,
+            "coords": {
+              "x": -451.3956909179688,
+              "y": 6011.02734375,
+              "z": 32.55351257324219
+            },
+            "enabled": true,
+            "id": "caixa_forde_da_dp",
+            "label": "Caixa Forde da DP",
+            "minGrade": 2,
+            "password": "",
+            "robbery": {
+              "difficulty": "medium",
+              "type": "lockpick"
+            },
+            "robberyAlertChance": 35,
+            "robberyAmount": 0,
+            "robberyEnabled": false,
+            "targetLabel": "Caixa Forde da DP"
+          }
+        ],
+        "shops": [
+          {
+            "buyGrade": 0,
+            "coords": {
+              "x": -447.4677429199219,
+              "y": 6012.51513671875,
+              "z": 31.70353317260742
+            },
+            "enabled": true,
+            "id": "lojinha_da_dp",
+            "items": [
+              {
+                "buyGrade": 0,
+                "label": "Pistola",
+                "name": "WEAPON_PISTOL",
+                "price": 0
+              }
+            ],
+            "label": "Lojinha da DP",
+            "minGrade": 0,
+            "public": true,
+            "stock": {},
+            "supplyGrade": 2,
+            "targetLabel": "Lojinha da DP",
+            "type": "shop"
+          }
+        ],
+        "stash": {
+          "coords": {
+            "x": -451.76910400390625,
+            "y": 6011.74951171875,
+            "z": 31.98226165771484
+          },
+          "enabled": true,
+          "item": "",
+          "itemAmount": 1,
+          "label": "Arquivo de Evidências",
+          "minGrade": 0,
+          "password": "",
+          "slots": 500,
+          "webhook": "",
+          "weight": 10000000
+        },
+        "title": "Paleto Bay"
+      },
+      {
+        "alarms": [
+          {
+            "coords": {
+              "x": 438.2430419921875,
+              "y": -995.2938232421875,
+              "z": 30.99947929382324
+            },
+            "enabled": true,
+            "id": "alerta_delegacia",
+            "label": "Alerta Delegacia",
+            "message": "Todos os Policiais Atenção aos chamados!!!!!",
+            "minGrade": 0,
+            "targetLabel": "Alerta Delegacia"
+          }
+        ],
+        "duty": {
+          "coords": {
+            "x": 445.38165283203125,
+            "y": -979.5861206054688,
+            "z": 31.37025070190429
+          },
+          "enabled": true,
+          "label": "Bater Cartão",
+          "minGrade": 0
+        },
+        "enabled": true,
+        "id": "praca",
+        "registers": [
+          {
+            "accessMode": "grade",
+            "balance": 0,
+            "coords": {
+              "x": 452.156494140625,
+              "y": -972.8021850585938,
+              "z": 30.77353858947754
+            },
+            "enabled": true,
+            "id": "cofre_da_dp",
+            "label": "Cofre da DP",
+            "minGrade": 3,
+            "password": "",
+            "robbery": {
+              "difficulty": "medium",
+              "type": "lockpick"
+            },
+            "robberyAlertChance": 35,
+            "robberyAmount": 0,
+            "robberyEnabled": false,
+            "targetLabel": "Cofre da DP"
+          }
+        ],
+        "stash": {
+          "coords": {
+            "x": 445.0420227050781,
+            "y": -974.7394409179688,
+            "z": 31.04991149902343
+          },
+          "enabled": true,
+          "item": "",
+          "itemAmount": 1,
+          "label": "Bau Delegacia da Praça",
+          "minGrade": 5,
+          "password": "",
+          "slots": 5000,
+          "webhook": "",
+          "weight": 100000000
+        },
+        "title": "Praca"
+      }
+    ],
+    "type": "job"
+  },
+  "realestate": {
+    "defaultDuty": true,
+    "grades": {
+      "0": {
+        "name": "Corretor",
+        "payment": 15
+      },
+      "1": {
+        "name": "Agente Imobiliário",
+        "payment": 25
+      },
+      "2": {
+        "bankAuth": true,
+        "isboss": true,
+        "name": "Gerente Imobiliário",
+        "payment": 35
+      }
+    },
+    "job": "realestate",
+    "jobtype": "realestate",
+    "label": "Imobiliário",
+    "name": "realestate",
+    "offDutyPay": false,
+    "stashes": [],
+    "type": "job"
+  }
+}

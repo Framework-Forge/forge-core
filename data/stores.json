@@ -1,1 +1,1982 @@
-{"revision":85843,"settings":{"salesEnabled":true,"dailyStockEnabled":true,"enabled":true,"lastRestock":"2026-11-15","blacklist":[],"defaultDailyStock":10,"stockModelVersion":4},"stores":[{"sales":[{"count":1,"currency":"money","at":1786232132,"item":"WEAPON_BALL","total":91,"buyer":"RE036OYR"},{"count":2,"currency":"money","at":1786427358,"item":"black_money","total":70,"buyer":"RE036OYR"}],"stock":{"WEAPON_FLARE":0,"black_money":48,"WEAPON_SWITCHBLADE":0,"ammo-9":12,"ammo-22":0,"WEAPON_BALL":1,"WEAPON_KNIFE":0,"WEAPON_NIGHTSTICK":0,"WEAPON_BATTLEAXE":0,"WEAPON_GOLFCLUB":0,"WEAPON_CROWBAR":0,"WEAPON_HAMMER":0,"WEAPON_FLASHLIGHT":0},"owner":"RE036OYR","managers":[],"ownerPhone":"6635274266","label":"Ammu Nation Brasil","ownerName":"Pierre Moraes","purchasePrice":278000,"enabled":true,"points":[{"coords":{"y":-392.911,"x":-1304.412,"z":36.696},"rotation":297.06},{"coords":{"y":-394.503,"x":-1304.721,"z":36.696},"rotation":297.12},{"coords":{"y":-395.547,"x":-1307.993,"z":36.696},"rotation":297.12},{"coords":{"y":-390.274,"x":-1308.703,"z":36.696},"rotation":264.5}],"items":[{"name":"ammo-22","enabled":true,"label":".22 Long Rifle","currency":"money","dailyStock":50,"price":12},{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":0,"price":15},{"name":"WEAPON_BALL","enabled":true,"label":"Bola de Baseball","currency":"money","dailyStock":45,"price":79},{"name":"WEAPON_NIGHTSTICK","enabled":true,"label":"Cacetete","currency":"money","dailyStock":15,"price":153},{"name":"WEAPON_SWITCHBLADE","enabled":true,"label":"Canivete","currency":"money","dailyStock":3,"price":230},{"name":"black_money","enabled":true,"label":"Dirty Money","currency":"money","dailyStock":0,"price":35},{"name":"WEAPON_KNIFE","enabled":true,"label":"Faca de pesca","currency":"money","dailyStock":2,"price":137},{"name":"WEAPON_FLASHLIGHT","enabled":true,"label":"Lanterna Tática","currency":"money","dailyStock":23,"price":83},{"name":"WEAPON_BATTLEAXE","enabled":true,"label":"Machadinho","currency":"money","dailyStock":15,"price":375},{"name":"WEAPON_HAMMER","enabled":true,"label":"Martelo","currency":"money","dailyStock":75,"price":63},{"name":"WEAPON_CROWBAR","enabled":true,"label":"Pé de Cabra","currency":"money","dailyStock":2,"price":249},{"name":"WEAPON_FLARE","enabled":true,"label":"Sinalizador","currency":"money","dailyStock":35,"price":25},{"name":"WEAPON_GOLFCLUB","enabled":true,"label":"Taco de Golf","currency":"money","dailyStock":3,"price":699}],"id":"ammu_nation","balance":161,"rotation":297.06,"targetLabel":"Ammu Nation Pierre","coords":{"y":-392.911,"x":-1304.412,"z":36.696},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"salesPaused":false,"saleListed":true,"currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":100,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"owner":"RE036OYR","managers":[],"ownerPhone":"6635274266","label":"Ammunation 1","ownerName":"Pierre Moraes","purchasePrice":0,"enabled":true,"points":[{"coords":{"y":-937.012,"x":-660.619,"z":21.83},"rotation":179.22},{"coords":{"y":-938.617,"x":-665.322,"z":21.829},"rotation":140.81}],"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":23},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":61,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"id":"ammunation_1","balance":0,"rotation":179.22,"targetLabel":"","coords":{"y":-937.012,"x":-660.619,"z":21.83},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"salesPaused":false,"saleListed":false,"currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-2158.5,"x":808.86,"z":29.73},"rotation":360.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":27},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":360.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":-2158.5,"x":808.86,"z":29.73},"label":"Ammunation 2","salesPaused":false,"id":"ammunation_2","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":3761.6,"x":1693.57,"z":34.82},"rotation":227.39}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":227.39,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":3761.6,"x":1693.57,"z":34.82},"label":"Ammunation 3","salesPaused":false,"id":"ammunation_3","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":6085.54,"x":-330.29,"z":31.57},"rotation":225.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":225.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":6085.54,"x":-330.29,"z":31.57},"label":"Ammunation 4","salesPaused":false,"id":"ammunation_4","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-51.62,"x":252.85,"z":70.0},"rotation":70.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":70.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":-51.62,"x":252.85,"z":70.0},"label":"Ammunation 5","salesPaused":false,"id":"ammunation_5","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-1106.46,"x":23.68,"z":29.91},"rotation":160.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":160.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":-1106.46,"x":23.68,"z":29.91},"label":"Ammunation 6","salesPaused":false,"id":"ammunation_6","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":293.13,"x":2566.59,"z":108.85},"rotation":360.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":360.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":293.13,"x":2566.59,"z":108.85},"label":"Ammunation 7","salesPaused":false,"id":"ammunation_7","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":2700.26,"x":-1117.61,"z":18.67},"rotation":221.82}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":221.82,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":2700.26,"x":-1117.61,"z":18.67},"label":"Ammunation 8","salesPaused":false,"id":"ammunation_8","currencyBalances":[]},{"sales":[],"stock":{"ammo-9":50,"WEAPON_BAT":50,"WEAPON_PISTOL":50,"WEAPON_KNIFE":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-1034.76,"x":841.05,"z":28.31},"rotation":360.0}],"purchasePrice":0,"items":[{"name":"ammo-9","enabled":true,"label":"9mm","currency":"money","dailyStock":50,"price":5},{"name":"WEAPON_BAT","enabled":true,"label":"Bat","currency":"money","dailyStock":50,"price":100},{"name":"WEAPON_KNIFE","enabled":true,"label":"Knife","currency":"money","dailyStock":50,"price":200},{"name":"WEAPON_PISTOL","currency":"money","metadata":{"registered":true},"label":"Pistola","enabled":true,"dailyStock":50,"price":1000}],"managers":[],"balance":0,"rotation":360.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":110},"coords":{"y":-1034.76,"x":841.05,"z":28.31},"label":"Ammunation 9","salesPaused":false,"id":"ammunation_9","currencyBalances":[]},{"sales":[{"count":1,"currency":"money","at":1783725777,"item":"burger","total":17,"buyer":"ETK100KY"},{"count":49,"currency":"money","at":1783725817,"item":"burger","total":833,"buyer":"ETK100KY"}],"stock":{"burger":50,"cola":50,"water":50},"owner":"ETK100KY","managers":[],"ownerPhone":"1211094579","label":"Liquor Store 1","ownerName":"Pierre Mkz","purchasePrice":25000,"enabled":true,"points":[{"coords":{"y":-982.34,"x":1134.9,"z":46.41},"rotation":96.0}],"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":55},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"id":"liquor_1","balance":0,"rotation":96.0,"targetLabel":"Liquor Store","coords":{"y":-982.34,"x":1134.9,"z":46.41},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"salesPaused":false,"saleListed":true,"currencyBalances":[]},{"sales":[{"count":50,"currency":"money","at":1783724947,"item":"burger","total":750,"buyer":"ETK100KY"},{"count":5,"currency":"money","at":1783731101,"item":"water","total":45,"buyer":"ETK100KY"}],"stock":{"burger":0,"cola":50,"water":50},"owner":"ETK100KY","managers":[],"ownerPhone":"1211094579","label":"Liquor Store 2","ownerName":"Pierre Mkz","purchasePrice":10000,"enabled":true,"points":[{"coords":{"y":-907.82,"x":-1222.33,"z":12.43},"rotation":32.7}],"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":15},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":50},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"id":"liquor_2","balance":795,"rotation":32.7,"targetLabel":"Compra Neguin","coords":{"y":-907.82,"x":-1222.33,"z":12.43},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"salesPaused":false,"saleListed":false,"currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-378.46,"x":-1486.67,"z":40.26},"rotation":133.77}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":15},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":133.77,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"coords":{"y":-378.46,"x":-1486.67,"z":40.26},"label":"Liquor Store 3","salesPaused":false,"id":"liquor_3","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":390.9,"x":-2967.0,"z":15.14},"rotation":85.23}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":15},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":85.23,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"coords":{"y":390.9,"x":-2967.0,"z":15.14},"label":"Liquor Store 4","salesPaused":false,"id":"liquor_4","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":2710.2,"x":1165.95,"z":38.26},"rotation":178.84}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":15},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":178.84,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"coords":{"y":2710.2,"x":1165.95,"z":38.26},"label":"Liquor Store 5","salesPaused":false,"id":"liquor_5","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":3605.95,"x":1393.0,"z":35.11},"rotation":200.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":15},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":200.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":93},"coords":{"y":3605.95,"x":1393.0,"z":35.11},"label":"Liquor Store 6","salesPaused":false,"id":"liquor_6","currencyBalances":[]},{"sales":[],"stock":{"bandage":50,"medikit":50},"saleListed":false,"managers":[],"label":"Medicine Cabinet 1","groups":{"ambulance":0},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":403},"enabled":true,"points":[{"coords":{"y":-601.5139,"x":306.3687,"z":43.28406},"rotation":0.0}],"items":[{"name":"bandage","enabled":true,"label":"Bandage","currency":"money","dailyStock":50,"price":5},{"name":"medikit","enabled":true,"label":"medikit","currency":"money","dailyStock":50,"price":26}],"id":"medicine_1","balance":0,"rotation":0.0,"coords":{"y":-601.5139,"x":306.3687,"z":43.28406},"salesPaused":false,"purchasePrice":0,"currencyBalances":[]},{"sales":[{"count":11,"currency":"money","at":1784529257,"item":"burger","total":132,"buyer":"ETK100KY"},{"count":11,"currency":"money","at":1784529316,"item":"cola","total":110,"buyer":"ETK100KY"},{"count":4,"currency":"money","at":1784531089,"item":"burger","total":60,"buyer":"ETK100KY"},{"count":4,"currency":"money","at":1784531095,"item":"water","total":12,"buyer":"ETK100KY"},{"count":1,"currency":"money","at":1784531105,"item":"cola","total":10,"buyer":"ETK100KY"},{"count":3,"currency":"money","at":1784595996,"item":"burger","total":36,"buyer":"ETK100KY"},{"count":8,"currency":"money","at":1784595998,"item":"cola","total":80,"buyer":"ETK100KY"},{"count":8,"currency":"money","at":1784943509,"item":"water","total":24,"buyer":"RE036OYR"},{"count":10,"currency":"money","at":1785199077,"item":"cola","total":100,"buyer":"RE036OYR"},{"count":5,"currency":"money","at":1785199082,"item":"cola","total":40,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1786762184,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1786762208,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791171940,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791171957,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791173888,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791173888,"item":"cola","total":10,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238316,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791238317,"item":"cola","total":5,"buyer":"RE036OYR"}],"stock":{"burger":0,"cola":0,"water":0},"enabled":true,"saleListed":false,"points":[{"coords":{"y":-1347.325,"x":25.286,"z":29.493},"rotation":153.05}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":18,"price":13},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":12,"price":2},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":709,"rotation":153.05,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":-1347.325,"x":25.286,"z":29.493},"label":"Shop 1","salesPaused":false,"id":"general_1","currencyBalances":[]},{"sales":[{"count":1,"currency":"money","at":1791240561,"item":"burger","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791240561,"item":"burger","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791240561,"item":"water","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791240561,"item":"cola","total":5,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"burger","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"burger","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"water","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"water","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"cola","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791243172,"item":"cola","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791245036,"item":"burger","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791245036,"item":"water","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791245037,"item":"cola","total":9,"buyer":"RE036OYR"},{"count":1,"currency":"money","at":1791245037,"item":"cola","total":9,"buyer":"RE036OYR"}],"stock":{"burger":45,"cola":45,"water":46},"enabled":true,"saleListed":false,"points":[{"coords":{"y":326.2,"x":373.381,"z":103.562},"rotation":232.12}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":110,"rotation":232.12,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":326.2,"x":373.381,"z":103.562},"label":"Shop 10","salesPaused":false,"id":"general_10","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":585.13,"x":-3039.18,"z":7.91},"rotation":15.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":15.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":585.13,"x":-3039.18,"z":7.91},"label":"Shop 2","salesPaused":false,"id":"general_2","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":1000.58,"x":-3242.2,"z":12.83},"rotation":175.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":175.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":1000.58,"x":-3242.2,"z":12.83},"label":"Shop 3","salesPaused":false,"id":"general_3","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":6414.95,"x":1728.39,"z":35.04},"rotation":65.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":65.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":6414.95,"x":1728.39,"z":35.04},"label":"Shop 4","salesPaused":false,"id":"general_4","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":4923.43,"x":1698.37,"z":42.06},"rotation":235.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":235.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":4923.43,"x":1698.37,"z":42.06},"label":"Shop 5","salesPaused":false,"id":"general_5","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":3740.28,"x":1960.54,"z":32.34},"rotation":120.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":120.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":3740.28,"x":1960.54,"z":32.34},"label":"Shop 6","salesPaused":false,"id":"general_6","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"owner":"RE036OYR","managers":[],"ownerPhone":"6635274266","label":"Shop 7","ownerName":"Pierre Moraes","purchasePrice":5000,"enabled":true,"points":[{"coords":{"y":2671.25,"x":548.5,"z":42.16},"rotation":10.0}],"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"id":"general_7","balance":0,"rotation":10.0,"targetLabel":"","coords":{"y":2671.25,"x":548.5,"z":42.16},"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"salesPaused":false,"saleListed":false,"currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":3279.94,"x":2678.29,"z":55.24},"rotation":330.0}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":330.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":3279.94,"x":2678.29,"z":55.24},"label":"Shop 8","salesPaused":false,"id":"general_8","currencyBalances":[]},{"sales":[],"stock":{"burger":50,"cola":50,"water":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":381.57,"x":2557.245,"z":108.628},"rotation":191.97}],"purchasePrice":0,"items":[{"name":"burger","enabled":true,"label":"Burger","currency":"money","dailyStock":50,"price":10},{"name":"water","enabled":true,"label":"Water","currency":"money","dailyStock":50,"price":10},{"name":"cola","enabled":true,"label":"cola","currency":"money","dailyStock":50,"price":10}],"managers":[],"balance":0,"rotation":191.97,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":59},"coords":{"y":381.57,"x":2557.245,"z":108.628},"label":"Shop 9","salesPaused":false,"id":"general_9","currencyBalances":[]},{"sales":[],"stock":{"illegal_tablet":10,"lockpick":50},"enabled":true,"saleListed":false,"points":[{"coords":{"y":3473.13,"x":2746.8,"z":55.67},"rotation":65.0}],"purchasePrice":0,"items":[{"name":"lockpick","enabled":true,"label":"Lockpick","currency":"money","dailyStock":50,"price":10},{"name":"illegal_tablet","enabled":true,"label":"Tablet do Crime","currency":"money","dailyStock":10,"price":50000}],"managers":[],"balance":0,"rotation":65.0,"blip":{"enabled":true,"color":69,"scale":0.8,"sprite":402},"coords":{"y":3473.13,"x":2746.8,"z":55.67},"label":"YouTool 1","salesPaused":false,"id":"youtool_1","currencyBalances":[]}]}
+{
+  "revision": 0,
+  "settings": {
+    "blacklist": [],
+    "dailyStockEnabled": true,
+    "defaultDailyStock": 10,
+    "enabled": true,
+    "lastRestock": "",
+    "salesEnabled": true,
+    "stockModelVersion": 4
+  },
+  "stores": [
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": -1304.412,
+        "y": -392.911,
+        "z": 36.696
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammu_nation",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": ".22 Long Rifle",
+          "name": "ammo-22",
+          "price": 12
+        },
+        {
+          "currency": "money",
+          "dailyStock": 0,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 45,
+          "enabled": true,
+          "label": "Bola de Baseball",
+          "name": "WEAPON_BALL",
+          "price": 79
+        },
+        {
+          "currency": "money",
+          "dailyStock": 15,
+          "enabled": true,
+          "label": "Cacetete",
+          "name": "WEAPON_NIGHTSTICK",
+          "price": 153
+        },
+        {
+          "currency": "money",
+          "dailyStock": 3,
+          "enabled": true,
+          "label": "Canivete",
+          "name": "WEAPON_SWITCHBLADE",
+          "price": 230
+        },
+        {
+          "currency": "money",
+          "dailyStock": 0,
+          "enabled": true,
+          "label": "Dirty Money",
+          "name": "black_money",
+          "price": 35
+        },
+        {
+          "currency": "money",
+          "dailyStock": 2,
+          "enabled": true,
+          "label": "Faca de pesca",
+          "name": "WEAPON_KNIFE",
+          "price": 137
+        },
+        {
+          "currency": "money",
+          "dailyStock": 23,
+          "enabled": true,
+          "label": "Lanterna Tática",
+          "name": "WEAPON_FLASHLIGHT",
+          "price": 83
+        },
+        {
+          "currency": "money",
+          "dailyStock": 15,
+          "enabled": true,
+          "label": "Machadinho",
+          "name": "WEAPON_BATTLEAXE",
+          "price": 375
+        },
+        {
+          "currency": "money",
+          "dailyStock": 75,
+          "enabled": true,
+          "label": "Martelo",
+          "name": "WEAPON_HAMMER",
+          "price": 63
+        },
+        {
+          "currency": "money",
+          "dailyStock": 2,
+          "enabled": true,
+          "label": "Pé de Cabra",
+          "name": "WEAPON_CROWBAR",
+          "price": 249
+        },
+        {
+          "currency": "money",
+          "dailyStock": 35,
+          "enabled": true,
+          "label": "Sinalizador",
+          "name": "WEAPON_FLARE",
+          "price": 25
+        },
+        {
+          "currency": "money",
+          "dailyStock": 3,
+          "enabled": true,
+          "label": "Taco de Golf",
+          "name": "WEAPON_GOLFCLUB",
+          "price": 699
+        }
+      ],
+      "label": "Ammu Nation Brasil",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -1304.412,
+            "y": -392.911,
+            "z": 36.696
+          },
+          "rotation": 297.06
+        },
+        {
+          "coords": {
+            "x": -1304.721,
+            "y": -394.503,
+            "z": 36.696
+          },
+          "rotation": 297.12
+        },
+        {
+          "coords": {
+            "x": -1307.993,
+            "y": -395.547,
+            "z": 36.696
+          },
+          "rotation": 297.12
+        },
+        {
+          "coords": {
+            "x": -1308.703,
+            "y": -390.274,
+            "z": 36.696
+          },
+          "rotation": 264.5
+        }
+      ],
+      "purchasePrice": 278000,
+      "rotation": 297.06,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {},
+      "targetLabel": "Ammu Nation Pierre"
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": -660.619,
+        "y": -937.012,
+        "z": 21.83
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_1",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 23
+        },
+        {
+          "currency": "money",
+          "dailyStock": 61,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 1",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -660.619,
+            "y": -937.012,
+            "z": 21.83
+          },
+          "rotation": 179.22
+        },
+        {
+          "coords": {
+            "x": -665.322,
+            "y": -938.617,
+            "z": 21.829
+          },
+          "rotation": 140.81
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 179.22,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {},
+      "targetLabel": ""
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 808.86,
+        "y": -2158.5,
+        "z": 29.73
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_2",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 27
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 2",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 808.86,
+            "y": -2158.5,
+            "z": 29.73
+          },
+          "rotation": 360.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 360.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 1693.57,
+        "y": 3761.6,
+        "z": 34.82
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_3",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 3",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1693.57,
+            "y": 3761.6,
+            "z": 34.82
+          },
+          "rotation": 227.39
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 227.39,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": -330.29,
+        "y": 6085.54,
+        "z": 31.57
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_4",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 4",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -330.29,
+            "y": 6085.54,
+            "z": 31.57
+          },
+          "rotation": 225.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 225.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 252.85,
+        "y": -51.62,
+        "z": 70.0
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_5",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 5",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 252.85,
+            "y": -51.62,
+            "z": 70.0
+          },
+          "rotation": 70.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 70.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 23.68,
+        "y": -1106.46,
+        "z": 29.91
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_6",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 6",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 23.68,
+            "y": -1106.46,
+            "z": 29.91
+          },
+          "rotation": 160.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 160.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 2566.59,
+        "y": 293.13,
+        "z": 108.85
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_7",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 7",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 2566.59,
+            "y": 293.13,
+            "z": 108.85
+          },
+          "rotation": 360.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 360.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": -1117.61,
+        "y": 2700.26,
+        "z": 18.67
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_8",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 8",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -1117.61,
+            "y": 2700.26,
+            "z": 18.67
+          },
+          "rotation": 221.82
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 221.82,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 110
+      },
+      "coords": {
+        "x": 841.05,
+        "y": -1034.76,
+        "z": 28.31
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "ammunation_9",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "9mm",
+          "name": "ammo-9",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bat",
+          "name": "WEAPON_BAT",
+          "price": 100
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Knife",
+          "name": "WEAPON_KNIFE",
+          "price": 200
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Pistola",
+          "name": "WEAPON_PISTOL",
+          "price": 1000
+        }
+      ],
+      "label": "Ammunation 9",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 841.05,
+            "y": -1034.76,
+            "z": 28.31
+          },
+          "rotation": 360.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 360.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": 1134.9,
+        "y": -982.34,
+        "z": 46.41
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_1",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 55
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 1",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1134.9,
+            "y": -982.34,
+            "z": 46.41
+          },
+          "rotation": 96.0
+        }
+      ],
+      "purchasePrice": 25000,
+      "rotation": 96.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {},
+      "targetLabel": "Liquor Store"
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": -1222.33,
+        "y": -907.82,
+        "z": 12.43
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_2",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 50
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 2",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -1222.33,
+            "y": -907.82,
+            "z": 12.43
+          },
+          "rotation": 32.7
+        }
+      ],
+      "purchasePrice": 10000,
+      "rotation": 32.7,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {},
+      "targetLabel": "Compra Neguin"
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": -1486.67,
+        "y": -378.46,
+        "z": 40.26
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_3",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 3",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -1486.67,
+            "y": -378.46,
+            "z": 40.26
+          },
+          "rotation": 133.77
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 133.77,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": -2967.0,
+        "y": 390.9,
+        "z": 15.14
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_4",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 4",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -2967.0,
+            "y": 390.9,
+            "z": 15.14
+          },
+          "rotation": 85.23
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 85.23,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": 1165.95,
+        "y": 2710.2,
+        "z": 38.26
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_5",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 5",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1165.95,
+            "y": 2710.2,
+            "z": 38.26
+          },
+          "rotation": 178.84
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 178.84,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 93
+      },
+      "coords": {
+        "x": 1393.0,
+        "y": 3605.95,
+        "z": 35.11
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "liquor_6",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 15
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Liquor Store 6",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1393.0,
+            "y": 3605.95,
+            "z": 35.11
+          },
+          "rotation": 200.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 200.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 403
+      },
+      "coords": {
+        "x": 306.3687,
+        "y": -601.5139,
+        "z": 43.28406
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "groups": {
+        "ambulance": 0
+      },
+      "id": "medicine_1",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Bandage",
+          "name": "bandage",
+          "price": 5
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "medikit",
+          "name": "medikit",
+          "price": 26
+        }
+      ],
+      "label": "Medicine Cabinet 1",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 306.3687,
+            "y": -601.5139,
+            "z": 43.28406
+          },
+          "rotation": 0.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 0.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 25.286,
+        "y": -1347.325,
+        "z": 29.493
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_1",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 18,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 13
+        },
+        {
+          "currency": "money",
+          "dailyStock": 12,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 2
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 1",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 25.286,
+            "y": -1347.325,
+            "z": 29.493
+          },
+          "rotation": 153.05
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 153.05,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 373.381,
+        "y": 326.2,
+        "z": 103.562
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_10",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 10",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 373.381,
+            "y": 326.2,
+            "z": 103.562
+          },
+          "rotation": 232.12
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 232.12,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": -3039.18,
+        "y": 585.13,
+        "z": 7.91
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_2",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 2",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -3039.18,
+            "y": 585.13,
+            "z": 7.91
+          },
+          "rotation": 15.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 15.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": -3242.2,
+        "y": 1000.58,
+        "z": 12.83
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_3",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 3",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": -3242.2,
+            "y": 1000.58,
+            "z": 12.83
+          },
+          "rotation": 175.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 175.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 1728.39,
+        "y": 6414.95,
+        "z": 35.04
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_4",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 4",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1728.39,
+            "y": 6414.95,
+            "z": 35.04
+          },
+          "rotation": 65.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 65.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 1698.37,
+        "y": 4923.43,
+        "z": 42.06
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_5",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 5",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1698.37,
+            "y": 4923.43,
+            "z": 42.06
+          },
+          "rotation": 235.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 235.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 1960.54,
+        "y": 3740.28,
+        "z": 32.34
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_6",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 6",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 1960.54,
+            "y": 3740.28,
+            "z": 32.34
+          },
+          "rotation": 120.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 120.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 548.5,
+        "y": 2671.25,
+        "z": 42.16
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_7",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 7",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 548.5,
+            "y": 2671.25,
+            "z": 42.16
+          },
+          "rotation": 10.0
+        }
+      ],
+      "purchasePrice": 5000,
+      "rotation": 10.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {},
+      "targetLabel": ""
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 2678.29,
+        "y": 3279.94,
+        "z": 55.24
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_8",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 8",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 2678.29,
+            "y": 3279.94,
+            "z": 55.24
+          },
+          "rotation": 330.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 330.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 59
+      },
+      "coords": {
+        "x": 2557.245,
+        "y": 381.57,
+        "z": 108.628
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "general_9",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Burger",
+          "name": "burger",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Water",
+          "name": "water",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "cola",
+          "name": "cola",
+          "price": 10
+        }
+      ],
+      "label": "Shop 9",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 2557.245,
+            "y": 381.57,
+            "z": 108.628
+          },
+          "rotation": 191.97
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 191.97,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    },
+    {
+      "balance": 0,
+      "blip": {
+        "color": 69,
+        "enabled": true,
+        "scale": 0.8,
+        "sprite": 402
+      },
+      "coords": {
+        "x": 2746.8,
+        "y": 3473.13,
+        "z": 55.67
+      },
+      "currencyBalances": {},
+      "enabled": true,
+      "id": "youtool_1",
+      "items": [
+        {
+          "currency": "money",
+          "dailyStock": 50,
+          "enabled": true,
+          "label": "Lockpick",
+          "name": "lockpick",
+          "price": 10
+        },
+        {
+          "currency": "money",
+          "dailyStock": 10,
+          "enabled": true,
+          "label": "Tablet do Crime",
+          "name": "illegal_tablet",
+          "price": 50000
+        }
+      ],
+      "label": "YouTool 1",
+      "managers": [],
+      "owner": "",
+      "ownerName": "",
+      "ownerPhone": "",
+      "points": [
+        {
+          "coords": {
+            "x": 2746.8,
+            "y": 3473.13,
+            "z": 55.67
+          },
+          "rotation": 65.0
+        }
+      ],
+      "purchasePrice": 0,
+      "rotation": 65.0,
+      "saleListed": false,
+      "sales": [],
+      "salesPaused": false,
+      "stock": {}
+    }
+  ]
+}
